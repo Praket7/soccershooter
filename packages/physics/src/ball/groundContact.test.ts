@@ -45,4 +45,21 @@ describe('Stage 04 turf contact', () => {
     const contactSlip = Math.abs(after.velocity.z - after.angularVelocity.x * BALL_CONSTANTS.radius);
     expect(contactSlip).toBeLessThan(beforeSlip);
   });
+
+  test('sliding-to-rolling coupling never creates kinetic energy on the turf', () => {
+    let ball = createBallState({
+      position: { x: 0, y: BALL_CONSTANTS.radius, z: 0 },
+      velocity: { x: 0, y: 0, z: 20 },
+      angularVelocity: { x: 0, y: 0, z: 0 },
+      grounded: true,
+    });
+    let previousEnergy = kineticEnergy(ball);
+
+    for (let step = 0; step < 240; step += 1) {
+      ball = resolveGroundContact(ball, 1 / 120, MATCH_BALL_PROFILE);
+      const energy = kineticEnergy(ball);
+      expect(energy).toBeLessThanOrEqual(previousEnergy + 1e-8);
+      previousEnergy = energy;
+    }
+  });
 });
