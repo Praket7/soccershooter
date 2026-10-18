@@ -19,6 +19,8 @@ export interface MovementConfig {
   maxSlopeRadians: number;
 }
 
+export const PLAYER_MOVEMENT_TICK_HZ = 60;
+
 export const DEFAULT_MOVEMENT_CONFIG: Readonly<MovementConfig> = Object.freeze({
   capsuleRadius: 0.38,
   walkSpeed: 2.35,
@@ -259,7 +261,7 @@ export function stepPlayerMovement(
   let stamina = clamp(state.stamina, 0, config.staminaMax);
   let sprintLocked = state.sprintLocked;
   if (sprintLocked && stamina >= config.sprintUnlockStamina) sprintLocked = false;
-  let sprinting = Boolean(intent.sprint && move.magnitude > 0.12 && !sprintLocked && stamina > 0);
+  const sprinting = Boolean(intent.sprint && move.magnitude > 0.12 && !sprintLocked && stamina > 0);
   if (sprinting) {
     stamina = Math.max(0, stamina - config.staminaDrainPerSecond * deltaSeconds);
     if (stamina <= EPSILON) {
@@ -356,7 +358,7 @@ function cloneIntent(intent: Readonly<InputIntent>): InputIntent {
 export function recordMovementTrace(
   initialState: Readonly<PlayerState>,
   intents: readonly Readonly<InputIntent>[],
-  tickHz = 30,
+  tickHz = PLAYER_MOVEMENT_TICK_HZ,
 ): MovementTrace {
   if (!Number.isSafeInteger(tickHz) || tickHz <= 0 || tickHz > 240) throw new RangeError('tickHz must be 1..240');
   return {

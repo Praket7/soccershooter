@@ -4,6 +4,7 @@ import { clonePlayerState, createPlayerState, type PlayerState } from '@soccersh
 import {
   BENCHMARK_COURSE,
   DEFAULT_MOVEMENT_CONFIG,
+  PLAYER_MOVEMENT_TICK_HZ,
   createMovementBenchmarkWorld,
   recordMovementTrace,
   stepPlayerMovement,
@@ -54,10 +55,10 @@ app.innerHTML = `
     </section>
     <footer class="lab-footer">
       <span>R record trace · P replay · X reset · F1 debug HUD</span>
-      <span>30 Hz authoritative movement · render uncoupled</span>
+      <span>${PLAYER_MOVEMENT_TICK_HZ} Hz authoritative movement · render uncoupled</span>
     </footer>
     <output data-determinism-hash="${reference.hash}" data-determinism-ticks="${reference.ticks}" hidden>${reference.hash}</output>
-    <output data-player-state data-x="0" data-z="${BENCHMARK_COURSE.spawn.z}" hidden></output>
+    <output data-player-state data-x="0" data-z="${BENCHMARK_COURSE.spawn.z}" data-movement-tick-hz="${PLAYER_MOVEMENT_TICK_HZ}" hidden></output>
   </div>
 `;
 
@@ -193,7 +194,7 @@ actionMap.attach();
 const gamepad = new GamepadAdapter();
 const hud = new MovementHud(document.body);
 
-const FIXED_DT = 1 / 30;
+const FIXED_DT = 1 / PLAYER_MOVEMENT_TICK_HZ;
 let player = createPlayerState({ position: BENCHMARK_COURSE.spawn, stamina: DEFAULT_MOVEMENT_CONFIG.staminaMax });
 let previousPlayer = clonePlayerState(player);
 let accumulator = 0;
@@ -235,7 +236,7 @@ window.addEventListener('keydown', (event) => {
       recordingInitial = clonePlayerState(player);
     } else {
       recording = false;
-      lastTrace = recordMovementTrace(recordingInitial, recordedIntents, 30);
+      lastTrace = recordMovementTrace(recordingInitial, recordedIntents, PLAYER_MOVEMENT_TICK_HZ);
     }
   } else if (event.code === 'KeyP' && lastTrace) {
     player = clonePlayerState(lastTrace.initialState);
@@ -347,6 +348,8 @@ function frame(now: number): void {
   playerProbe.dataset.x = String(player.position.x);
   playerProbe.dataset.z = String(player.position.z);
   playerProbe.dataset.tick = String(simTick);
+  playerProbe.dataset.inputToSimulationMs = inputToSimulationMs === null ? '' : inputToSimulationMs.toFixed(3);
+  playerProbe.dataset.inputToRenderMs = inputToRenderMs === null ? '' : inputToRenderMs.toFixed(3);
 
   const traceStatus = playbackIndex !== null
     ? `replay ${playbackIndex}/${lastTrace?.frames.length ?? 0}`
