@@ -16,6 +16,7 @@ import {
   horizontalDistance,
   ownGoalZ,
   type BotPlayerSnapshot,
+  type BotRole,
   type BotWorldSnapshot,
   type TeamId,
 } from '../../packages/bots/src/types';
@@ -39,6 +40,7 @@ export interface TacticalTournamentReport {
   shots: number;
   goals: number;
   roleSwitches: number;
+  roleOccupancy: Record<BotRole, number>;
   keeperAbandonments: number;
   permanentSwarmPossessions: number;
   clusterRatio: number;
@@ -76,6 +78,18 @@ class SeededRandom {
   get state(): number {
     return this.#state;
   }
+}
+
+function createRoleOccupancy(): Record<BotRole, number> {
+  return {
+    goalkeeper: 0,
+    'ball-carrier': 0,
+    'immediate-support': 0,
+    'width-support': 0,
+    presser: 0,
+    'cover-defender': 0,
+    'recovery-runner': 0,
+  };
 }
 
 function createPlayer(
@@ -228,6 +242,7 @@ export function runTacticalTournament(options: Readonly<TacticalTournamentOption
   let shots = 0;
   let goals = 0;
   let roleSwitches = 0;
+  const roleOccupancy = createRoleOccupancy();
   let keeperAbandonments = 0;
   let permanentSwarmPossessions = 0;
   let clusterSamples = 0;
@@ -261,6 +276,9 @@ export function runTacticalTournament(options: Readonly<TacticalTournamentOption
         maxDecisionMsPerTeam = Math.max(maxDecisionMsPerTeam, elapsed);
       }
       roleSwitches += homeRuntime.roles.switchCount + awayRuntime.roles.switchCount;
+      for (const assignment of [...homeRuntime.roles.assignments, ...awayRuntime.roles.assignments]) {
+        roleOccupancy[assignment.role] += 1;
+      }
 
       const attackingRuntime = world.possessionTeam === 'home' ? homeRuntime : awayRuntime;
       const supportDistance = supportDistanceFromRoles(attackingRuntime.roles);
@@ -365,6 +383,7 @@ export function runTacticalTournament(options: Readonly<TacticalTournamentOption
     shots,
     goals,
     roleSwitches,
+    roleOccupancy,
     keeperAbandonments,
     permanentSwarmPossessions,
     clusterRatio: clusterSamples > 0 ? clusterHits / clusterSamples : 0,
