@@ -1,10 +1,11 @@
 import { describe, expect, test } from 'vitest';
-import { BALL_CONSTANTS } from '@soccershooter/physics/ball/BallState';
+import { BALL_CONSTANTS, createBallState } from '@soccershooter/physics/ball/BallState';
 import { STANDARD_GOAL_FRAME, simulateBall } from '@soccershooter/physics/ball/trajectory';
 import {
   BALL_LAB_PRESETS,
   buildCompleteExportTrace,
   buildLaunchFromControls,
+  shouldStopBallLabSimulation,
   traceToCsv,
   type BallLabControls,
 } from './BallLab';
@@ -111,5 +112,32 @@ describe('Stage 04 Ball Lab control contract', () => {
     expect(trace.length).toBeGreaterThan(firstGroundedIndex + 1);
     expect(trace.at(-1)?.time ?? 0).toBeGreaterThan(firstGrounded.time + 1);
     expect(Math.hypot(trace.at(-1)!.state.velocity.x, trace.at(-1)!.state.velocity.z)).toBeLessThan(0.05);
+  });
+
+  test('live Ball Lab stop policy does not freeze a still-moving grounded ball at the old eight-second cap', () => {
+    const movingAtEightSeconds = createBallState({
+      position: { x: 0, y: BALL_CONSTANTS.radius, z: 30 },
+      velocity: { x: 0, y: 0, z: 1.2 },
+      angularVelocity: { x: 1.2 / BALL_CONSTANTS.radius, y: 0, z: 0 },
+      grounded: true,
+      flightSeconds: 8.1,
+    });
+    expect(shouldStopBallLabSimulation(movingAtEightSeconds)).toBe(false);
+
+    const settled = createBallState({
+      position: { x: 0, y: BALL_CONSTANTS.radius, z: 35 },
+      velocity: { x: 0, y: 0, z: 0.02 },
+      grounded: true,
+      flightSeconds: 9,
+    });
+    expect(shouldStopBallLabSimulation(settled)).toBe(true);
+
+    const safetyCap = createBallState({
+      position: { x: 0, y: 4, z: 100 },
+      velocity: { x: 0, y: 1, z: 5 },
+      grounded: false,
+      flightSeconds: 20.01,
+    });
+    expect(shouldStopBallLabSimulation(safetyCap)).toBe(true);
   });
 });
