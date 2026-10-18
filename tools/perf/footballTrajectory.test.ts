@@ -41,7 +41,9 @@ function trajectory(style: 'normal' | 'finesse' | 'chip' | 'outside-foot', foot:
     position: ball.position,
     velocity: contacted.velocity,
     angularVelocity: contacted.angularVelocity,
-    knuckleSeed: 0x5a17f00d,
+    // Knuckle perturbation is technique-specific. Ordinary, finesse, chip,
+    // and outside-foot contacts must not inherit the deterministic knuckle seed.
+    knuckleSeed: 0,
   });
   return simulateBall(initial, { seconds: 1.15 });
 }
