@@ -53,6 +53,9 @@ jobs:
       - name: Stage 05 exploit-bot balance gate
         run: pnpm football:balance
 
+      - name: Stage 06 five-thousand-possession tactical tournament
+        run: pnpm bots:tournament
+
       - name: Standalone headless determinism trace
         run: pnpm determinism:headless
 
