@@ -45,22 +45,55 @@ describe('Stage 05 owner dribble feedback', () => {
     expect(next.position).toEqual(source.position);
   });
 
-  test('precision with no movement intent physically traps a moving ball instead of nudging it forward again', () => {
+  test('explicit receive with no movement intent physically traps a moving ball', () => {
     const source = ball({ velocity: { x: 0.2, y: 0, z: 5.2 } });
     const touch = buildControlTouch({
       actor: actor({ velocity: { x: 0, y: 0, z: 0 } }),
       ball: source,
       desiredDirection: { x: 0, z: 1 },
-      precision: true,
+      precision: false,
       sprint: false,
       pressure: 0,
       moveIntentMagnitude: 0,
+      receiveMode: 'kill',
     });
 
     expect(touch.eligible).toBe(true);
     expect(touch.touchMode).toBe('trap');
     const next = applyBallContact(source, touch.command!);
     expect(Math.hypot(next.velocity.x, next.velocity.z)).toBeLessThan(1.25);
+  });
+
+  test('RMB precision by itself remains close-control dribble and does not secretly trap', () => {
+    const touch = buildControlTouch({
+      actor: actor({ velocity: { x: 0, y: 0, z: 1.5 } }),
+      ball: ball({ velocity: { x: 0, y: 0, z: 2.1 } }),
+      desiredDirection: { x: 0, z: 1 },
+      precision: true,
+      sprint: false,
+      pressure: 0,
+      moveIntentMagnitude: 0,
+    });
+    expect(touch.touchMode).toBe('precision');
+  });
+
+  test('controlled receive exits in the requested direction with a short touch', () => {
+    const source = ball({ velocity: { x: 0, y: 0, z: 5.2 } });
+    const touch = buildControlTouch({
+      actor: actor({ velocity: { x: 0, y: 0, z: 0 } }),
+      ball: source,
+      desiredDirection: { x: -1, z: 0 },
+      precision: false,
+      sprint: false,
+      pressure: 0,
+      moveIntentMagnitude: 1,
+      receiveMode: 'controlled-exit',
+    });
+    expect(touch.eligible).toBe(true);
+    expect(touch.touchMode).toBe('receive-exit');
+    const next = applyBallContact(source, touch.command!);
+    expect(next.velocity.x).toBeLessThan(-0.25);
+    expect(Math.abs(next.velocity.z)).toBeLessThan(2.5);
   });
 
   test('straight sprint touches stay inside the calibrated recoverable envelope', () => {
