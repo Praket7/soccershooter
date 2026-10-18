@@ -8,10 +8,19 @@ export const HIGH_LEVEL_ACTIONS = [
 ] as const;
 export type HighLevelAction = (typeof HIGH_LEVEL_ACTIONS)[number];
 
+/**
+ * Research-only abstract observations may be supplied to a high-level policy.
+ * Values are intentionally scalar/categorical and read-only. The adapter output
+ * still passes through validateHighLevelProposal, so observation access never
+ * grants authority over movement, stamina, colliders, or ball physics.
+ */
+export type HighLevelPolicyFeatureValue = string | number | boolean;
+
 export interface HighLevelPolicyContext {
   team: TeamId;
   tick: number;
   playerIds: readonly string[];
+  features?: Readonly<Record<string, HighLevelPolicyFeatureValue>>;
 }
 
 export interface HighLevelBotProposal {
