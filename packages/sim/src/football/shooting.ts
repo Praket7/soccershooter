@@ -25,6 +25,8 @@ export interface ShotBuildInput {
   pressure: number;
   balance: number;
   contactFoot: FootballFoot;
+  /** Deterministic event seed used only by a legal knuckle strike. */
+  knuckleSeed?: number;
 }
 
 export interface ShotSolution {
@@ -34,11 +36,14 @@ export interface ShotSolution {
   launchSpeed: number;
   alignment: number;
   effectiveBalance: number;
+  /** Explicit physics lifecycle metadata: zero disables knuckle perturbation. */
+  knuckleSeed: number;
   command?: BallContactCommand;
 }
 
 const SHOT_CONTACT_REACH = 1.45;
 const MIN_LEGAL_DOT = Math.cos(122 * Math.PI / 180);
+const DEFAULT_KNUCKLE_SEED = 0x5a17f00d;
 
 function styleSpeed(style: ShotStyle, charge: number): number {
   if (style === 'driven') return 14 + 22 * charge;
@@ -72,6 +77,14 @@ function angularSignature(style: ShotStyle, spinInput: number, foot: FootballFoo
   return { x: -3, y: 0, z: 0 };
 }
 
+function deterministicKnuckleSeed(input: Readonly<ShotBuildInput>): number {
+  if (input.style !== 'knuckle') return 0;
+  const supplied = input.knuckleSeed;
+  if (supplied === undefined) return DEFAULT_KNUCKLE_SEED;
+  if (!Number.isFinite(supplied)) throw new TypeError('knuckleSeed must be finite');
+  return Math.trunc(supplied) >>> 0;
+}
+
 export function buildShot(input: Readonly<ShotBuildInput>): ShotSolution {
   const aim = normalizeHorizontal(input.aim, forwardFromYaw(input.shooter.facingYaw));
   const facing = forwardFromYaw(input.shooter.facingYaw);
@@ -82,6 +95,7 @@ export function buildShot(input: Readonly<ShotBuildInput>): ShotSolution {
   const requestedBalance = clampFootball(input.balance, 0, 1);
   const bodyBalance = clampFootball(input.shooter.balance, 0, 1);
   const effectiveBalance = requestedBalance * bodyBalance * (1 - 0.38 * pressure);
+  const knuckleSeed = deterministicKnuckleSeed(input);
 
   const empty: ShotSolution = {
     legal: false,
@@ -90,6 +104,7 @@ export function buildShot(input: Readonly<ShotBuildInput>): ShotSolution {
     launchSpeed: 0,
     alignment,
     effectiveBalance,
+    knuckleSeed: 0,
   };
 
   if (horizontalDistance(input.shooter.position, input.ball.position) > SHOT_CONTACT_REACH) return empty;
@@ -126,6 +141,7 @@ export function buildShot(input: Readonly<ShotBuildInput>): ShotSolution {
     launchSpeed,
     alignment,
     effectiveBalance,
+    knuckleSeed,
     command,
   };
 }
