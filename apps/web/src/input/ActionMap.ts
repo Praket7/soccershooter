@@ -234,7 +234,15 @@ export class ActionMap {
     );
   };
 
-  readonly #onPointerDown = (event: PointerEvent) => {
+  /**
+   * Mouse button chords intentionally use mousedown/mouseup instead of
+   * pointerdown/pointerup. Pointer events only fire pointerdown on the first
+   * pressed mouse button and pointerup on the last released button, which
+   * makes RMB+LMB impossible to observe reliably. Mouse events fire once for
+   * every individual button transition, so close-control + shot chords are
+   * deterministic while pointer movement can still use Pointer Events.
+   */
+  readonly #onMouseDown = (event: MouseEvent) => {
     const result = resolvePointerButtonDown({
       primaryDown: this.#primaryDown,
       secondaryDown: this.#secondaryDown,
@@ -260,7 +268,7 @@ export class ActionMap {
     }
   };
 
-  readonly #onPointerUp = (event: PointerEvent) => {
+  readonly #onMouseUp = (event: MouseEvent) => {
     if (event.button === 0 && this.#primaryDown) {
       this.#primaryDown = false;
       this.#pendingActionBits |= PlayerActionBits.ShootReleased | this.#shotModifierBits;
@@ -291,8 +299,8 @@ export class ActionMap {
     this.#keyboardTarget.addEventListener('keyup', this.#onKeyUp);
     this.#keyboardTarget.addEventListener('blur', this.#onBlur);
     this.#keyboardTarget.addEventListener('pointermove', this.#onPointerMove);
-    this.#keyboardTarget.addEventListener('pointerup', this.#onPointerUp);
-    this.#pointerTarget.addEventListener('pointerdown', this.#onPointerDown);
+    this.#keyboardTarget.addEventListener('mouseup', this.#onMouseUp);
+    this.#pointerTarget.addEventListener('mousedown', this.#onMouseDown);
     this.#pointerTarget.addEventListener('wheel', this.#onWheel, { passive: false });
     this.#pointerTarget.addEventListener('contextmenu', this.#onContextMenu);
   }
@@ -304,8 +312,8 @@ export class ActionMap {
     this.#keyboardTarget.removeEventListener('keyup', this.#onKeyUp);
     this.#keyboardTarget.removeEventListener('blur', this.#onBlur);
     this.#keyboardTarget.removeEventListener('pointermove', this.#onPointerMove);
-    this.#keyboardTarget.removeEventListener('pointerup', this.#onPointerUp);
-    this.#pointerTarget.removeEventListener('pointerdown', this.#onPointerDown);
+    this.#keyboardTarget.removeEventListener('mouseup', this.#onMouseUp);
+    this.#pointerTarget.removeEventListener('mousedown', this.#onMouseDown);
     this.#pointerTarget.removeEventListener('wheel', this.#onWheel);
     this.#pointerTarget.removeEventListener('contextmenu', this.#onContextMenu);
     this.#keys.clear();
