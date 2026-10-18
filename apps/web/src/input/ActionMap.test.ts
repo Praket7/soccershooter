@@ -35,4 +35,13 @@ describe('Stage 03 normalized input contract', () => {
     expect(intent.actionBits & PlayerActionBits.Jump).toBe(PlayerActionBits.Jump);
     expect(intent.actionBits & PlayerActionBits.Tackle).toBe(PlayerActionBits.Tackle);
   });
+
+  test('keyboard B is an explicit tackle-hook alias while A remains left movement', () => {
+    const tackle = keyboardStateToIntent({ keys: new Set(['KeyB']), aimYaw: 0 });
+    expect(tackle.actionBits & PlayerActionBits.Tackle).toBe(PlayerActionBits.Tackle);
+
+    const left = keyboardStateToIntent({ keys: new Set(['KeyA']), aimYaw: 0 });
+    expect(left.moveX).toBeLessThan(0);
+    expect(left.actionBits & PlayerActionBits.Jump).toBe(0);
+  });
 });
