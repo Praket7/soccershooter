@@ -10,6 +10,8 @@ function deterministicPart(report: unknown): Record<string, unknown> {
   const copy = JSON.parse(JSON.stringify(report)) as Record<string, unknown>;
   delete copy.averageInferenceMs;
   delete copy.maxInferenceMs;
+  const metrics = copy.metrics as Record<string, unknown> | undefined;
+  if (metrics) delete metrics.inferenceMs;
   return copy;
 }
 
