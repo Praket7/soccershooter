@@ -2,234 +2,151 @@
 
 ## Decision
 
-**ENGINEERING PASS — OWNER FUN GATE PENDING**
+**PASS FOR MERGE — ENGINEERING VERIFIED, OWNER MERGE AUTHORIZATION RECEIVED**
 
-Stage 05 implementation is complete against the deterministic engineering requirements in `docs/superpowers/plans/stages/05-core-football.md`.
+Stage 05 satisfies its deterministic engineering gate and has received an explicit owner instruction to finish the stage, repair any review findings, and merge it to `main`.
 
-The branch must **not** be merged yet. The Stage 05 plan also contains subjective human-playtest exit criteria: a 10-minute solo loop must remain engaging, straight/curve/chip must be intentionally producible, defending timing must read well, and combined movement + ball satisfaction must reach a median of at least 8/10. Automated simulation cannot honestly certify those human judgments.
+The original stage plan also requested a numeric human feel threshold of at least `8/10`. The owner did not provide a new numeric score in the final merge instruction, so this document does **not** invent one. Instead, the repository records the facts accurately:
 
-Implementation is therefore frozen pending the owner playtest in `docs/gates/STAGE-05-PLAYTEST.md`.
+- an earlier owner playtest described the core loop as decent and pretty fun while identifying concrete feel/readability defects;
+- those defects were reproduced, repaired, and covered by regression tests;
+- the owner subsequently instructed that Stage 05 should be completed, reviewed for bugs, and merged;
+- that explicit merge instruction is treated as owner acceptance for this milestone, with the missing numeric rating left unclaimed.
 
-## Verified implementation head before documentation
+No Stage 06 implementation is included in this gate.
 
-- branch: `stage/05-core-football`
-- implementation head: `2674a19c291586dc5b9e5087253d88b86a4427b6`
-- PR: `#13`
-- CI run: `39143197935`
-- CI job: `117721649012`
-- result: **PASS**
+## Final review repair
 
-### Exact CI evidence
+The final review found one additional correctness defect in the greybox keeper.
 
-- supply-chain / private-content guards: PASS
+### Swept keeper-plane timing
+
+The keeper previously evaluated lateral reach and height using the **end of the 120 Hz physics substep** after the ball had crossed the keeper plane. A fast diagonal shot can travel several centimeters laterally during the remainder of that substep, which can turn a legitimate save into a miss or a miss into a false save near the edge of the keeper reach.
+
+This disagreed with the Stage 04 continuous-contact conventions, where goal-plane and goal-frame interactions are evaluated at their swept crossing/contact time.
+
+Repair:
+
+- added `evaluateKeeperPlaneCrossing`;
+- interpolate the exact crossing fraction and contact position;
+- test keeper reach/height at that exact contact point;
+- interpolate ball velocity, angular velocity, and simulation time to contact;
+- apply the bounded parry at contact;
+- simulate the remaining fraction of the same 120 Hz substep after the parry.
+
+RED evidence:
+
+- test commit: `66b9ade2cc182b1fceb8941fdf4a69000ee7e439`
+- CI run: `39151558692`
+- expected failure: the new test referenced the not-yet-implemented swept keeper-plane helper.
+
+GREEN source head:
+
+- `ad89bd57ccb1559963cd2bb946938e8173781b75`
+- CI run: `39151729897`
+- CI job: `117746588544`
+- Stage 01 contracts run: `39151729899`
+
+## Exact engineering evidence on the final source head
+
+- frozen pnpm install / supply-chain policies: PASS
+- authoritative randomness guard: PASS
+- private reference-content guard: PASS
 - strict TypeScript: PASS
-- unit + contract tests: PASS
-- Stage 04 one-million-launch ball fuzz: PASS
-- Stage 05 250,000-case football action fuzz: PASS
-- Stage 05 exploit-bot balance gate: PASS
-- standalone deterministic trace: PASS
-- FICTIONAL_PUBLIC production build: PASS
-- server health: PASS
-- Chromium E2E / browser parity: PASS
+- unit/contract suite: **158 / 158 PASS across 30 files**
+- new swept keeper-plane regressions: **2 / 2 PASS**
+- Stage 04 deterministic ball fuzz: **1,000,000 launches / 4,000,000 states / 0 failures**
+- Stage 04 fuzz checksum: `e0afd3f7`
+- Stage 05 football fuzz: **250,000 cases / 1,000,000 actions / 0 failures**
+- Stage 05 football fuzz checksum: `fecee5e1`
+- exploit-bot balance gate: PASS
+- sprint-only, shot-spam, tackle-spam, and dribble-circle all fail to dominate their varied/timed references
+- canonical deterministic trace: `d55b2d0b968372a5`
+- FICTIONAL_PUBLIC web/server production build: PASS
+- server health endpoint: PASS
+- Chromium/browser parity and E2E: **23 / 23 PASS**
 
-Latest source-freeze unit/contract suite before the final cadence-safe E2E-only commit contained **139 / 139 PASS** across 24 files. The final commit changed only the timing-sensitive browser assertion, and the full final CI passed.
-
-## Stage 04 regression preservation
-
-The prior physics gate remains intact.
-
-One-million-launch deterministic ball fuzz on the Stage 05 head:
-
-- launches: `1,000,000`
-- checked states: `4,000,000`
-- failures: `0`
-- checksum: `e0afd3f7`
-- max speed observed: `44.80623456998427 m/s`
-- max spin observed: `236.40180232339176 rad/s`
-
-Canonical deterministic trace remains:
-
-- tick rate: `30 Hz`
-- ticks: `10,000`
-- seed: `1511506142`
-- hash: `d55b2d0b968372a5`
-
-## Stage 05 deterministic football fuzz
-
-The repository now runs a dedicated action-level stress gate against the real Stage 05 contact builders.
-
-- randomized cases: `250,000`
-- action evaluations: `1,000,000`
-- contacts applied: `184,057`
-- failures: `0`
-- checksum: `0b8247ef`
-- max legal impulse observed: `15.500000000000005 N·s`
-- max resulting speed observed: `34.9018646963763 m/s`
-
-The fuzz gate checks finite values, bounded impulses, contact invariants, and deterministic repeatability across control touches, passes, shots, challenges, interceptions, and aerial-related contact paths.
-
-## Independent local simulation audit
-
-In addition to repository CI, a separate deterministic scratch simulation was run locally in the chat runtime using the Stage 04 aerodynamic/ground equations and Stage 05 action semantics.
-
-Across **100,000 randomized football interaction scenarios**:
-
-- teleports: `0`
-- impulse-cap violations: `0`
-- illegal shot speeds above the 36 m/s Stage 05 envelope: `0`
-- NaN / Infinity states: `0`
-- turf penetrations: `0`
-- deterministic checksum: `3aed0d0d`
-
-This local harness is supplementary evidence. Repository tests and CI remain the source of truth.
-
-## Exploit-bot balance gate
-
-The canonical deterministic CI tournament rejects the four simple dominant strategies called out in the stage plan.
-
-| Strategy | Spam utility | Varied/timed reference | Dominates? |
-| --- | ---: | ---: | --- |
-| sprint-only | `0.2562354251` | `0.6093465536` | no |
-| shot-spam | `-5.0433605814` | `8.3214991685` | no |
-| tackle-spam | `-2.7400000000` | `10.6600000000` | no |
-| dribble-circle | `0.2226269923` | `0.6093465536` | no |
-
-The independent local stress tournament also produced a large separation between blind tackle spam and timed challenges, reinforcing the same conclusion.
-
-## Core implementation accepted
+## Accepted Stage 05 functionality
 
 ### First touch and dribbling
 
-- front/body control envelope
-- physical velocity impulse only; ball position is never snapped or welded
-- controlled, precision, and sprint touches are mechanically distinct
-- sprint touches are deliberately longer/harder
-- pressure, incoming speed, body angle, and balance reduce control quality
-- stationary player + stationary ball produces `idle-no-touch`, preventing repeated magnetic nudges
-- genuinely incoming balls remain trappable by a stationary player
-- touch cooldown prevents 60 Hz re-contact spam
+- physical control envelope; no welded possession or ball teleport
+- controlled, precision, sprint, effort-turn, and trap contacts
+- current requested camera-relative direction drives the next touch
+- sharp cuts brake and redirect the old ball vector
+- sprint separation feeds back so an already-stretched ball lets the runner catch up
+- stationary player + stationary ball avoids magnetic re-contact
 
 ### Passing
 
 - ground, driven, lofted, and through/lead pass families
-- moving receiver prediction
-- user aim blended with bounded assist
-- assist cannot authorize impossible behind-body passes
-- pass inputs are one-shot edges on keyboard and gamepad rather than cooldown-hidden held spam
+- receiver lead prediction
+- bounded assistance only inside a readable aim cone
+- body orientation remains a legality constraint; assist cannot manufacture impossible behind-body passes
+- keyboard/gamepad pass inputs are one-shot edges
 
 ### Shooting
 
-- normal
-- driven
-- finesse
-- chip
-- knuckle
-- outside-foot
+- normal, driven, finesse, chip, knuckle, outside-foot
+- charge, aim, body alignment, balance, pressure, foot, and spin signature affect contact
+- visible/live aim remains active while charging
+- shot legality uses the same visible body orientation shown by the player
+- pointer-lock focus taps below the minimum charge do not emit accidental weak shots
+- deterministic knuckle state is explicit and cleared by non-knuckle strikes
 
-Shot output depends on aim, charge, body alignment, balance, pressure, foot, and technique spin signature.
+### Defense and aerial core
 
-Additional hardening completed during final review:
-
-- nominal normal shots stay intentionally close to the aim plane
-- finesse and outside-foot contacts create deliberate lateral curvature
-- chip produces a materially higher apex
-- full-charge output is bounded to the legal Stage 05 envelope
-- lost-focus / disconnected-input charge is cancelled instead of banked invisibly
-- knuckle perturbation is now explicit shot metadata: non-knuckle strikes clear the seed to `0`; knuckle strikes receive a deterministic event seed
-
-### Defense
-
-- standing challenge
-- committed tackle
-- recovery penalty for mistimed commitment
-- interception windows
-- moving-defender interception geometry compares ball and defender at the **same predicted timestamp**
-- committed tackle spam loses expected value in deterministic balance tests
-
-### Aerial core
-
-- readable header eligibility
-- readable volley eligibility
-- physical contact hooks retained for later advanced aerial techniques without implementing later-stage bicycle/scissor scope
+- standing and committed challenges
+- meaningful recovery cost for mistimed commitment
+- moving interception geometry compares ball and defender at the same predicted time
+- header and volley eligibility windows
+- simple tackle/shot/sprint/dribble spam does not dominate the deterministic reference policies
 
 ### Practice loop
 
-- Stage 05 Football Practice mode
-- physically independent live ball
+- Football Practice mode plus preserved Stage 04 Ball Lab
+- physical live ball
 - moving pass receiver
-- greybox keeper
-- practice goals
-- whole-ball goal scoring from Stage 04 physics
-- bounded keeper parry
+- greybox keeper and goals
+- swept-time keeper saves
+- whole-ball goal detection
 - goal/save counters
-- shot-style controls
 - action diagnostics HUD
-- reset flow
-- Stage 04 Ball Lab preserved as a separate instrument
-- visual ball rotation advances on authoritative 120 Hz physics substeps, not render FPS
+- grounded player marker
+- ball-aware camera focus
+- goal-frame camera collision
+- world-space shot aim guide
 
-## Important defects found and repaired during final audit
+## Owner-feedback repairs preserved
 
-1. **Idle magnetic nudge** — idle player + idle ball could re-trigger a control impulse after cooldown. Fixed at the control-envelope source.
-2. **Moving interception geometry** — relative timing was correct, but reach was initially checked against the defender's current position. Both actors are now compared at the same predicted time.
-3. **Stale shot charge** — losing a held input without a release could bank charge for a later shot. It now cancels.
-4. **Held pass repeat** — keyboard E / gamepad X could remain asserted while held. Both are now rising-edge / keydown-edge actions.
-5. **Visual spin render dependence** — presentation rotation risk was audited and locked to authoritative 120 Hz ball substeps.
-6. **Straight-shot drift regression fixture** — the integration fixture incorrectly enabled knuckle perturbation for ordinary shots. The fixture now matches production semantics.
-7. **Knuckle seed lifecycle** — a returned ball could theoretically inherit a prior knuckle seed unless a later strike cleared it. Shot solutions now explicitly carry deterministic knuckle state.
-8. **E2E cadence assumptions** — browser checks were rewritten to validate deterministic state progress and active recovery rather than runner wall-clock timing.
+The first owner recording identified and the branch repaired:
 
-## Research basis
+1. stale ball direction during dribble cuts;
+2. sprint-dribble runaway;
+3. no deliberate physical trap/stop;
+4. confusing shot aim and pointer-lock behavior;
+5. visible player grounding;
+6. poor loose-ball readability during cuts;
+7. camera clipping through goal members.
 
-The final tuning and review were checked against research rather than relying only on genre convention.
+See `docs/gates/STAGE-05-OWNER-FEEDBACK-AUDIT.md` for the full RED→GREEN history.
 
-### First touch / receiving
+## Research review
 
-University of Tsukuba / Football Studies (2026) reported that quicker receive-to-pass transitions were associated with a controlled pre-contact foot approach, more pass-ready posture, and limiting excessive post-contact ball rebound. This supports Stage 05's penalties for uncontrolled arrival and excess rebound rather than magnetic correction.
+The final implementation was checked against current primary/academic references rather than tuned only by genre convention:
 
-- DOI: `10.1016/j.footst.2026.100071`
-- https://www.tsukuba.ac.jp/en/research-news/20260806143000.html
+- **PhysicsFC (Kim, Jung, Lee, 2025)** separates Move, Trap, Dribble, and Kick behavior and uses target ball motion, ball-player proximity, and player motion toward the ball. This supports distinct physical trap/dribble/kick states rather than magnetic possession.
+- **EA SPORTS FC gameplay notes** describe retuned dribble touch intervals, special effort touches for drastic turns, first-touch/trapping responsiveness, and context-dependent control difficulty. This supports the bounded effort-turn and close-control cadence approach without copying proprietary implementation.
+- **Soccer first-touch research (2026)** associates faster receive-to-pass transitions with controlled pre-contact approach, pass-ready posture, and reduced excessive rebound. This supports penalizing difficult arrival/body setup instead of silently correcting the ball.
+- **Pass-feasibility research** shows player body orientation materially changes realistic receiving/passing space, supporting bounded assist with hard orientation constraints.
+- **Change-of-direction biomechanics** emphasize braking/deceleration followed by reacceleration for sharp cuts, supporting the explicit braking phase in player and ball redirection.
 
-### Body orientation and pass feasibility
+These are calibration references, not a claim that SoccerShooter reproduces human biomechanics exactly.
 
-Research modeling soccer pass feasibility explicitly identifies player body orientation as an important constraint on whether a pass is realistically receivable. Stage 05 therefore allows bounded assist but does not let assist manufacture impossible behind-body actions.
+## Non-blocking note
 
-- https://openaccess.thecvf.com/content_CVPRW_2020/papers/w53/Arbues-Sanguesa_Using_Players_Body-Orientation_to_Model_Pass_Feasibility_in_Soccer_CVPRW_2020_paper.pdf
+The current web bundle is about `626 kB` minified / `163 kB` gzip and still triggers Vite's >500 kB chunk warning. It does not block Stage 05 correctness or browser playtesting, but code splitting should be addressed before later content growth materially increases the initial bundle.
 
-### Defensive timing
+## Final gate rule
 
-Match-analysis research on elite soccer ball recovery links the defender's timing/delay behavior and interception behavior with effective recoveries. Stage 05 therefore rewards timed standing/contain/interception decisions and attaches recovery cost to mistimed commitment instead of making tackle spam free.
-
-- https://pmc.ncbi.nlm.nih.gov/articles/PMC7386141/
-
-These sources are calibration/interaction references, not claims that the game reproduces human biomechanics exactly.
-
-## Scope boundary
-
-Stage 05 intentionally does **not** begin later stages. In particular, this gate does not claim:
-
-- full team AI
-- multiplayer/network prediction
-- advanced animation locomotion
-- bicycle/scissor implementation
-- production goalkeeper AI
-- tactical formations
-- career/meta systems
-- final art/audio/polish
-
-## Non-blocking engineering note
-
-The production web bundle is approximately `620 kB` minified / `161 kB` gzip and still triggers Vite's >500 kB chunk warning. It does not block Stage 05 correctness, but client code splitting should be addressed before substantial later-stage growth.
-
-## Gate result
-
-**Stage 05 engineering gate: PASS.**
-
-**Stage 05 human fun gate: PENDING OWNER PLAYTEST.**
-
-Do not merge PR #13 until:
-
-1. the owner completes the Stage 05 playtest protocol;
-2. subjective gate criteria are accepted or resulting defects are repaired;
-3. documentation-inclusive CI is green on the exact PR head;
-4. the owner explicitly requests merge.
+Before merge, rerun both repository workflows on the **documentation-inclusive final PR head** and require them to be green. After merge, require the `main` push CI to pass before beginning Stage 06.
