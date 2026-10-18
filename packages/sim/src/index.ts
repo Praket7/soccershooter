@@ -40,6 +40,10 @@ export interface InputTraceFrame {
 const QUANTIZE = 1_000_000;
 const TAU = Math.PI * 2;
 
+function compareCodePoints(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
 function requireTickHz(tickHz: number): number {
   if (!Number.isSafeInteger(tickHz) || tickHz <= 0 || tickHz > 1000) {
     throw new RangeError('tickHz must be a positive safe integer <= 1000');
@@ -109,7 +113,7 @@ export function stepSimulation(sim: Simulation, inputs: ReadonlyMap<string, Inpu
   const random = nextUint32(sim.prng);
   sim.randomAccumulator = mix32(sim.randomAccumulator, random ^ sim.tick);
 
-  const orderedIds = [...inputs.keys()].sort((a, b) => a.localeCompare(b));
+  const orderedIds = [...inputs.keys()].sort(compareCodePoints);
   for (const id of orderedIds) {
     if (typeof id !== 'string' || id.length === 0 || id.length > 64) {
       throw new TypeError('player id must be a non-empty string up to 64 characters');
@@ -160,7 +164,7 @@ function canonicalState(sim: Simulation): CanonicalState {
     rngState: sim.prng.state >>> 0,
     randomAccumulator: sim.randomAccumulator >>> 0,
     players: [...sim.players.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
+      .sort(([a], [b]) => compareCodePoints(a, b))
       .map(([id, player]) => ({ id, ...player })),
   };
 }
@@ -198,7 +202,7 @@ export function serializeInputTrace(frames: readonly InputTraceFrame[]): string 
     .map((frame) => ({
       tick: frame.tick,
       inputs: [...frame.inputs.entries()]
-        .sort(([a], [b]) => a.localeCompare(b))
+        .sort(([a], [b]) => compareCodePoints(a, b))
         .map(([id, intent]) => [id, canonicalIntent(intent)] as const),
     }));
   return JSON.stringify({ version: 1, frames: canonical });
