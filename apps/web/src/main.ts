@@ -39,12 +39,17 @@ app.innerHTML = `
       <div id="game-viewport" class="game-viewport"></div>
       <aside class="control-card">
         <strong>Controls</strong>
-        <span>WASD / left stick · move</span>
+        <span>W / S · forward / back</span>
+        <span>A / D · screen-left / screen-right</span>
         <span>Mouse / right stick · camera</span>
         <span>Shift / L3 · sprint</span>
-        <span>Space / A · jump hook</span>
-        <span>C / B · tackle hook</span>
+        <span>Space / gamepad A · jump input hook</span>
+        <span>C or B / gamepad B · tackle input hook</span>
         <span>Click field · pointer lock</span>
+      </aside>
+      <aside class="action-feedback" data-action-feedback data-action="idle" aria-live="polite">
+        <strong>RUN READY</strong>
+        <span>Shift engages sprint</span>
       </aside>
       <aside class="course-card">
         <strong>Benchmark course</strong>
@@ -66,6 +71,7 @@ document.title = 'SoccerShooter Movement Lab';
 
 const viewport = requireElement<HTMLElement>('#game-viewport');
 const playerProbe = requireElement<HTMLOutputElement>('[data-player-state]');
+const actionFeedback = requireElement<HTMLElement>('[data-action-feedback]');
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0b1118);
@@ -195,6 +201,7 @@ const gamepad = new GamepadAdapter();
 const hud = new MovementHud(document.body);
 
 const FIXED_DT = 1 / PLAYER_MOVEMENT_TICK_HZ;
+const ACTION_FEEDBACK_MS = 480;
 let player = createPlayerState({ position: BENCHMARK_COURSE.spawn, stamina: DEFAULT_MOVEMENT_CONFIG.staminaMax });
 let previousPlayer = clonePlayerState(player);
 let accumulator = 0;
@@ -206,6 +213,9 @@ let lastAppliedInputTimestamp = -Infinity;
 let inputToSimulationMs: number | null = null;
 let inputToRenderMs: number | null = null;
 let pendingRenderAckTimestamp: number | null = null;
+let bufferedActionBits = 0;
+let lastActionFlash: 'jump' | 'tackle' | null = null;
+let actionFlashUntil = 0;
 let recording = false;
 let recordedIntents: Array<ReturnType<ActionMap['consumeFrame']>['intent']> = [];
 let recordingInitial = clonePlayerState(player);
@@ -217,6 +227,9 @@ function resetPlayer(): void {
   previousPlayer = clonePlayerState(player);
   accumulator = 0;
   simTick = 0;
+  bufferedActionBits = 0;
+  lastActionFlash = null;
+  actionFlashUntil = 0;
   playbackIndex = null;
   recording = false;
   recordedIntents = [];
@@ -269,6 +282,42 @@ function resize(): void {
   camera.updateProjectionMatrix();
 }
 
+function renderActionFeedback(now: number, sprintRequested: boolean): void {
+  if (player.actionHooks.tackleRequested) {
+    lastActionFlash = 'tackle';
+    actionFlashUntil = now + ACTION_FEEDBACK_MS;
+  } else if (player.actionHooks.jumpRequested) {
+    lastActionFlash = 'jump';
+    actionFlashUntil = now + ACTION_FEEDBACK_MS;
+  }
+
+  const mode = now < actionFlashUntil && lastActionFlash
+    ? lastActionFlash
+    : sprintRequested
+      ? 'sprint'
+      : 'idle';
+
+  if (actionFeedback.dataset.action === mode) return;
+  actionFeedback.dataset.action = mode;
+  if (mode === 'jump') {
+    actionFeedback.innerHTML = '<strong>JUMP INPUT</strong><span>Hook acknowledged · full jump arrives in a later stage</span>';
+    bodyMaterial.emissive.setHex(0x16475a);
+    bodyMaterial.emissiveIntensity = 0.7;
+  } else if (mode === 'tackle') {
+    actionFeedback.innerHTML = '<strong>TACKLE INPUT</strong><span>Hook acknowledged · full tackle arrives in a later stage</span>';
+    bodyMaterial.emissive.setHex(0x6b3100);
+    bodyMaterial.emissiveIntensity = 0.65;
+  } else if (mode === 'sprint') {
+    actionFeedback.innerHTML = `<strong>SPRINT ENGAGED</strong><span>Target ${Math.round(DEFAULT_MOVEMENT_CONFIG.sprintSpeed * 3.6)} km/h · stamina active</span>`;
+    bodyMaterial.emissive.setHex(0x233000);
+    bodyMaterial.emissiveIntensity = 0.35;
+  } else {
+    actionFeedback.innerHTML = '<strong>RUN READY</strong><span>Shift engages sprint</span>';
+    bodyMaterial.emissive.setHex(0x000000);
+    bodyMaterial.emissiveIntensity = 0;
+  }
+}
+
 window.addEventListener('resize', resize);
 resize();
 
@@ -282,11 +331,13 @@ function frame(now: number): void {
   accumulator += rawDelta;
 
   const keyboardFrame = actionMap.consumeFrame();
+  bufferedActionBits |= keyboardFrame.intent.actionBits;
   const gamepadFrame = gamepad.read(actionMap.aimYaw, rawDelta);
-  let intent = keyboardFrame.intent;
+  let intent = { ...keyboardFrame.intent, actionBits: bufferedActionBits >>> 0 };
   let look = { ...keyboardFrame.look };
   if (gamepadFrame?.active) {
-    intent = gamepadFrame.intent;
+    bufferedActionBits |= gamepadFrame.intent.actionBits;
+    intent = { ...gamepadFrame.intent, actionBits: bufferedActionBits >>> 0 };
     look = {
       yawDelta: look.yawDelta + gamepadFrame.look.yawDelta,
       pitchDelta: look.pitchDelta + gamepadFrame.look.pitchDelta,
@@ -298,11 +349,12 @@ function frame(now: number): void {
   while (accumulator + 1e-12 >= FIXED_DT) {
     previousPlayer = clonePlayerState(player);
     let tickIntent = intent;
-    if (playbackIndex !== null && lastTrace) {
-      const traceFrame = lastTrace.frames[playbackIndex];
+    const playingBack = playbackIndex !== null && lastTrace !== null;
+    if (playingBack && lastTrace) {
+      const traceFrame = lastTrace.frames[playbackIndex ?? 0];
       if (traceFrame) {
         tickIntent = traceFrame.intent;
-        playbackIndex += 1;
+        playbackIndex = (playbackIndex ?? 0) + 1;
       } else {
         playbackIndex = null;
       }
@@ -318,6 +370,11 @@ function frame(now: number): void {
     simTick += 1;
     accumulator -= FIXED_DT;
     stepped = true;
+
+    if (!playingBack) {
+      bufferedActionBits &= ~tickIntent.actionBits;
+      intent = { ...intent, actionBits: bufferedActionBits >>> 0 };
+    }
 
     if (keyboardFrame.inputTimestamp !== null && keyboardFrame.inputTimestamp > lastAppliedInputTimestamp) {
       lastAppliedInputTimestamp = keyboardFrame.inputTimestamp;
@@ -350,6 +407,12 @@ function frame(now: number): void {
   playerProbe.dataset.tick = String(simTick);
   playerProbe.dataset.inputToSimulationMs = inputToSimulationMs === null ? '' : inputToSimulationMs.toFixed(3);
   playerProbe.dataset.inputToRenderMs = inputToRenderMs === null ? '' : inputToRenderMs.toFixed(3);
+  playerProbe.dataset.speed = speed.toFixed(3);
+  playerProbe.dataset.sprinting = String(intent.sprint);
+  playerProbe.dataset.jumpHook = String(player.actionHooks.jumpRequested);
+  playerProbe.dataset.tackleHook = String(player.actionHooks.tackleRequested);
+
+  renderActionFeedback(now, intent.sprint && player.stamina > 0 && !player.sprintLocked);
 
   const traceStatus = playbackIndex !== null
     ? `replay ${playbackIndex}/${lastTrace?.frames.length ?? 0}`
