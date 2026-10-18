@@ -26,6 +26,18 @@ export interface BotFieldGeometry {
   goalHalfWidth: number;
 }
 
+export type MatchPhase = 'live' | 'restart' | 'stopped';
+export type RestartKind = 'none' | 'kickoff' | 'goal-kick' | 'throw-in' | 'corner' | 'free-kick';
+
+export interface BotMatchState {
+  phase: MatchPhase;
+  restart: RestartKind;
+  restartTeam: TeamId | null;
+  scoreHome: number;
+  scoreAway: number;
+  secondsRemaining: number;
+}
+
 export interface BotWorldSnapshot {
   tick: number;
   timeSeconds: number;
@@ -34,6 +46,7 @@ export interface BotWorldSnapshot {
   players: BotPlayerSnapshot[];
   possessionTeam: TeamId | null;
   possessionPlayerId: string | null;
+  matchState?: BotMatchState;
 }
 
 export type BotRole =
@@ -46,6 +59,19 @@ export type BotRole =
   | 'recovery-runner';
 
 export type TeamPhase = 'attack' | 'defend' | 'loose';
+
+export const DEFAULT_BOT_MATCH_STATE: Readonly<BotMatchState> = Object.freeze({
+  phase: 'live',
+  restart: 'none',
+  restartTeam: null,
+  scoreHome: 0,
+  scoreAway: 0,
+  secondsRemaining: 0,
+});
+
+export function resolvedMatchState(world: Readonly<BotWorldSnapshot>): Readonly<BotMatchState> {
+  return world.matchState ?? DEFAULT_BOT_MATCH_STATE;
+}
 
 export function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
