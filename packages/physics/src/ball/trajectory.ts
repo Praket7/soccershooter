@@ -154,13 +154,41 @@ export function resolveGoalFrameCollision(
   return state;
 }
 
+function resolveSweptGoalFrameCollision(
+  previous: Readonly<BallState>,
+  current: Readonly<BallState>,
+  frame: GoalFrame,
+  profile: BallCoefficientProfile,
+): BallState {
+  const displacement = subtract(current.position, previous.position);
+  const distance = magnitude(displacement);
+  const contactRadius = BALL_CONSTANTS.radius + frame.postRadius;
+  const sampleSpacing = Math.max(0.015, contactRadius * 0.25);
+  const samples = Math.max(1, Math.min(48, Math.ceil(distance / sampleSpacing)));
+
+  for (let index = 1; index <= samples; index += 1) {
+    const t = index / samples;
+    const position = add(previous.position, scale(displacement, t));
+    const closest = closestFramePoint(position, frame);
+    if (closest.distance >= contactRadius) continue;
+    const candidate = cloneBallState(current);
+    candidate.position = position;
+    candidate.flightSeconds = previous.flightSeconds + (current.flightSeconds - previous.flightSeconds) * t;
+    return resolveGoalFrameCollision(candidate, frame, profile);
+  }
+
+  return resolveGoalFrameCollision(current, frame, profile);
+}
+
 export function crossedGoalPlane(previous: Readonly<BallState>, current: Readonly<BallState>, frame: GoalFrame = STANDARD_GOAL_FRAME): boolean {
   if (!(previous.position.z < frame.planeZ && current.position.z >= frame.planeZ)) return false;
   const dz = current.position.z - previous.position.z;
   const t = Math.abs(dz) < 1e-9 ? 1 : (frame.planeZ - previous.position.z) / dz;
   const x = previous.position.x + (current.position.x - previous.position.x) * t;
   const y = previous.position.y + (current.position.y - previous.position.y) * t;
-  return Math.abs(x) <= frame.halfWidth - BALL_CONSTANTS.radius && y >= BALL_CONSTANTS.radius && y <= frame.height - BALL_CONSTANTS.radius;
+  return Math.abs(x) <= frame.halfWidth - BALL_CONSTANTS.radius
+    && y >= BALL_CONSTANTS.radius
+    && y <= frame.height - BALL_CONSTANTS.radius;
 }
 
 export function stepBall(
@@ -186,6 +214,7 @@ export function stepBall(
     state.velocity.y = 0;
   }
 
+  const beforeMove = cloneBallState(state);
   state.position.x += state.velocity.x * clampedDt;
   state.position.y += state.velocity.y * clampedDt;
   state.position.z += state.velocity.z * clampedDt;
@@ -194,7 +223,7 @@ export function stepBall(
   if (state.position.y <= BALL_CONSTANTS.radius || wasGrounded) {
     state = resolveGroundContact(state, clampedDt, profile);
   }
-  if (goalFrame) state = resolveGoalFrameCollision(state, goalFrame, profile);
+  if (goalFrame) state = resolveSweptGoalFrameCollision(beforeMove, state, goalFrame, profile);
   return state;
 }
 
