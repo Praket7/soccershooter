@@ -64,15 +64,16 @@ describe('Stage 05 owner dribble feedback', () => {
     expect(touch.eligible).toBe(true);
     expect(touch.touchMode).toBe('normal');
     expect(touch.targetBallSpeed).toBeGreaterThan(playerSpeed);
+    expect(touch.targetBallSpeed).toBeLessThanOrEqual(playerSpeed + 0.22);
     const next = applyBallContact(source, touch.command!);
     expect(next.velocity.x).toBeLessThan(-0.15);
     expect(next.position).toEqual(source.position);
   });
 
-  test('a correctly positioned normal dribble touch cannot be slower than the jogging carrier', () => {
+  test('a correctly positioned normal dribble touch stays only slightly faster than the jogging carrier', () => {
     const playerSpeed = 5.2;
     const source = ball({
-      position: { x: 0.02, y: 0.11, z: 0.56 },
+      position: { x: 0.02, y: 0.11, z: 0.52 },
       velocity: { x: 0, y: 0, z: 4.7 },
     });
     const touch = buildControlTouch({
@@ -87,8 +88,33 @@ describe('Stage 05 owner dribble feedback', () => {
 
     expect(touch.eligible).toBe(true);
     expect(touch.targetBallSpeed).toBeGreaterThan(playerSpeed);
+    expect(touch.targetBallSpeed).toBeLessThanOrEqual(playerSpeed + 0.22);
     const next = applyBallContact(source, touch.command!);
     expect(next.velocity.z).toBeGreaterThan(playerSpeed);
+    expect(next.velocity.z).toBeLessThanOrEqual(playerSpeed + 0.5);
+  });
+
+  test('competent normal dribbling gets one recovery touch before a modest stretch becomes a turnover', () => {
+    const playerSpeed = 5.2;
+    const source = ball({
+      position: { x: 0.08, y: 0.11, z: 1.42 },
+      velocity: { x: 0.15, y: 0, z: 5.6 },
+    });
+    const touch = buildControlTouch({
+      actor: actor({ velocity: { x: 0, y: 0, z: playerSpeed } }),
+      ball: source,
+      desiredDirection: { x: 0, z: 1 },
+      precision: false,
+      sprint: false,
+      pressure: 0,
+      moveIntentMagnitude: 1,
+    });
+
+    expect(touch.eligible).toBe(true);
+    expect(touch.touchMode).toBe('normal');
+    const next = applyBallContact(source, touch.command!);
+    expect(next.velocity.z).toBeLessThan(playerSpeed);
+    expect(next.velocity.x).toBeLessThan(0);
   });
 
   test('explicit receive with no movement intent physically traps a moving ball', () => {
@@ -142,11 +168,11 @@ describe('Stage 05 owner dribble feedback', () => {
     expect(Math.abs(next.velocity.z)).toBeLessThan(2.5);
   });
 
-  test('straight sprint touches stay inside the calibrated recoverable envelope', () => {
+  test('fresh sprint dribble uses a controlled knock-on rather than launching the ball away', () => {
     const playerSpeed = 8.4;
     const touch = buildControlTouch({
       actor: actor({ velocity: { x: 0, y: 0, z: playerSpeed }, sprinting: true }),
-      ball: ball({ velocity: { x: 0, y: 0, z: 8.1 } }),
+      ball: ball({ position: { x: 0, y: 0.11, z: 0.72 }, velocity: { x: 0, y: 0, z: 8.1 } }),
       desiredDirection: { x: 0, z: 1 },
       precision: false,
       sprint: true,
@@ -156,24 +182,20 @@ describe('Stage 05 owner dribble feedback', () => {
 
     expect(touch.eligible).toBe(true);
     expect(touch.touchMode).toBe('sprint');
-    expect(touch.targetBallSpeed).toBeLessThanOrEqual(playerSpeed + 0.3);
-    expect(touch.touchDistance).toBeLessThanOrEqual(1.0);
+    expect(touch.targetBallSpeed).toBeGreaterThan(playerSpeed);
+    expect(touch.targetBallSpeed).toBeLessThanOrEqual(playerSpeed + 0.2);
+    expect(touch.touchDistance).toBeLessThanOrEqual(0.84);
   });
 
-  test('sprint touch near the outside of control lets the player catch up instead of adding more separation', () => {
+  test('sprint dribbling retains a long-stride recovery window and decisively slows an overextended ball', () => {
     const playerSpeed = 8.4;
-    const fresh = buildControlTouch({
-      actor: actor({ velocity: { x: 0, y: 0, z: playerSpeed }, sprinting: true }),
-      ball: ball({ position: { x: 0, y: 0.11, z: 0.78 }, velocity: { x: 0, y: 0, z: 8.1 } }),
-      desiredDirection: { x: 0, z: 1 },
-      precision: false,
-      sprint: true,
-      pressure: 0,
-      moveIntentMagnitude: 1,
+    const source = ball({
+      position: { x: 0.12, y: 0.11, z: 1.52 },
+      velocity: { x: 0.2, y: 0, z: 9.0 },
     });
-    const stretched = buildControlTouch({
+    const touch = buildControlTouch({
       actor: actor({ velocity: { x: 0, y: 0, z: playerSpeed }, sprinting: true }),
-      ball: ball({ position: { x: 0, y: 0.11, z: 1.20 }, velocity: { x: 0, y: 0, z: 8.3 } }),
+      ball: source,
       desiredDirection: { x: 0, z: 1 },
       precision: false,
       sprint: true,
@@ -181,10 +203,10 @@ describe('Stage 05 owner dribble feedback', () => {
       moveIntentMagnitude: 1,
     });
 
-    expect(fresh.eligible).toBe(true);
-    expect(stretched.eligible).toBe(true);
-    expect(fresh.targetBallSpeed).toBeGreaterThan(playerSpeed);
-    expect(stretched.targetBallSpeed).toBeLessThanOrEqual(playerSpeed);
-    expect(stretched.targetBallSpeed).toBeLessThan(fresh.targetBallSpeed);
+    expect(touch.eligible).toBe(true);
+    expect(touch.touchMode).toBe('sprint');
+    const next = applyBallContact(source, touch.command!);
+    expect(next.velocity.z).toBeLessThan(playerSpeed - 0.35);
+    expect(next.velocity.x).toBeLessThan(0);
   });
 });
