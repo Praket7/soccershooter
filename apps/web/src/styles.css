@@ -1,0 +1,106 @@
+* { box-sizing: border-box; }
+html, body, #app { width: 100%; min-height: 100%; margin: 0; }
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  overflow: hidden;
+  color: #edf3f7;
+  background: #080d13;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+button, input { font: inherit; }
+.movement-lab-shell {
+  width: 100vw;
+  height: 100vh;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  background:
+    radial-gradient(circle at 70% -20%, rgba(83, 139, 151, .16), transparent 38%),
+    #080d13;
+}
+.lab-header {
+  min-height: 104px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 18px 28px;
+  border-bottom: 1px solid rgba(255, 255, 255, .09);
+  background: rgba(9, 15, 22, .95);
+}
+.eyebrow {
+  margin: 0 0 5px;
+  color: #8ea1ad;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+h1 { margin: 0; font-size: clamp(24px, 2.4vw, 36px); line-height: 1.05; letter-spacing: -.03em; }
+.subtitle { margin: 8px 0 0; color: #aab8c1; font-size: 13px; }
+.status-pill {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 11px;
+  border: 1px solid rgba(217, 243, 91, .22);
+  border-radius: 999px;
+  color: #cddd84;
+  background: rgba(217, 243, 91, .06);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .11em;
+}
+.status-pill span { width: 7px; height: 7px; border-radius: 50%; background: #d9f35b; box-shadow: 0 0 12px rgba(217, 243, 91, .65); }
+.viewport-wrap { position: relative; min-height: 0; padding: 14px; }
+.game-viewport {
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .11);
+  border-radius: 15px;
+  background: #0b1118;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .3), 0 18px 55px rgba(0, 0, 0, .3);
+}
+.game-viewport canvas { width: 100%; height: 100%; display: block; outline: none; cursor: crosshair; }
+.control-card, .course-card {
+  position: absolute;
+  right: 28px;
+  width: min(240px, calc(100vw - 56px));
+  display: grid;
+  gap: 4px;
+  padding: 11px 13px;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 10px;
+  background: rgba(5, 9, 14, .76);
+  color: #9fadb6;
+  font-size: 11px;
+  line-height: 1.35;
+  pointer-events: none;
+  backdrop-filter: blur(8px);
+}
+.control-card { top: 28px; }
+.course-card { bottom: 28px; }
+.control-card strong, .course-card strong { margin-bottom: 3px; color: #f3f6f8; font-size: 11px; text-transform: uppercase; letter-spacing: .09em; }
+.lab-footer {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 28px;
+  border-top: 1px solid rgba(255, 255, 255, .08);
+  color: #7f909b;
+  background: #080d13;
+  font-size: 11px;
+}
+@media (max-width: 760px) {
+  .lab-header { align-items: flex-start; padding: 14px 16px; }
+  .subtitle, .status-pill, .course-card { display: none; }
+  .viewport-wrap { padding: 8px; }
+  .control-card { top: 18px; right: 18px; }
+  .lab-footer { padding: 0 16px; }
+  .lab-footer span:last-child { display: none; }
+}
