@@ -230,7 +230,7 @@ h1 { margin: 0; font-size: clamp(24px, 2.4vw, 36px); line-height: 1.05; letter-s
   font-weight: 700;
   letter-spacing: .02em;
 }
-.ball-lab-grid output { color: #d7e0e5; font-size: 9px; font-variant-numeric: tabular-nums; }
+.ball-lab-grid .ball-lab-value { color: #d7e0e5; font-size: 9px; font-variant-numeric: tabular-nums; }
 .ball-lab-grid input[type="range"] {
   grid-column: 1 / -1;
   width: 100%;
