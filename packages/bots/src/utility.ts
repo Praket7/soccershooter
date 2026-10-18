@@ -85,7 +85,7 @@ export function chooseDefensiveAction(
   const distanceToBall = horizontalDistance(defender.position, world.ball.position);
   if (nearest?.id === defenderId && distanceToBall < 5.4) {
     const opponentCarrier = world.possessionPlayerId ? world.players.find((player) => player.id === world.possessionPlayerId) : null;
-    const target = opponentCarrier?.team !== defender.team ? opponentCarrier.position : world.ball.position;
+    const target = opponentCarrier && opponentCarrier.team !== defender.team ? opponentCarrier.position : world.ball.position;
     return { kind: distanceToBall < 2.2 ? 'intercept' : 'press', targetPosition: fieldClamp(world, { ...target, y: 0 }), score: clamp01(0.72 + (5.4 - distanceToBall) * 0.04) };
   }
   const goalZ = ownGoalZ(world, defender.team);
