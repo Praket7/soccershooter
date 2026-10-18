@@ -115,7 +115,35 @@ test('dedicated E pass contact moves the free ball and exposes lane intent witho
   expect(Number(await probe.getAttribute('data-ball-speed'))).toBeGreaterThan(2);
 });
 
-test('Z modifies a normal shot into finesse without a six-key shot-mode vocabulary', async ({ page }) => {
+test('RMB+E drives the ground pass and Ctrl+Q chips the through ball', async ({ page }) => {
+  await installPointerLockHarness(page);
+  await page.goto('/');
+  const probe = page.locator('[data-football-state]');
+  const canvas = page.locator('[data-game-viewport]');
+
+  await canvas.click({ position: { x: 320, y: 220 } });
+  await expect(page.locator('[data-player-state]')).toHaveAttribute('data-pointer-locked', 'true');
+  const box = await canvas.boundingBox();
+  expect(box).not.toBeNull();
+  if (!box) return;
+  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
+
+  await page.keyboard.press('g');
+  await page.waitForTimeout(80);
+  await page.mouse.down({ button: 'right' });
+  await page.keyboard.press('e');
+  await page.mouse.up({ button: 'right' });
+  await expect(probe).toHaveAttribute('data-reason', /driven:/);
+
+  await page.keyboard.press('g');
+  await page.waitForTimeout(80);
+  await page.keyboard.down('Control');
+  await page.keyboard.press('q');
+  await page.keyboard.up('Control');
+  await expect(probe).toHaveAttribute('data-reason', /chipped-through:/);
+});
+
+test('RMB+LMB finesse and Ctrl+LMB chip latch at shot start through modifier release', async ({ page }) => {
   await installPointerLockHarness(page);
   await page.goto('/');
   const probe = page.locator('[data-football-state]');
@@ -123,15 +151,30 @@ test('Z modifies a normal shot into finesse without a six-key shot-mode vocabula
   await canvas.click({ position: { x: 320, y: 220 } });
   await expect(page.locator('[data-player-state]')).toHaveAttribute('data-pointer-locked', 'true');
 
-  await page.keyboard.down('z');
   const box = await canvas.boundingBox();
   expect(box).not.toBeNull();
   if (!box) return;
   await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
+
+  await page.keyboard.press('g');
+  await page.waitForTimeout(80);
+  await page.mouse.down({ button: 'right' });
   await page.mouse.down({ button: 'left' });
   await expect(probe).toHaveAttribute('data-shot-style', 'finesse');
+  await page.mouse.up({ button: 'right' });
+  await page.waitForTimeout(50);
+  await expect(probe).toHaveAttribute('data-shot-style', 'finesse');
   await page.mouse.up({ button: 'left' });
-  await page.keyboard.up('z');
+
+  await page.keyboard.press('g');
+  await page.waitForTimeout(80);
+  await page.keyboard.down('Control');
+  await page.mouse.down({ button: 'left' });
+  await expect(probe).toHaveAttribute('data-shot-style', 'chip');
+  await page.keyboard.up('Control');
+  await page.waitForTimeout(50);
+  await expect(probe).toHaveAttribute('data-shot-style', 'chip');
+  await page.mouse.up({ button: 'left' });
 });
 
 test('practice ball visual rotation advances from physics steps, never idle render frames', async ({ page }) => {
