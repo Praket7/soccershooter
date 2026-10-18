@@ -51,4 +51,20 @@ describe('Stage 04 goal geometry and continuous collision safety', () => {
     expect(after.lastContact?.kind).toBe('goal-frame');
     expect(after.flightSeconds).toBeCloseTo(incoming.flightSeconds + BALL_SUBSTEP_DT, 12);
   });
+
+  test('a fast rolling ball still experiences aerodynamic drag while grounded', () => {
+    let ball = createBallState({
+      position: { x: 0, y: BALL_CONSTANTS.radius, z: 0 },
+      velocity: { x: 0, y: 0, z: 20 },
+      angularVelocity: { x: 20 / BALL_CONSTANTS.radius, y: 0, z: 0 },
+      grounded: true,
+    });
+
+    for (let step = 0; step < 120; step += 1) {
+      ball = stepBall(ball, BALL_SUBSTEP_DT);
+    }
+
+    expect(ball.grounded).toBe(true);
+    expect(Math.hypot(ball.velocity.x, ball.velocity.z)).toBeLessThan(18);
+  });
 });
