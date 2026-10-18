@@ -26,7 +26,7 @@ Verified scope includes:
 - private-reference content constraints;
 - no unresolved placeholder contract items.
 
-No material Stage 01 implementation gap was found in this audit.
+No material Stage 01 implementation gap was found in this audit. The Stage 01 contract workflow also passes on the final Stage 06 implementation head.
 
 ## Stage 02 — Foundation
 
@@ -160,9 +160,10 @@ Verified scope includes:
 - deterministic browser Tactical Bot Lab;
 - optional role overlay hidden by default;
 - canonical fail-fast 5,000-possession tournament;
+- exported role occupancy, pass/turnover, support, shot/goal, idle, clustering, timing, and checksum metrics;
 - Stage 01–05 regressions preserved.
 
-Verified simulation on implementation head `e4ae0f9e423be6a8b6291b817abcce0fcccc19bf`:
+Verified simulation on implementation head `4196abd546b538596230601d853abcc7fb5382e1`:
 
 - 5,000 / 5,000 possessions completed;
 - 0 simulation failures;
@@ -173,21 +174,25 @@ Verified simulation on implementation head `e4ae0f9e423be6a8b6291b817abcce0fcccc
 - 5.09% cluster ratio;
 - 0 idle ratio;
 - 4.5287 m average support distance;
-- 0.00820 ms/team average tactical decision time;
+- 0.00833 ms/team average tactical decision time;
+- 2.0720 ms/team max measured decision time;
+- role occupancy exported, including 171,858 goalkeeper samples and 85,929 samples each for ball-carrier, immediate-support, presser, and cover-defender in the one-keeper + two-field-player benchmark;
 - checksum `f8ba9988`;
-- 177 / 177 unit/contract tests;
+- 178 / 178 unit/contract tests;
 - 26 / 26 Chromium tests.
+
+Width-support and recovery-runner occupancy are zero in that exact 3v3 tournament shape because each side has only two field players; dedicated unit scenarios exercise the larger-team role branches.
 
 The only remaining Stage 06 gate item is the deliberately human one: the owner should be able to identify sensible support/recovery behavior with role labels off. The owner requested to perform that test before merge, so Stage 06 must not be represented as fully accepted yet.
 
 ## Cross-stage regression state on Stage 06 implementation head
 
-GitHub Actions run `39157652203`, job `117764102945` passed:
+GitHub Actions run `39158217835`, job `117765780488` passed:
 
 - frozen install and supply-chain policy;
 - security/source guards;
 - strict TypeScript;
-- 177 unit/contract tests;
+- 178 unit/contract tests;
 - Stage 04 one-million-launch fuzz;
 - Stage 05 one-million-action football fuzz;
 - Stage 05 exploit-bot gate;
@@ -196,6 +201,8 @@ GitHub Actions run `39157652203`, job `117764102945` passed:
 - production web/server builds;
 - server health;
 - 26 Chromium tests.
+
+Stage 01 contract workflow run `39158217834` also passed on the same implementation head.
 
 ## Final audit verdict
 
