@@ -82,4 +82,29 @@ describe('Stage 04 Ball Lab control contract', () => {
     expect(trace.some((sample) => sample.state.lastContact?.id === 'right-post')).toBe(true);
     expect(trace.at(-1)?.time ?? 0).toBeGreaterThan(0.5);
   });
+
+  test('complete export keeps sampling after a chip becomes grounded so roll can be audited', () => {
+    // Reproduces the owner-exported custom chip: 4.5 m/s, 34 degrees,
+    // 34 rad/s backspin. The old export stopped at 0.9 s as soon as the
+    // vertical bounce sequence ended, while the ball still rolled at ~3.4 m/s.
+    const controls: BallLabControls = {
+      speed: 4.5,
+      elevationDegrees: 34,
+      azimuthDegrees: 0,
+      spinRate: 34,
+      spinAxis: 'back',
+      profileId: 'match-balanced-v1',
+      slowMotion: 1,
+      trailEnabled: true,
+      knuckleSeed: 0,
+    };
+    const trace = buildCompleteExportTrace(controls);
+    const firstGroundedIndex = trace.findIndex((sample) => sample.state.grounded);
+    expect(firstGroundedIndex).toBeGreaterThan(0);
+    const firstGrounded = trace[firstGroundedIndex]!;
+    expect(firstGrounded.time).toBeCloseTo(0.9, 2);
+    expect(Math.hypot(firstGrounded.state.velocity.x, firstGrounded.state.velocity.z)).toBeGreaterThan(3);
+    expect(trace.length).toBeGreaterThan(firstGroundedIndex + 1);
+    expect(trace.at(-1)?.time ?? 0).toBeGreaterThan(firstGrounded.time + 1);
+  });
 });
