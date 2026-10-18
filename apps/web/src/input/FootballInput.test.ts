@@ -1,13 +1,18 @@
-import { describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test } from 'vitest';
 import { PlayerActionBits } from '@soccershooter/sim/player/PlayerState';
 import { keyboardStateToIntent, pointerStateToActionBits } from './ActionMap';
-import { gamepadSnapshotToFrame } from './GamepadAdapter';
+import { GamepadAdapter, gamepadSnapshotToFrame } from './GamepadAdapter';
+
+afterEach(() => {
+  // Individual tests may install a lightweight gamepad navigator.
+  Reflect.deleteProperty(globalThis, 'navigator');
+});
 
 describe('Stage 05 football input mapping', () => {
-  test('keyboard E passes and Q acts as a held technique modifier without disturbing movement', () => {
+  test('keyboard E is an edge-triggered pass while Q remains a held technique modifier', () => {
     const intent = keyboardStateToIntent({ keys: new Set(['KeyW', 'KeyE', 'KeyQ']), aimYaw: 0.4 });
     expect(intent.moveY).toBeGreaterThan(0);
-    expect(intent.actionBits & PlayerActionBits.Pass).toBe(PlayerActionBits.Pass);
+    expect(intent.actionBits & PlayerActionBits.Pass).toBe(0);
     expect(intent.actionBits & PlayerActionBits.Technique).toBe(PlayerActionBits.Technique);
   });
 
@@ -44,5 +49,32 @@ describe('Stage 05 football input mapping', () => {
     expect(frame.intent.actionBits & PlayerActionBits.ShootHeld).toBe(PlayerActionBits.ShootHeld);
     expect(frame.intent.actionBits & PlayerActionBits.Precision).toBe(PlayerActionBits.Precision);
     expect(frame.intent.actionBits & PlayerActionBits.Technique).toBe(PlayerActionBits.Technique);
+  });
+
+  test('holding gamepad X emits one pass edge until the button is released and pressed again', () => {
+    const buttons = Array.from({ length: 16 }, () => ({ pressed: false, value: 0 }));
+    buttons[2] = { pressed: true, value: 1 };
+    const pad = {
+      connected: true,
+      mapping: 'standard',
+      axes: [0, 0, 0, 0],
+      buttons,
+    };
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      value: { getGamepads: () => [pad] },
+    });
+
+    const adapter = new GamepadAdapter();
+    const first = adapter.read(0, 1 / 60);
+    const held = adapter.read(0, 1 / 60);
+    expect((first?.intent.actionBits ?? 0) & PlayerActionBits.Pass).toBe(PlayerActionBits.Pass);
+    expect((held?.intent.actionBits ?? 0) & PlayerActionBits.Pass).toBe(0);
+
+    buttons[2] = { pressed: false, value: 0 };
+    adapter.read(0, 1 / 60);
+    buttons[2] = { pressed: true, value: 1 };
+    const pressedAgain = adapter.read(0, 1 / 60);
+    expect((pressedAgain?.intent.actionBits ?? 0) & PlayerActionBits.Pass).toBe(PlayerActionBits.Pass);
   });
 });
