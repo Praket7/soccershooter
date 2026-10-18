@@ -66,7 +66,10 @@ function angularSignature(style: ShotStyle, spinInput: number, foot: FootballFoo
   if (style === 'chip') return { x: -28 * (0.55 + 0.45 * Math.abs(spin)), y: 0, z: 0 };
   if (style === 'knuckle') return { x: 0.45 * spin, y: -0.65 * spin, z: 0.25 * spin };
   if (style === 'driven') return { x: 9 + 7 * Math.max(0, spin), y: 3 * spin * footSign, z: 0 };
-  return { x: -3, y: 6 * spin * footSign, z: 0 };
+  // A normal strike is the player's baseline straight-contact tool. Keep only a
+  // very small incidental lateral component so intentional curve belongs to the
+  // finesse/outside-foot families rather than appearing automatically.
+  return { x: -3, y: 0.75 * spin * footSign, z: 0 };
 }
 
 export function buildShot(input: Readonly<ShotBuildInput>): ShotSolution {
