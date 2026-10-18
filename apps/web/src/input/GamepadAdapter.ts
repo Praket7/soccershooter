@@ -27,6 +27,9 @@ export interface GamepadFrame {
   active: boolean;
 }
 
+export const DEFAULT_GAMEPAD_YAW_RATE = 3.5;
+export const DEFAULT_GAMEPAD_PITCH_RATE = 2.7;
+
 const TAU = Math.PI * 2;
 
 function wrapYaw(yaw: number): number {
@@ -56,8 +59,8 @@ export function gamepadSnapshotToFrame(
   }
   const deadzone = options.deadzone ?? 0.15;
   const lookDeadzone = options.lookDeadzone ?? 0.12;
-  const yawRate = options.yawRate ?? 2.85;
-  const pitchRate = options.pitchRate ?? 2.25;
+  const yawRate = options.yawRate ?? DEFAULT_GAMEPAD_YAW_RATE;
+  const pitchRate = options.pitchRate ?? DEFAULT_GAMEPAD_PITCH_RATE;
   const invertY = options.invertY ?? false;
   const move = normalizeMoveAxes(axis(snapshot, 0), -axis(snapshot, 1), deadzone);
   const look = normalizeMoveAxes(axis(snapshot, 2), axis(snapshot, 3), lookDeadzone);
