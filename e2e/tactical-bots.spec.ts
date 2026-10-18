@@ -1,15 +1,19 @@
 import { expect, test } from '@playwright/test';
 
-test('Stage 06 Tactical Bot Lab exposes a live 3v3 simulation without debug overlays by default', async ({ page }) => {
+const tacticalButtonName = 'Tactical Debug';
+
+test('Stage 06 Tactical Debug remains a live tactical blackboard, not physical-possession evidence', async ({ page }) => {
   await page.goto('/');
 
-  const tacticalButton = page.getByRole('button', { name: 'Tactical Bot Lab', exact: true });
+  const tacticalButton = page.getByRole('button', { name: tacticalButtonName, exact: true });
   await expect(tacticalButton).toBeVisible();
   await tacticalButton.click();
 
   const lab = page.locator('[data-bot-tactical-lab]');
   const probe = page.locator('[data-bot-state]');
   await expect(lab).toBeVisible();
+  await expect(lab.getByRole('heading', { name: tacticalButtonName })).toBeVisible();
+  await expect(lab).toContainText('Possession on this page is scripted');
   await expect(page.locator('[data-football-practice]')).toBeHidden();
   await expect(page.locator('[data-ball-lab]')).toBeHidden();
   await expect(page.locator('[data-bot-participant]')).toHaveCount(6);
@@ -24,9 +28,9 @@ test('Stage 06 Tactical Bot Lab exposes a live 3v3 simulation without debug over
   expect(Number(await probe.getAttribute('data-max-keeper-depth'))).toBeLessThanOrEqual(3.8);
 });
 
-test('Stage 06 Tactical Bot Lab turnover control causes immediate phase/possession response', async ({ page }) => {
+test('Stage 06 Tactical Debug turnover control causes immediate phase/possession response', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Tactical Bot Lab', exact: true }).click();
+  await page.getByRole('button', { name: tacticalButtonName, exact: true }).click();
 
   const probe = page.locator('[data-bot-state]');
   const before = await probe.getAttribute('data-possession-team');
@@ -35,7 +39,7 @@ test('Stage 06 Tactical Bot Lab turnover control causes immediate phase/possessi
   const observedTurnover = await page.evaluate(async () => {
     const eventView = document.querySelector<HTMLElement>('[data-bot-event]');
     const button = document.querySelector<HTMLButtonElement>('[data-bot-turnover]');
-    if (!eventView || !button) throw new Error('Tactical Bot Lab turnover controls are missing');
+    if (!eventView || !button) throw new Error('Tactical Debug turnover controls are missing');
 
     return await new Promise<string>((resolve, reject) => {
       const read = (): string => eventView.textContent?.trim() ?? '';
@@ -51,9 +55,7 @@ test('Stage 06 Tactical Bot Lab turnover control causes immediate phase/possessi
         observer.disconnect();
         reject(new Error(`turnover event was not observed; last visible event=${read()}`));
       }, 1200);
-      const observer = new MutationObserver(() => {
-        finishIfTurnover();
-      });
+      const observer = new MutationObserver(() => { finishIfTurnover(); });
       observer.observe(eventView, { childList: true, subtree: true, characterData: true });
       button.click();
       finishIfTurnover();
@@ -67,7 +69,7 @@ test('Stage 06 Tactical Bot Lab turnover control causes immediate phase/possessi
 
 test('Stage 06 role overlay is optional and never required to identify movement', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Tactical Bot Lab', exact: true }).click();
+  await page.getByRole('button', { name: tacticalButtonName, exact: true }).click();
   const lab = page.locator('[data-bot-tactical-lab]');
 
   await expect(lab).toHaveAttribute('data-role-overlay', 'false');
