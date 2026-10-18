@@ -17,6 +17,9 @@ export interface MovementConfig {
   sprintUnlockStamina: number;
   maxStepHeight: number;
   maxSlopeRadians: number;
+  gravity: number;
+  terminalFallSpeed: number;
+  groundSnapDistance: number;
 }
 
 export const PLAYER_MOVEMENT_TICK_HZ = 60;
@@ -37,6 +40,9 @@ export const DEFAULT_MOVEMENT_CONFIG: Readonly<MovementConfig> = Object.freeze({
   sprintUnlockStamina: 22,
   maxStepHeight: 0.32,
   maxSlopeRadians: (38 * Math.PI) / 180,
+  gravity: 18,
+  terminalFallSpeed: 22,
+  groundSnapDistance: 0.08,
 });
 
 export interface MovementBounds {
@@ -106,7 +112,9 @@ export const BENCHMARK_COURSE: Readonly<{ spawn: Vec3; zones: readonly Benchmark
 
 const TAU = Math.PI * 2;
 const EPSILON = 1e-9;
-const DIRECT_REVERSE_ANGLE = (125 * Math.PI) / 180;
+const PLANT_CUT_ENTER_ANGLE = (60 * Math.PI) / 180;
+const PLANT_CUT_EXIT_ANGLE = (18 * Math.PI) / 180;
+const PLANT_CUT_MIN_SPEED = 3.2;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -235,10 +243,10 @@ function resolveZ(startZ: number, endZ: number, x: number, radius: number, obsta
   return { value: resolved, collided };
 }
 
-function chooseLocomotion(speed: number, targetMagnitude: number, sprinting: boolean, turnDelta: number): LocomotionState {
+function chooseLocomotion(speed: number, targetMagnitude: number, sprinting: boolean, plantCut: boolean): LocomotionState {
   if (speed < 0.08) return 'idle';
   if (targetMagnitude < 0.05) return 'decelerate';
-  if (Math.abs(turnDelta) > Math.PI * 0.38 && speed > 3.2) return 'sharp-cut';
+  if (plantCut) return 'sharp-cut';
   if (sprinting && speed > 5.3) return 'sprint';
   if (speed <= DEFAULT_MOVEMENT_CONFIG.walkSpeed + 0.25) return 'walk';
   return 'jog';
@@ -276,38 +284,44 @@ export function stepPlayerMovement(
 
   const sin = Math.sin(aimYaw);
   const cos = Math.cos(aimYaw);
-  // Camera-relative basis: forward = (sin(yaw), cos(yaw)); screen-right = (-cos(yaw), sin(yaw)).
-  // This keeps D/right-stick-right moving toward the player's screen-right instead of mirroring it.
   const desiredX = move.y * sin - move.x * cos;
   const desiredZ = move.y * cos + move.x * sin;
   const currentSpeed = Math.hypot(state.velocity.x, state.velocity.z);
   const topSpeed = sprinting ? config.sprintSpeed : config.jogSpeed;
-  const targetSpeed = topSpeed * move.magnitude;
+  const requestedTargetSpeed = topSpeed * move.magnitude;
 
   let constrainedX = desiredX;
   let constrainedZ = desiredZ;
+  let targetSpeed = requestedTargetSpeed;
   let turnDelta = 0;
-  let directReverse = false;
-  if (currentSpeed > 0.08 && targetSpeed > 0.01) {
-    const currentHeading = Math.atan2(state.velocity.x, state.velocity.z);
-    const desiredHeading = Math.atan2(desiredX, desiredZ);
-    turnDelta = angleDelta(currentHeading, desiredHeading);
-    directReverse = Math.abs(turnDelta) >= DIRECT_REVERSE_ANGLE;
+  let plantCut = false;
+  if (requestedTargetSpeed > 0.01) {
+    if (currentSpeed > 0.08) {
+      const currentHeading = Math.atan2(state.velocity.x, state.velocity.z);
+      const desiredHeading = Math.atan2(desiredX, desiredZ);
+      turnDelta = angleDelta(currentHeading, desiredHeading);
+      const enteringPlantCut = Math.abs(turnDelta) >= PLANT_CUT_ENTER_ANGLE && currentSpeed > PLANT_CUT_MIN_SPEED;
+      const continuingPlantCut = previous.locomotion === 'sharp-cut' && Math.abs(turnDelta) > PLANT_CUT_EXIT_ANGLE;
+      plantCut = enteringPlantCut || continuingPlantCut;
 
-    if (!directReverse) {
-      const speedFraction = clamp(currentSpeed / config.sprintSpeed, 0, 1);
-      const turnRate = config.lowSpeedTurnRate + (config.highSpeedTurnRate - config.lowSpeedTurnRate) * speedFraction;
-      const constrainedHeading = moveAngleToward(currentHeading, desiredHeading, turnRate * deltaSeconds);
-      constrainedX = Math.sin(constrainedHeading);
-      constrainedZ = Math.cos(constrainedHeading);
+      if (plantCut) {
+        targetSpeed = Math.min(requestedTargetSpeed, config.jogSpeed);
+      } else {
+        const speedFraction = clamp(currentSpeed / config.sprintSpeed, 0, 1);
+        const turnRate = config.lowSpeedTurnRate + (config.highSpeedTurnRate - config.lowSpeedTurnRate) * speedFraction;
+        const constrainedHeading = moveAngleToward(currentHeading, desiredHeading, turnRate * deltaSeconds);
+        constrainedX = Math.sin(constrainedHeading);
+        constrainedZ = Math.cos(constrainedHeading);
+      }
+    } else if (previous.locomotion === 'sharp-cut') {
+      plantCut = true;
+      targetSpeed = Math.min(requestedTargetSpeed, config.jogSpeed);
     }
   }
 
   const targetVelocityX = constrainedX * targetSpeed;
   const targetVelocityZ = constrainedZ * targetSpeed;
-  // Plant-and-reverse inputs should use braking authority rather than slowly steering a semicircle.
-  // Ordinary cuts retain speed-dependent turn limits, preserving the broader sprint arc.
-  const responseRate = move.magnitude <= 0.01 || directReverse ? config.braking : config.acceleration;
+  const responseRate = move.magnitude <= 0.01 || plantCut ? config.braking : config.acceleration;
   const maxVelocityDelta = responseRate * deltaSeconds;
   const velocity = moveVectorToward(
     state.velocity.x,
@@ -333,7 +347,7 @@ export function stepPlayerMovement(
   const currentGround = sampleGround(world, startX, startZ);
   const nextGround = sampleGround(world, nextX, nextZ);
   const stepUp = nextGround.height - currentGround.height;
-  if (nextGround.slopeRadians > config.maxSlopeRadians + EPSILON || stepUp > config.maxStepHeight + EPSILON) {
+  if (state.grounded && (nextGround.slopeRadians > config.maxSlopeRadians + EPSILON || stepUp > config.maxStepHeight + EPSILON)) {
     nextX = startX;
     nextZ = startZ;
     nextVelocityX = 0;
@@ -341,14 +355,39 @@ export function stepPlayerMovement(
   }
   const resolvedGround = sampleGround(world, nextX, nextZ);
 
-  state.position = { x: nextX, y: resolvedGround.height, z: nextZ };
-  state.velocity = { x: nextVelocityX, y: 0, z: nextVelocityZ };
+  let nextY = state.position.y;
+  let nextVelocityY = state.velocity.y;
+  let grounded = state.grounded;
+  if (grounded) {
+    const dropToSupport = state.position.y - resolvedGround.height;
+    if (dropToSupport <= config.groundSnapDistance + EPSILON) {
+      nextY = resolvedGround.height;
+      nextVelocityY = 0;
+    } else {
+      grounded = false;
+    }
+  }
+
+  if (!grounded) {
+    nextVelocityY = Math.max(-config.terminalFallSpeed, state.velocity.y - config.gravity * deltaSeconds);
+    nextY = state.position.y + nextVelocityY * deltaSeconds;
+    if (nextVelocityY <= 0 && nextY <= resolvedGround.height + EPSILON) {
+      nextY = resolvedGround.height;
+      nextVelocityY = 0;
+      grounded = true;
+    }
+  }
+
+  state.position = { x: nextX, y: nextY, z: nextZ };
+  state.velocity = { x: nextVelocityX, y: nextVelocityY, z: nextVelocityZ };
   state.groundHeight = resolvedGround.height;
-  state.grounded = true;
+  state.grounded = grounded;
   state.stamina = stamina;
   state.sprintLocked = sprintLocked;
   state.facingYaw = moveAngleToward(state.facingYaw, aimYaw, config.facingTurnRate * deltaSeconds);
-  state.locomotion = chooseLocomotion(Math.hypot(nextVelocityX, nextVelocityZ), move.magnitude, sprinting, turnDelta);
+  state.locomotion = grounded
+    ? chooseLocomotion(Math.hypot(nextVelocityX, nextVelocityZ), move.magnitude, sprinting, plantCut)
+    : 'airborne';
   state.actionHooks = {
     jumpRequested: (intent.actionBits & PlayerActionBits.Jump) !== 0,
     tackleRequested: (intent.actionBits & PlayerActionBits.Tackle) !== 0,
