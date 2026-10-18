@@ -1,0 +1,37 @@
+import { describe, expect, it } from 'vitest';
+
+async function loadTournament() {
+  const module = await import('./tacticalTournament').catch(() => null);
+  expect(module, 'Stage 06 tactical tournament must exist').not.toBeNull();
+  return module as NonNullable<typeof module>;
+}
+
+describe('Stage 06 headless tactical tournament', () => {
+  it('is deterministic and completes thousands of 3v3 possessions without swarming or keeper abandonment', async () => {
+    const { runTacticalTournament } = await loadTournament();
+    const options = { possessions: 2000, seed: 0x600d5eed };
+    const first = runTacticalTournament(options);
+    const second = runTacticalTournament(options);
+    expect(second).toEqual(first);
+    expect(first.possessionsRequested).toBe(2000);
+    expect(first.possessionsCompleted).toBe(2000);
+    expect(first.failures).toBe(0);
+    expect(first.keeperAbandonments).toBe(0);
+    expect(first.permanentSwarmPossessions).toBe(0);
+    expect(first.clusterRatio).toBeLessThan(0.12);
+    expect(first.idleRatio).toBeLessThan(0.08);
+  });
+
+  it('produces useful passing and respects the Stage 06 tactical CPU budget', async () => {
+    const { runTacticalTournament } = await loadTournament();
+    const report = runTacticalTournament({ possessions: 3000, seed: 0x51a6e006 });
+    expect(report.passAttempts).toBeGreaterThan(report.possessionsCompleted * 0.65);
+    expect(report.completedPasses).toBeGreaterThan(report.passAttempts * 0.52);
+    expect(report.multiPassPossessions).toBeGreaterThan(report.possessionsCompleted * 0.18);
+    expect(report.shots).toBeGreaterThan(0);
+    expect(report.averageSupportDistance).toBeGreaterThan(3.2);
+    expect(report.averageSupportDistance).toBeLessThan(10.5);
+    expect(report.averageDecisionMsPerTeam).toBeLessThan(1);
+    expect(report.maxDecisionMsPerTeam).toBeLessThan(12);
+  });
+});
