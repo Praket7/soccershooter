@@ -52,6 +52,10 @@ function last(trace: ReturnType<typeof trajectory>) {
   return sample.state;
 }
 
+function apexHeight(trace: ReturnType<typeof trajectory>): number {
+  return trace.samples.reduce((height, sample) => Math.max(height, sample.state.position.y), -Infinity);
+}
+
 describe('Stage 05 contacts integrated with Stage 04 ball physics', () => {
   test('normal contact remains intentionally close to the aim plane', () => {
     const end = last(trajectory('normal'));
@@ -68,7 +72,7 @@ describe('Stage 05 contacts integrated with Stage 04 ball physics', () => {
   test('chip produces a materially higher apex than the normal strike', () => {
     const normal = trajectory('normal');
     const chip = trajectory('chip');
-    expect(chip.apex.y).toBeGreaterThan(normal.apex.y + 1.1);
+    expect(apexHeight(chip)).toBeGreaterThan(apexHeight(normal) + 1.1);
   });
 
   test('outside-foot contact curves in opposite lateral directions for left and right foot', () => {
