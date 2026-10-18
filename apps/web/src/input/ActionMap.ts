@@ -34,9 +34,25 @@ export interface PointerButtonState {
   secondaryDown: boolean;
 }
 
+export interface PointerButtonDownInput extends PointerButtonState {
+  button: number;
+  pointerLocked: boolean;
+}
+
+export interface PointerButtonDownResult extends PointerButtonState {
+  requestPointerLock: boolean;
+  actionBits: number;
+}
+
 export const DEFAULT_MOUSE_SENSITIVITY = 0.00325;
 
 const TAU = Math.PI * 2;
+const EDGE_KEY_ACTION_BITS = (
+  PlayerActionBits.Pass
+  | PlayerActionBits.ThroughPass
+  | PlayerActionBits.LoftedPass
+  | PlayerActionBits.Receive
+) >>> 0;
 
 function wrapYaw(yaw: number): number {
   const wrapped = ((yaw + Math.PI) % TAU + TAU) % TAU - Math.PI;
@@ -74,6 +90,9 @@ function actionBitsForCode(code: string): number {
   if (code === 'Space') return PlayerActionBits.Jump;
   if (code === 'KeyC' || code === 'KeyB' || code === 'ControlLeft' || code === 'ControlRight') return PlayerActionBits.Tackle;
   if (code === 'KeyE') return PlayerActionBits.Pass;
+  if (code === 'KeyQ') return PlayerActionBits.ThroughPass;
+  if (code === 'KeyR') return PlayerActionBits.LoftedPass;
+  if (code === 'KeyF') return PlayerActionBits.Receive;
   return 0;
 }
 
@@ -85,19 +104,38 @@ export function pointerStateToActionBits(primaryDown: boolean, secondaryDown: bo
 }
 
 /**
- * Applies mouse-button state independently of pointer-lock acquisition. The
- * same first LMB press that captures the mouse therefore also begins charging
- * a shot instead of being swallowed by the camera-control transition.
+ * Pointer-lock acquisition is a camera-mode transition, not a football action.
+ * The gesture that enters mouse-look is therefore swallowed completely. Only
+ * presses made while already locked can become shoot/close-control input.
  */
+export function resolvePointerButtonDown(input: Readonly<PointerButtonDownInput>): PointerButtonDownResult {
+  if (!input.pointerLocked) {
+    return {
+      primaryDown: false,
+      secondaryDown: false,
+      requestPointerLock: true,
+      actionBits: 0,
+    };
+  }
+
+  const primaryDown = input.primaryDown || input.button === 0;
+  const secondaryDown = input.secondaryDown || input.button === 2;
+  return {
+    primaryDown,
+    secondaryDown,
+    requestPointerLock: false,
+    actionBits: pointerStateToActionBits(primaryDown, secondaryDown),
+  };
+}
+
+/** Backward-compatible helper for already-captured pointer button state. */
 export function applyPointerButtonDown(
   primaryDown: boolean,
   secondaryDown: boolean,
   button: number,
 ): PointerButtonState {
-  return {
-    primaryDown: primaryDown || button === 0,
-    secondaryDown: secondaryDown || button === 2,
-  };
+  const result = resolvePointerButtonDown({ primaryDown, secondaryDown, button, pointerLocked: true });
+  return { primaryDown: result.primaryDown, secondaryDown: result.secondaryDown };
 }
 
 export function keyboardStateToIntent(sample: Readonly<KeyboardIntentSample>): InputIntent {
@@ -107,7 +145,12 @@ export function keyboardStateToIntent(sample: Readonly<KeyboardIntentSample>): I
   let actionBits = 0;
   if (pressed(sample.keys, 'Space')) actionBits |= PlayerActionBits.Jump;
   if (pressed(sample.keys, 'KeyC', 'KeyB', 'ControlLeft', 'ControlRight')) actionBits |= PlayerActionBits.Tackle;
-  if (pressed(sample.keys, 'KeyQ')) actionBits |= PlayerActionBits.Technique;
+  if (pressed(sample.keys, 'KeyE')) actionBits |= PlayerActionBits.Pass;
+  if (pressed(sample.keys, 'KeyQ')) actionBits |= PlayerActionBits.ThroughPass;
+  if (pressed(sample.keys, 'KeyR')) actionBits |= PlayerActionBits.LoftedPass;
+  if (pressed(sample.keys, 'KeyF')) actionBits |= PlayerActionBits.Receive;
+  if (pressed(sample.keys, 'KeyZ')) actionBits |= PlayerActionBits.DrivenModifier;
+  if (pressed(sample.keys, 'KeyX')) actionBits |= PlayerActionBits.ChipModifier;
   return {
     moveX: move.x,
     moveY: move.y,
@@ -173,15 +216,24 @@ export class ActionMap {
   };
 
   readonly #onPointerDown = (event: PointerEvent) => {
-    const next = applyPointerButtonDown(this.#primaryDown, this.#secondaryDown, event.button);
-    this.#primaryDown = next.primaryDown;
-    this.#secondaryDown = next.secondaryDown;
-    if (event.button === 2) event.preventDefault();
+    const result = resolvePointerButtonDown({
+      primaryDown: this.#primaryDown,
+      secondaryDown: this.#secondaryDown,
+      button: event.button,
+      pointerLocked: document.pointerLockElement === this.#pointerTarget,
+    });
     this.#lastInputTimestamp = performance.now();
+    if (event.button === 2) event.preventDefault();
 
-    if (document.pointerLockElement !== this.#pointerTarget) {
+    if (result.requestPointerLock) {
+      this.#primaryDown = false;
+      this.#secondaryDown = false;
       void this.#pointerTarget.requestPointerLock();
+      return;
     }
+
+    this.#primaryDown = result.primaryDown;
+    this.#secondaryDown = result.secondaryDown;
   };
 
   readonly #onPointerUp = (event: PointerEvent) => {
@@ -249,6 +301,9 @@ export class ActionMap {
 
   consumeFrame(): ActionFrame {
     const intent = keyboardStateToIntent({ keys: this.#keys, aimYaw: this.#aimYaw });
+    // Dedicated football actions are edge-triggered even though the pure mapper
+    // exposes their held state for tests/remapping UIs.
+    intent.actionBits &= ~EDGE_KEY_ACTION_BITS;
     intent.actionBits = (
       intent.actionBits
       | this.#pendingActionBits
