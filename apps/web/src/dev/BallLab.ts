@@ -3,6 +3,7 @@ import { BALL_CONSTANTS, cloneBallState, createBallState, type BallState } from 
 import { MATCH_BALL_PROFILE, type BallCoefficientProfile } from '@soccershooter/physics/ball/aerodynamics';
 import {
   BALL_SUBSTEP_DT,
+  BALL_SUBSTEP_HZ,
   STANDARD_GOAL_FRAME,
   crossedGoalPlane,
   predictTrajectory,
@@ -49,14 +50,14 @@ const DEFAULT_CONTROLS: BallLabControls = Object.freeze({
 });
 
 export const BALL_LAB_PRESETS: readonly BallLabPreset[] = Object.freeze([
-  { id: 'driven', label: 'Driven', description: 'Low, fast 10–15 m service', controls: { speed: 14, elevationDegrees: 5, spinRate: 8, spinAxis: 'back', azimuthDegrees: 0, knuckleSeed: 0 } },
-  { id: 'straight', label: 'Straight', description: 'Stable zero-spin strike', controls: { speed: 24, elevationDegrees: 12, spinRate: 0, spinAxis: 'none', azimuthDegrees: 0, knuckleSeed: 0 } },
-  { id: 'curl', label: 'Curl', description: 'Sidespin bending toward the far corner', controls: { speed: 24, elevationDegrees: 12, spinRate: 58, spinAxis: 'side', azimuthDegrees: -2, knuckleSeed: 0 } },
-  { id: 'power', label: 'Power', description: '29 m/s driven shot', controls: { speed: 29, elevationDegrees: 10, spinRate: 10, spinAxis: 'side', azimuthDegrees: 0, knuckleSeed: 0 } },
+  { id: 'driven', label: 'Driven 10m', description: 'Low, fast service benchmark', controls: { speed: 14, elevationDegrees: 5, spinRate: 8, spinAxis: 'back', azimuthDegrees: 0, knuckleSeed: 0 } },
+  { id: 'straight', label: 'Straight 20m', description: 'Stable zero-spin strike benchmark', controls: { speed: 24, elevationDegrees: 12, spinRate: 0, spinAxis: 'none', azimuthDegrees: 0, knuckleSeed: 0 } },
+  { id: 'curl', label: 'Curl 20m', description: 'Sidespin benchmark that bends toward +X', controls: { speed: 24, elevationDegrees: 12, spinRate: 58, spinAxis: 'side', azimuthDegrees: 0, knuckleSeed: 0 } },
+  { id: 'power', label: 'Power 25m', description: '29 m/s power-strike benchmark', controls: { speed: 29, elevationDegrees: 10, spinRate: 10, spinAxis: 'side', azimuthDegrees: 0, knuckleSeed: 0 } },
   { id: 'loft', label: 'Loft', description: 'Backspin carry and softer drop', controls: { speed: 19, elevationDegrees: 27, spinRate: 22, spinAxis: 'back', azimuthDegrees: 0, knuckleSeed: 0 } },
   { id: 'chip', label: 'Chip', description: 'High launch with strong backspin', controls: { speed: 15, elevationDegrees: 34, spinRate: 34, spinAxis: 'back', azimuthDegrees: 0, knuckleSeed: 0 } },
   { id: 'knuckle', label: 'Knuckle', description: 'Seeded low-spin wake instability', controls: { speed: 24, elevationDegrees: 10, spinRate: 0.4, spinAxis: 'side', azimuthDegrees: 0, knuckleSeed: 0x9a17b5 } },
-  { id: 'post', label: 'Post', description: 'Rigid-frame rebound benchmark', controls: { speed: 28, elevationDegrees: 4, spinRate: 8, spinAxis: 'side', azimuthDegrees: 10.1, knuckleSeed: 0 } },
+  { id: 'post', label: 'Post rebound', description: 'Rigid-frame rebound benchmark', controls: { speed: 28, elevationDegrees: 4, spinRate: 8, spinAxis: 'side', azimuthDegrees: 10.1, knuckleSeed: 0 } },
 ]);
 
 const PROFILES: Readonly<Record<string, BallCoefficientProfile>> = Object.freeze({
@@ -84,7 +85,6 @@ export function buildLaunchFromControls(input: BallLabControls): BallState {
   const elevation = clamp(finite(input.elevationDegrees, DEFAULT_CONTROLS.elevationDegrees), -5, 55) * Math.PI / 180;
   const azimuth = clamp(finite(input.azimuthDegrees, DEFAULT_CONTROLS.azimuthDegrees), -25, 25) * Math.PI / 180;
   const horizontal = Math.cos(elevation) * speed;
-  const spin = spinVector(input.spinAxis, finite(input.spinRate, 0));
   return createBallState({
     position: { x: 0, y: BALL_CONSTANTS.radius, z: -9 },
     velocity: {
@@ -92,7 +92,7 @@ export function buildLaunchFromControls(input: BallLabControls): BallState {
       y: Math.sin(elevation) * speed,
       z: Math.cos(azimuth) * horizontal,
     },
-    angularVelocity: spin,
+    angularVelocity: spinVector(input.spinAxis, finite(input.spinRate, 0)),
     knuckleSeed: Math.max(0, Math.trunc(finite(input.knuckleSeed, 0))) >>> 0,
   });
 }
@@ -145,11 +145,17 @@ function createGoalFrame(scene: THREE.Scene): THREE.Group {
   const netPoints: THREE.Vector3[] = [];
   for (let xIndex = 0; xIndex <= 8; xIndex += 1) {
     const x = -STANDARD_GOAL_FRAME.halfWidth + (STANDARD_GOAL_FRAME.halfWidth * 2 * xIndex) / 8;
-    netPoints.push(new THREE.Vector3(x, 0, STANDARD_GOAL_FRAME.planeZ + 0.03), new THREE.Vector3(x, STANDARD_GOAL_FRAME.height, STANDARD_GOAL_FRAME.planeZ + 0.03));
+    netPoints.push(
+      new THREE.Vector3(x, 0, STANDARD_GOAL_FRAME.planeZ + 0.03),
+      new THREE.Vector3(x, STANDARD_GOAL_FRAME.height, STANDARD_GOAL_FRAME.planeZ + 0.03),
+    );
   }
   for (let yIndex = 0; yIndex <= 5; yIndex += 1) {
     const y = (STANDARD_GOAL_FRAME.height * yIndex) / 5;
-    netPoints.push(new THREE.Vector3(-STANDARD_GOAL_FRAME.halfWidth, y, STANDARD_GOAL_FRAME.planeZ + 0.03), new THREE.Vector3(STANDARD_GOAL_FRAME.halfWidth, y, STANDARD_GOAL_FRAME.planeZ + 0.03));
+    netPoints.push(
+      new THREE.Vector3(-STANDARD_GOAL_FRAME.halfWidth, y, STANDARD_GOAL_FRAME.planeZ + 0.03),
+      new THREE.Vector3(STANDARD_GOAL_FRAME.halfWidth, y, STANDARD_GOAL_FRAME.planeZ + 0.03),
+    );
   }
   group.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(netPoints), netMaterial));
   scene.add(group);
@@ -187,15 +193,18 @@ function setLinePoints(line: THREE.Line, samples: readonly TrajectorySample[], s
   const points: THREE.Vector3[] = [];
   for (let index = 0; index < samples.length; index += Math.max(1, stride)) {
     const sample = samples[index];
-    if (!sample) continue;
-    points.push(new THREE.Vector3(sample.state.position.x, sample.state.position.y, sample.state.position.z));
+    if (sample) points.push(new THREE.Vector3(sample.state.position.x, sample.state.position.y, sample.state.position.z));
   }
   const final = samples[samples.length - 1];
-  if (final && (points.length === 0 || points[points.length - 1]?.distanceToSquared(new THREE.Vector3(final.state.position.x, final.state.position.y, final.state.position.z))! > 1e-10)) {
-    points.push(new THREE.Vector3(final.state.position.x, final.state.position.y, final.state.position.z));
+  if (final) {
+    const finalPoint = new THREE.Vector3(final.state.position.x, final.state.position.y, final.state.position.z);
+    const lastPoint = points[points.length - 1];
+    if (!lastPoint || lastPoint.distanceToSquared(finalPoint) > 1e-10) points.push(finalPoint);
   }
   line.geometry.dispose();
-  line.geometry = new THREE.BufferGeometry().setFromPoints(points.length >= 2 ? points : [new THREE.Vector3(), new THREE.Vector3()]);
+  line.geometry = new THREE.BufferGeometry().setFromPoints(
+    points.length >= 2 ? points : [new THREE.Vector3(), new THREE.Vector3()],
+  );
 }
 
 function requireChild<T extends HTMLElement>(root: ParentNode, selector: string): T {
@@ -222,11 +231,13 @@ export class BallLab {
   #predictionTrail: THREE.Line;
   #landingMarker: THREE.Mesh;
   #metrics: HTMLElement;
+  #probe: HTMLOutputElement;
   #speedInput: HTMLInputElement;
   #elevationInput: HTMLInputElement;
   #azimuthInput: HTMLInputElement;
   #spinInput: HTMLInputElement;
   #spinAxisInput: HTMLSelectElement;
+  #profileInput: HTMLSelectElement;
   #slowMotionInput: HTMLSelectElement;
   #trailInput: HTMLInputElement;
   #seedInput: HTMLInputElement;
@@ -255,37 +266,41 @@ export class BallLab {
     this.root.innerHTML = `
       <div class="ball-lab-heading">
         <div><span>Stage 04 instrument</span><strong>Ball Lab</strong></div>
-        <span class="ball-lab-live"><i></i> 120 Hz</span>
+        <span class="ball-lab-live"><i></i> ${BALL_SUBSTEP_HZ} Hz</span>
       </div>
       <div class="ball-lab-presets" role="group" aria-label="Ball physics presets">
         ${BALL_LAB_PRESETS.map((preset, index) => `<button type="button" data-ball-preset="${preset.id}" title="${preset.description}"><kbd>${index + 1}</kbd>${preset.label}</button>`).join('')}
       </div>
       <div class="ball-lab-grid">
-        <label>Speed <output data-speed-value>${this.#controls.speed.toFixed(1)} m/s</output><input data-ball-speed type="range" min="4" max="40" step="0.5" value="${this.#controls.speed}"></label>
-        <label>Elevation <output data-elevation-value>${this.#controls.elevationDegrees.toFixed(0)}°</output><input data-ball-elevation type="range" min="0" max="45" step="1" value="${this.#controls.elevationDegrees}"></label>
-        <label>Aim offset <output data-azimuth-value>${this.#controls.azimuthDegrees.toFixed(1)}°</output><input data-ball-azimuth type="range" min="-15" max="15" step="0.5" value="${this.#controls.azimuthDegrees}"></label>
-        <label>Spin <output data-spin-value>${this.#controls.spinRate.toFixed(0)} rad/s</output><input data-ball-spin type="range" min="0" max="120" step="1" value="${this.#controls.spinRate}"></label>
-        <label>Spin axis<select data-ball-spin-axis><option value="none">None</option><option value="side">Sidespin</option><option value="top">Topspin</option><option value="back">Backspin</option></select></label>
-        <label>Slow motion<select data-ball-slow><option value="1">1× realtime</option><option value="0.5">0.5×</option><option value="0.25">0.25×</option></select></label>
-        <label class="seed-field">Knuckle seed<input data-ball-seed type="number" min="0" max="4294967295" step="1" value="0"></label>
-        <label class="trail-toggle"><input data-ball-trail type="checkbox" checked> Trajectory + predictor</label>
+        <label>Launch speed <output data-speed-value>${this.#controls.speed.toFixed(1)} m/s</output><input aria-label="Launch speed" data-ball-speed type="range" min="4" max="40" step="0.5" value="${this.#controls.speed}"></label>
+        <label>Elevation <output data-elevation-value>${this.#controls.elevationDegrees.toFixed(0)}°</output><input aria-label="Elevation" data-ball-elevation type="range" min="0" max="45" step="1" value="${this.#controls.elevationDegrees}"></label>
+        <label>Aim offset <output data-azimuth-value>${this.#controls.azimuthDegrees.toFixed(1)}°</output><input aria-label="Aim offset" data-ball-azimuth type="range" min="-15" max="15" step="0.5" value="${this.#controls.azimuthDegrees}"></label>
+        <label>Spin rate <output data-spin-value>${this.#controls.spinRate.toFixed(0)} rad/s</output><input aria-label="Spin rate" data-ball-spin type="range" min="0" max="120" step="1" value="${this.#controls.spinRate}"></label>
+        <label>Spin axis<select aria-label="Spin axis" data-ball-spin-axis><option value="none">None</option><option value="side">Sidespin</option><option value="top">Topspin</option><option value="back">Backspin</option></select></label>
+        <label>Coefficient profile<select aria-label="Coefficient profile" data-ball-profile><option value="${MATCH_BALL_PROFILE.id}">Match balanced v1</option></select></label>
+        <label>Slow motion<select aria-label="Slow motion" data-ball-slow><option value="1">1× realtime</option><option value="0.5">0.5×</option><option value="0.25">0.25×</option></select></label>
+        <label class="seed-field">Knuckle seed<input aria-label="Knuckle seed" data-ball-seed type="number" min="0" max="4294967295" step="1" value="0"></label>
+        <label class="trail-toggle"><input aria-label="Trajectory and predictor" data-ball-trail type="checkbox" checked> Trajectory + predictor</label>
       </div>
       <div class="ball-lab-actions">
-        <button class="primary" type="button" data-ball-launch><span>Launch</span><kbd>L</kbd></button>
-        <button type="button" data-ball-reset>Reset <kbd>0</kbd></button>
-        <button type="button" data-ball-export>CSV <kbd>E</kbd></button>
+        <button aria-label="Launch" class="primary" type="button" data-ball-launch><span>Launch</span><kbd>L</kbd></button>
+        <button aria-label="Reset Ball" type="button" data-ball-reset>Reset Ball <kbd>0</kbd></button>
+        <button aria-label="Export CSV" type="button" data-ball-export>CSV <kbd>E</kbd></button>
       </div>
       <div class="ball-lab-metrics" data-ball-metrics aria-live="polite"></div>
       <p class="ball-lab-note">The ball stays physically independent. Stage 05 adds player contact, passing, and shooting mechanics.</p>
+      <output data-ball-state data-ball-tick-hz="${BALL_SUBSTEP_HZ}" data-active="false" data-x="0" data-y="${BALL_CONSTANTS.radius}" data-z="-9" data-predicted-x="0" data-predicted-z="0" hidden></output>
     `;
     options.host.append(this.root);
 
     this.#metrics = requireChild(this.root, '[data-ball-metrics]');
+    this.#probe = requireChild(this.root, '[data-ball-state]');
     this.#speedInput = requireChild(this.root, '[data-ball-speed]');
     this.#elevationInput = requireChild(this.root, '[data-ball-elevation]');
     this.#azimuthInput = requireChild(this.root, '[data-ball-azimuth]');
     this.#spinInput = requireChild(this.root, '[data-ball-spin]');
     this.#spinAxisInput = requireChild(this.root, '[data-ball-spin-axis]');
+    this.#profileInput = requireChild(this.root, '[data-ball-profile]');
     this.#slowMotionInput = requireChild(this.root, '[data-ball-slow]');
     this.#trailInput = requireChild(this.root, '[data-ball-trail]');
     this.#seedInput = requireChild(this.root, '[data-ball-seed]');
@@ -298,7 +313,7 @@ export class BallLab {
     for (const input of [this.#speedInput, this.#elevationInput, this.#azimuthInput, this.#spinInput, this.#seedInput]) {
       input.addEventListener('input', onControlChange);
     }
-    for (const input of [this.#spinAxisInput, this.#slowMotionInput, this.#trailInput]) {
+    for (const input of [this.#spinAxisInput, this.#profileInput, this.#slowMotionInput, this.#trailInput]) {
       input.addEventListener('change', onControlChange);
     }
 
@@ -381,7 +396,9 @@ export class BallLab {
         this.#playing = false;
         this.root.classList.remove('is-playing');
       }
-      if (this.#controls.trailEnabled && this.#actualSamples.length % 2 === 0) setLinePoints(this.#actualTrail, this.#actualSamples, 2);
+      if (this.#controls.trailEnabled && this.#actualSamples.length % 2 === 0) {
+        setLinePoints(this.#actualTrail, this.#actualSamples, 2);
+      }
     }
     this.#syncVisuals();
   }
@@ -404,7 +421,7 @@ export class BallLab {
       azimuthDegrees: Number(this.#azimuthInput.value),
       spinRate: Number(this.#spinInput.value),
       spinAxis: this.#spinAxisInput.value as BallLabSpinAxis,
-      profileId: MATCH_BALL_PROFILE.id,
+      profileId: this.#profileInput.value,
       slowMotion: Number(this.#slowMotionInput.value),
       trailEnabled: this.#trailInput.checked,
       knuckleSeed: Number(this.#seedInput.value),
@@ -421,6 +438,7 @@ export class BallLab {
     this.#azimuthInput.value = String(this.#controls.azimuthDegrees);
     this.#spinInput.value = String(this.#controls.spinRate);
     this.#spinAxisInput.value = this.#controls.spinAxis;
+    this.#profileInput.value = this.#controls.profileId;
     this.#slowMotionInput.value = String(this.#controls.slowMotion);
     this.#trailInput.checked = this.#controls.trailEnabled;
     this.#seedInput.value = String(this.#controls.knuckleSeed >>> 0);
@@ -440,6 +458,8 @@ export class BallLab {
     const prediction = predictTrajectory(launch, { profile: this.#profile, goalFrame: STANDARD_GOAL_FRAME, maxSeconds: 8 });
     setLinePoints(this.#predictionTrail, prediction.samples, 3);
     this.#landingMarker.position.set(prediction.landing.position.x, 0.012, prediction.landing.position.z);
+    this.#probe.dataset.predictedX = prediction.landing.position.x.toFixed(6);
+    this.#probe.dataset.predictedZ = prediction.landing.position.z.toFixed(6);
     this.#metrics.innerHTML = `
       <span><b>${Math.round(this.#controls.speed * 3.6)}</b> km/h</span>
       <span><b>${Math.round(this.#controls.spinRate * 60 / (Math.PI * 2))}</b> rpm</span>
@@ -452,13 +472,21 @@ export class BallLab {
     this.ballVisual.position.set(this.#state.position.x, this.#state.position.y, this.#state.position.z);
     const angularSpeed = Math.hypot(this.#state.angularVelocity.x, this.#state.angularVelocity.y, this.#state.angularVelocity.z);
     if (angularSpeed > 1e-6) {
-      const axis = new THREE.Vector3(this.#state.angularVelocity.x, this.#state.angularVelocity.y, this.#state.angularVelocity.z).normalize();
+      const axis = new THREE.Vector3(
+        this.#state.angularVelocity.x,
+        this.#state.angularVelocity.y,
+        this.#state.angularVelocity.z,
+      ).normalize();
       this.ballVisual.rotateOnWorldAxis(axis, Math.min(0.18, angularSpeed * BALL_SUBSTEP_DT));
     }
     this.root.dataset.flightSeconds = this.#state.flightSeconds.toFixed(3);
     this.root.dataset.ballX = this.#state.position.x.toFixed(4);
     this.root.dataset.ballZ = this.#state.position.z.toFixed(4);
     this.root.dataset.playing = String(this.#playing);
+    this.#probe.dataset.active = String(this.#playing);
+    this.#probe.dataset.x = this.#state.position.x.toFixed(6);
+    this.#probe.dataset.y = this.#state.position.y.toFixed(6);
+    this.#probe.dataset.z = this.#state.position.z.toFixed(6);
   }
 
   #onKeyDown(event: KeyboardEvent): void {
