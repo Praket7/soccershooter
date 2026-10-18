@@ -1,6 +1,12 @@
 import { describe, expect, test } from 'vitest';
 import { BALL_CONSTANTS } from '@soccershooter/physics/ball/BallState';
-import { buildLaunchFromControls, traceToCsv, type BallLabControls } from './BallLab';
+import { STANDARD_GOAL_FRAME, simulateBall } from '@soccershooter/physics/ball/trajectory';
+import {
+  BALL_LAB_PRESETS,
+  buildLaunchFromControls,
+  traceToCsv,
+  type BallLabControls,
+} from './BallLab';
 
 describe('Stage 04 Ball Lab control contract', () => {
   test('builds a physical launch from speed, elevation, spin axis/rate, and knuckle seed', () => {
@@ -23,11 +29,35 @@ describe('Stage 04 Ball Lab control contract', () => {
     expect(launch.knuckleSeed).toBe(77);
   });
 
-  test('CSV export contains deterministic time/position/velocity/spin columns', () => {
+  test('Post rebound preset actually reaches and rebounds from the right post', () => {
+    const preset = BALL_LAB_PRESETS.find((candidate) => candidate.id === 'post');
+    expect(preset).toBeDefined();
+    const controls: BallLabControls = {
+      speed: 24,
+      elevationDegrees: 12,
+      azimuthDegrees: 0,
+      spinRate: 0,
+      spinAxis: 'none',
+      profileId: 'match-balanced-v1',
+      slowMotion: 1,
+      trailEnabled: true,
+      knuckleSeed: 0,
+      ...preset?.controls,
+    };
+    const trace = simulateBall(buildLaunchFromControls(controls), {
+      seconds: 2,
+      goalFrame: STANDARD_GOAL_FRAME,
+    });
+    const frameContact = trace.samples.find((sample) => sample.state.lastContact?.kind === 'goal-frame');
+    expect(frameContact?.state.lastContact?.id).toBe('right-post');
+    expect(frameContact?.state.position.y ?? 0).toBeGreaterThan(BALL_CONSTANTS.radius + 0.15);
+  });
+
+  test('CSV export carries diagnostics needed to audit energy, grounding, and contacts', () => {
     const csv = traceToCsv([
       { time: 0, state: buildLaunchFromControls({ speed: 20, elevationDegrees: 10, azimuthDegrees: 0, spinRate: 0, spinAxis: 'none', profileId: 'match-balanced-v1', slowMotion: 1, trailEnabled: true, knuckleSeed: 0 }) },
     ]);
-    expect(csv.split('\n')[0]).toBe('time,x,y,z,vx,vy,vz,wx,wy,wz');
+    expect(csv.split('\n')[0]).toBe('time,x,y,z,vx,vy,vz,wx,wy,wz,speed,spin,energyJ,grounded,contactKind,contactId');
     expect(csv.split('\n')).toHaveLength(2);
   });
 });
