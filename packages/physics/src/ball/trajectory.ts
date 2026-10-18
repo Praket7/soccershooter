@@ -10,6 +10,7 @@ import {
   MATCH_BALL_PROFILE,
   aerodynamicAcceleration,
   decayAngularVelocity,
+  dragAcceleration,
   type BallCoefficientProfile,
 } from './aerodynamics';
 import { resolveGroundContact } from './groundContact';
@@ -183,16 +184,10 @@ function resolveSweptGoalFrameCollision(
     candidate.flightSeconds = impactTime;
     let resolved = resolveGoalFrameCollision(candidate, frame, profile);
 
-    // The swept hit occurs partway through this authoritative 120 Hz step.
-    // Resolve at impact, then consume the remainder with the reflected velocity
-    // so a frame contact cannot silently shorten simulation time.
     const remainingSeconds = Math.max(0, endTime - impactTime);
     resolved.position = add(resolved.position, scale(resolved.velocity, remainingSeconds));
     resolved.flightSeconds = endTime;
 
-    // A corner hit can end the residual move against another frame member.
-    // Re-resolving only at the endpoint keeps the state non-penetrating without
-    // adding another time increment or any artificial energy.
     resolved = resolveGoalFrameCollision(resolved, frame, profile);
     resolved.flightSeconds = endTime;
     return resolved;
@@ -236,6 +231,12 @@ export function stepBall(
     state.velocity.z += aero.z * clampedDt;
     state.angularVelocity = decayAngularVelocity(state.angularVelocity, clampedDt, profile);
   } else {
+    // A rolling football still presents its frontal area to the air. Apply only
+    // dissipative drag while grounded; Magnus/knuckle remain flight-only so the
+    // ground model cannot inject vertical or arbitrary lateral acceleration.
+    const drag = dragAcceleration(state, profile);
+    state.velocity.x += drag.x * clampedDt;
+    state.velocity.z += drag.z * clampedDt;
     state.velocity.y = 0;
   }
 
@@ -245,9 +246,6 @@ export function stepBall(
   state.position.z += state.velocity.z * clampedDt;
   state.flightSeconds += clampedDt;
 
-  // Resolve thin goal-frame geometry before turf response. This keeps a low
-  // driven shot from applying ground friction first and then using that altered
-  // velocity to retroactively resolve an earlier post impact in the same step.
   if (goalFrame) state = resolveSweptGoalFrameCollision(beforeMove, state, goalFrame, profile);
   if (state.position.y <= BALL_CONSTANTS.radius || wasGrounded) {
     state = resolveGroundContact(state, clampedDt, profile);
