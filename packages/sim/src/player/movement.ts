@@ -25,11 +25,11 @@ export const DEFAULT_MOVEMENT_CONFIG: Readonly<MovementConfig> = Object.freeze({
   capsuleRadius: 0.38,
   walkSpeed: 2.35,
   jogSpeed: 5.2,
-  sprintSpeed: 7.8,
+  sprintSpeed: 8.8,
   acceleration: 20,
   braking: 27,
-  lowSpeedTurnRate: 9.2,
-  highSpeedTurnRate: 3.25,
+  lowSpeedTurnRate: 12,
+  highSpeedTurnRate: 5.6,
   facingTurnRate: 12,
   staminaMax: 100,
   staminaDrainPerSecond: 16,
@@ -106,6 +106,7 @@ export const BENCHMARK_COURSE: Readonly<{ spawn: Vec3; zones: readonly Benchmark
 
 const TAU = Math.PI * 2;
 const EPSILON = 1e-9;
+const DIRECT_REVERSE_ANGLE = (125 * Math.PI) / 180;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -275,8 +276,10 @@ export function stepPlayerMovement(
 
   const sin = Math.sin(aimYaw);
   const cos = Math.cos(aimYaw);
-  const desiredX = move.x * cos + move.y * sin;
-  const desiredZ = move.y * cos - move.x * sin;
+  // Camera-relative basis: forward = (sin(yaw), cos(yaw)); screen-right = (-cos(yaw), sin(yaw)).
+  // This keeps D/right-stick-right moving toward the player's screen-right instead of mirroring it.
+  const desiredX = move.y * sin - move.x * cos;
+  const desiredZ = move.y * cos + move.x * sin;
   const currentSpeed = Math.hypot(state.velocity.x, state.velocity.z);
   const topSpeed = sprinting ? config.sprintSpeed : config.jogSpeed;
   const targetSpeed = topSpeed * move.magnitude;
@@ -284,20 +287,28 @@ export function stepPlayerMovement(
   let constrainedX = desiredX;
   let constrainedZ = desiredZ;
   let turnDelta = 0;
+  let directReverse = false;
   if (currentSpeed > 0.08 && targetSpeed > 0.01) {
     const currentHeading = Math.atan2(state.velocity.x, state.velocity.z);
     const desiredHeading = Math.atan2(desiredX, desiredZ);
     turnDelta = angleDelta(currentHeading, desiredHeading);
-    const speedFraction = clamp(currentSpeed / config.sprintSpeed, 0, 1);
-    const turnRate = config.lowSpeedTurnRate + (config.highSpeedTurnRate - config.lowSpeedTurnRate) * speedFraction;
-    const constrainedHeading = moveAngleToward(currentHeading, desiredHeading, turnRate * deltaSeconds);
-    constrainedX = Math.sin(constrainedHeading);
-    constrainedZ = Math.cos(constrainedHeading);
+    directReverse = Math.abs(turnDelta) >= DIRECT_REVERSE_ANGLE;
+
+    if (!directReverse) {
+      const speedFraction = clamp(currentSpeed / config.sprintSpeed, 0, 1);
+      const turnRate = config.lowSpeedTurnRate + (config.highSpeedTurnRate - config.lowSpeedTurnRate) * speedFraction;
+      const constrainedHeading = moveAngleToward(currentHeading, desiredHeading, turnRate * deltaSeconds);
+      constrainedX = Math.sin(constrainedHeading);
+      constrainedZ = Math.cos(constrainedHeading);
+    }
   }
 
   const targetVelocityX = constrainedX * targetSpeed;
   const targetVelocityZ = constrainedZ * targetSpeed;
-  const maxVelocityDelta = (move.magnitude > 0.01 ? config.acceleration : config.braking) * deltaSeconds;
+  // Plant-and-reverse inputs should use braking authority rather than slowly steering a semicircle.
+  // Ordinary cuts retain speed-dependent turn limits, preserving the broader sprint arc.
+  const responseRate = move.magnitude <= 0.01 || directReverse ? config.braking : config.acceleration;
+  const maxVelocityDelta = responseRate * deltaSeconds;
   const velocity = moveVectorToward(
     state.velocity.x,
     state.velocity.z,
