@@ -10,6 +10,7 @@ import {
   ownGoalZ,
   opponentsOf,
   teamPlayers,
+  type BotRole,
   type BotWorldSnapshot,
   type Vec3,
 } from './types';
@@ -17,6 +18,14 @@ import {
 export interface CarrierActionDecision {
   kind: 'shoot' | 'pass' | 'dribble' | 'protect' | 'clear';
   targetPlayerId: string | null;
+  score: number;
+}
+
+export type OffBallActionKind = 'support' | 'overlap' | 'width' | 'half-space' | 'back-post-run' | 'recycle';
+
+export interface OffBallActionDecision {
+  kind: OffBallActionKind;
+  targetPosition: Vec3;
   score: number;
 }
 
@@ -54,8 +63,6 @@ export function chooseCarrierAction(
     if (receiver.id === carrierId || receiver.goalkeeper) continue;
     const lane = evaluatePassLane(world, carrierId, receiver.id);
     const base = scorePassOption(world, carrierId, receiver.id);
-    // Under pressure, a lane where the ball still beats the first defender is
-    // especially valuable: it is an escape route, not merely an aesthetic open lane.
     const positiveArrivalMargin = lane.interceptionMarginSeconds > 0
       ? 0.18 + clamp01(lane.interceptionMarginSeconds / 0.5) * 0.12
       : 0;
@@ -81,6 +88,103 @@ export function chooseCarrierAction(
   return candidates.sort((a, b) => b.score - a.score || a.kind.localeCompare(b.kind))[0]!;
 }
 
+function oppositeSide(value: number, magnitude: number): number {
+  if (Math.abs(value) < 0.5) return magnitude;
+  return value > 0 ? -magnitude : magnitude;
+}
+
+export function chooseOffBallAction(
+  world: Readonly<BotWorldSnapshot>,
+  playerId: string,
+  assignedRole: BotRole,
+): OffBallActionDecision {
+  const player = findPlayer(world, playerId);
+  const direction = attackingDirection(player.team);
+  const carrier = world.possessionTeam === player.team && world.possessionPlayerId
+    ? findPlayer(world, world.possessionPlayerId)
+    : null;
+
+  if (!carrier || carrier.id === player.id) {
+    return {
+      kind: 'recycle',
+      targetPosition: fieldClamp(world, {
+        x: player.position.x * 0.55,
+        y: 0,
+        z: world.ball.position.z - direction * 5.2,
+      }),
+      score: 0.52,
+    };
+  }
+
+  const progress = direction * carrier.position.z;
+  const finalThird = progress > world.field.halfLength * 0.50;
+  const ballWide = Math.abs(carrier.position.x) > world.field.halfWidth * 0.36;
+  const farSide = carrier.position.x * player.position.x < 0;
+  if (assignedRole === 'width-support' && finalThird && ballWide && farSide) {
+    const targetX = oppositeSide(carrier.position.x, Math.min(world.field.halfWidth - 1, 4.8));
+    return {
+      kind: 'back-post-run',
+      targetPosition: fieldClamp(world, {
+        x: targetX,
+        y: 0,
+        z: opponentGoalZ(world, player.team) - direction * 3.2,
+      }, 0.8),
+      score: 0.84,
+    };
+  }
+
+  if (assignedRole === 'width-support') {
+    const preferredSide = Math.abs(player.position.x) > 1
+      ? Math.sign(player.position.x)
+      : -Math.sign(carrier.position.x || 1);
+    const width = Math.max(6.2, world.field.halfWidth * 0.62);
+    const widthTarget = fieldClamp(world, {
+      x: preferredSide * width,
+      y: 0,
+      z: carrier.position.z + direction * 2.8,
+    }, 0.8);
+    const halfSpaceTarget = fieldClamp(world, {
+      x: preferredSide * Math.min(4.6, world.field.halfWidth * 0.40),
+      y: 0,
+      z: carrier.position.z + direction * 4.1,
+    }, 0.8);
+    const widthScore = 0.64 + (Math.abs(carrier.position.x) < 3.5 ? 0.10 : 0);
+    const halfSpaceScore = finalThird && Math.abs(carrier.position.x) > 4 ? 0.67 : 0.51;
+    return widthScore >= halfSpaceScore
+      ? { kind: 'width', targetPosition: widthTarget, score: clamp01(widthScore) }
+      : { kind: 'half-space', targetPosition: halfSpaceTarget, score: clamp01(halfSpaceScore) };
+  }
+
+  if (assignedRole === 'immediate-support') {
+    const side = player.position.x >= carrier.position.x ? 1 : -1;
+    const supportTarget = fieldClamp(world, {
+      x: carrier.position.x + side * 4.2,
+      y: 0,
+      z: carrier.position.z + direction * 1.7,
+    }, 0.8);
+    const overlapTarget = fieldClamp(world, {
+      x: carrier.position.x + side * 5.4,
+      y: 0,
+      z: carrier.position.z + direction * 5.0,
+    }, 0.8);
+    const supportScore = 0.72;
+    const overlapScore = finalThird && Math.abs(carrier.position.x) > 2.5 ? 0.68 : 0.46;
+    return supportScore >= overlapScore
+      ? { kind: 'support', targetPosition: supportTarget, score: supportScore }
+      : { kind: 'overlap', targetPosition: overlapTarget, score: overlapScore };
+  }
+
+  return {
+    kind: 'recycle',
+    targetPosition: fieldClamp(world, {
+      x: carrier.position.x * 0.45,
+      y: 0,
+      z: carrier.position.z - direction * 5.8,
+    }, 0.8),
+    score: 0.56,
+  };
+}
+
 export function chooseDefensiveAction(
   world: Readonly<BotWorldSnapshot>,
   defenderId: string,
@@ -90,12 +194,53 @@ export function chooseDefensiveAction(
   const fieldPlayers = teamPlayers(world, defender.team).filter((player) => !player.goalkeeper);
   const nearest = [...fieldPlayers].sort((a, b) => horizontalDistance(a.position, world.ball.position) - horizontalDistance(b.position, world.ball.position) || (a.id < b.id ? -1 : 1))[0];
   const distanceToBall = horizontalDistance(defender.position, world.ball.position);
+  const opponentCarrier = world.possessionPlayerId
+    ? world.players.find((player) => player.id === world.possessionPlayerId && player.team !== defender.team) ?? null
+    : null;
+
   if (nearest?.id === defenderId && distanceToBall < 5.4) {
-    const opponentCarrier = world.possessionPlayerId ? world.players.find((player) => player.id === world.possessionPlayerId) : null;
-    const target = opponentCarrier && opponentCarrier.team !== defender.team ? opponentCarrier.position : world.ball.position;
-    return { kind: distanceToBall < 2.2 ? 'intercept' : 'press', targetPosition: fieldClamp(world, { ...target, y: 0 }), score: clamp01(0.72 + (5.4 - distanceToBall) * 0.04) };
+    const target = opponentCarrier ? opponentCarrier.position : world.ball.position;
+    return {
+      kind: distanceToBall < 2.2 ? 'intercept' : 'press',
+      targetPosition: fieldClamp(world, { ...target, y: 0 }),
+      score: clamp01(0.72 + (5.4 - distanceToBall) * 0.04),
+    };
   }
+
   const goalZ = ownGoalZ(world, defender.team);
+  if (opponentCarrier) {
+    const carrierGoalDistance = horizontalDistance(opponentCarrier.position, { x: 0, y: 0, z: goalZ });
+    const dangerousShot = carrierGoalDistance < 10.5 && shotQuality(world, opponentCarrier.id) > 0.48;
+    if (dangerousShot) {
+      return {
+        kind: 'block-shot',
+        targetPosition: fieldClamp(world, {
+          x: opponentCarrier.position.x * 0.62,
+          y: 0,
+          z: opponentCarrier.position.z + (goalZ - opponentCarrier.position.z) * 0.38,
+        }, 0.55),
+        score: clamp01(0.76 + (10.5 - carrierGoalDistance) * 0.018),
+      };
+    }
+
+    const receivers = opponentsOf(world, defender.team)
+      .filter((player) => !player.goalkeeper && player.id !== opponentCarrier.id)
+      .map((receiver) => ({ receiver, lane: evaluatePassLane(world, opponentCarrier.id, receiver.id) }))
+      .sort((a, b) => b.lane.openness - a.lane.openness || (a.receiver.id < b.receiver.id ? -1 : 1));
+    const bestLane = receivers[0];
+    if (bestLane && bestLane.lane.openness > 0.58) {
+      return {
+        kind: 'block-lane',
+        targetPosition: fieldClamp(world, {
+          x: opponentCarrier.position.x + (bestLane.lane.target.x - opponentCarrier.position.x) * 0.48,
+          y: 0,
+          z: opponentCarrier.position.z + (bestLane.lane.target.z - opponentCarrier.position.z) * 0.48,
+        }, 0.6),
+        score: clamp01(0.57 + bestLane.lane.openness * 0.26),
+      };
+    }
+  }
+
   const goalSideZ = world.ball.position.z - direction * Math.max(4, Math.min(7, horizontalDistance(world.ball.position, { x: 0, y: 0, z: goalZ }) * 0.26));
   const target = fieldClamp(world, {
     x: world.ball.position.x * 0.38 + defender.position.x * 0.12,
