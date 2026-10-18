@@ -15,6 +15,7 @@ import { GamepadAdapter } from './input/GamepadAdapter';
 import { mergeInputSources } from './input/InputMerge';
 import { ThirdPersonCamera, type CameraObstacle } from './camera/ThirdPersonCamera';
 import { MovementHud } from './debug/MovementHud';
+import { BallLab } from './dev/BallLab';
 import './styles.css';
 
 function requireElement<T extends Element>(selector: string): T {
@@ -30,16 +31,16 @@ app.innerHTML = `
   <div class="movement-lab-shell">
     <header class="lab-header">
       <div>
-        <p class="eyebrow">Stage 03 · deterministic movement / input / camera</p>
+        <p class="eyebrow">Stage 04 · premium football physics + Stage 03 movement</p>
         <h1>SoccerShooter Movement Lab</h1>
-        <p class="subtitle">Greybox only. The athlete has to feel excellent before the ball is allowed to exist.</p>
+        <p class="subtitle">An independent deterministic football now shares the greybox with the responsive athlete. Tune flight, spin, bounce, roll, and frame rebounds in Ball Lab.</p>
       </div>
       <div class="status-pill"><span></span> FICTIONAL_PUBLIC</div>
     </header>
-    <section class="viewport-wrap" aria-label="Stage 03 movement benchmark">
+    <section class="viewport-wrap" aria-label="Stage 04 football physics and movement benchmark">
       <div id="game-viewport" class="game-viewport"></div>
       <aside class="control-card">
-        <strong>Controls</strong>
+        <strong>Movement controls</strong>
         <span>W / S · forward / back</span>
         <span>A / D · screen-left / screen-right</span>
         <span>Mouse / right stick · camera</span>
@@ -54,22 +55,22 @@ app.innerHTML = `
         <span>Shift engages sprint</span>
       </aside>
       <aside class="course-card">
-        <strong>Benchmark course</strong>
+        <strong>Movement benchmark</strong>
         <span>01 straight sprint</span><span>02 hard cut</span><span>03 stop marker</span>
         <span>04 slalom</span><span>05 tight corridor</span><span>06 camera wall</span>
         <span>07 legal slope</span><span>08 step test</span>
       </aside>
     </section>
     <footer class="lab-footer">
-      <span>R record trace · P replay · X reset · F1 debug HUD</span>
-      <span>${PLAYER_MOVEMENT_TICK_HZ} Hz authoritative movement · render uncoupled</span>
+      <span>Ball: 1–8 presets · L launch · 0 reset · E CSV</span>
+      <span>Movement: R trace · P replay · X reset · F1 HUD · ${PLAYER_MOVEMENT_TICK_HZ} Hz</span>
     </footer>
     <output data-determinism-hash="${reference.hash}" data-determinism-ticks="${reference.ticks}" hidden>${reference.hash}</output>
     <output data-player-state data-x="0" data-z="${BENCHMARK_COURSE.spawn.z}" data-movement-tick-hz="${PLAYER_MOVEMENT_TICK_HZ}" hidden></output>
   </div>
 `;
 
-document.title = 'SoccerShooter Movement Lab';
+document.title = 'SoccerShooter Ball + Movement Lab';
 
 const viewport = requireElement<HTMLElement>('#game-viewport');
 const playerProbe = requireElement<HTMLOutputElement>('[data-player-state]');
@@ -85,7 +86,7 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.domElement.dataset.gameViewport = 'true';
-renderer.domElement.setAttribute('aria-label', 'Interactive SoccerShooter movement lab');
+renderer.domElement.setAttribute('aria-label', 'Interactive SoccerShooter movement and ball physics lab');
 viewport.append(renderer.domElement);
 
 scene.add(new THREE.HemisphereLight(0xbdd8ff, 0x29321f, 1.65));
@@ -201,6 +202,7 @@ const actionMap = new ActionMap(window, renderer.domElement);
 actionMap.attach();
 const gamepad = new GamepadAdapter();
 const hud = new MovementHud(document.body);
+const ballLab = new BallLab({ scene, host: viewport });
 
 const FIXED_DT = 1 / PLAYER_MOVEMENT_TICK_HZ;
 const ACTION_FEEDBACK_MS = 480;
@@ -409,6 +411,8 @@ function frame(now: number): void {
   camera.fov = cameraState.fov;
   camera.lookAt(cameraState.target.x, cameraState.target.y, cameraState.target.z);
   camera.updateProjectionMatrix();
+
+  ballLab.update(rawDelta);
 
   playerProbe.dataset.x = String(player.position.x);
   playerProbe.dataset.z = String(player.position.z);
