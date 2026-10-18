@@ -1,4 +1,5 @@
 import { PlayerActionBits } from '../player/PlayerState';
+import { consumeReceive, createReceiveState, requestReceive, stepReceiveState, type ReceiveState } from './receive';
 import { clampFootball } from './types';
 
 export interface FootballRuntimeState {
@@ -6,6 +7,7 @@ export interface FootballRuntimeState {
   kickCooldown: number;
   shotChargeSeconds: number;
   shotWasHeld: boolean;
+  receive: ReceiveState;
   lastAction: 'idle' | 'touch' | 'pass' | 'shot' | 'challenge' | 'aerial';
 }
 
@@ -15,11 +17,7 @@ export interface FootballRuntimeStep {
 }
 
 export const MAX_SHOT_CHARGE_SECONDS = 0.85;
-/**
- * Pointer lock is acquired from the same primary-button gesture used to shoot.
- * A tap shorter than this is treated as focus/capture rather than a football
- * contact so entering mouse-look cannot accidentally kick the ball.
- */
+/** Extra defense against accidental tiny releases; pointer capture itself is now isolated. */
 export const MIN_SHOT_CHARGE_SECONDS = 0.06;
 
 export function createFootballRuntimeState(): FootballRuntimeState {
@@ -28,6 +26,7 @@ export function createFootballRuntimeState(): FootballRuntimeState {
     kickCooldown: 0,
     shotChargeSeconds: 0,
     shotWasHeld: false,
+    receive: createReceiveState(),
     lastAction: 'idle',
   };
 }
@@ -53,28 +52,39 @@ export function stepFootballRuntime(
     shotChargeSeconds = 0;
   }
 
+  let receive = state.receive;
+  if ((actionBits & PlayerActionBits.Receive) !== 0) receive = requestReceive(receive);
+  receive = stepReceiveState(receive, dt);
+
   return {
     state: {
       controlTouchCooldown: Math.max(0, state.controlTouchCooldown - dt),
       kickCooldown: Math.max(0, state.kickCooldown - dt),
       shotChargeSeconds,
       shotWasHeld: shootHeld,
+      receive,
       lastAction: state.lastAction,
     },
     releasedShotCharge,
   };
 }
 
+export function consumeReceiveIntent(state: Readonly<FootballRuntimeState>): FootballRuntimeState {
+  return { ...state, receive: consumeReceive(state.receive) };
+}
+
 export function markControlTouch(
   state: Readonly<FootballRuntimeState>,
   sprint: boolean,
+  mode: 'normal' | 'precision' | 'sprint' | 'effort-turn' | 'trap' | 'receive-exit' = sprint ? 'sprint' : 'normal',
 ): FootballRuntimeState {
+  let controlTouchCooldown = sprint ? 0.14 : 0.12;
+  if (mode === 'effort-turn') controlTouchCooldown = 0.08;
+  else if (mode === 'precision') controlTouchCooldown = 0.1;
+  else if (mode === 'trap' || mode === 'receive-exit') controlTouchCooldown = 0.09;
   return {
     ...state,
-    // Calibrated against the owner cut/sprint probe: discrete physical touches
-    // remain visible, but full-speed steering gets a new legal touch before the
-    // ball can drift outside the recoverable control envelope.
-    controlTouchCooldown: sprint ? 0.14 : 0.12,
+    controlTouchCooldown,
     lastAction: 'touch',
   };
 }
