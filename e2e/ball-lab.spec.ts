@@ -44,11 +44,16 @@ test('Stage 04 Ball Lab supports deterministic keyboard presets and trace export
   expect(download.suggestedFilename()).toBe('soccershooter-ball-knuckle.csv');
 });
 
-test('Ball Lab visual ball is readable, trail advances, and idle render frames cannot rotate it', async ({ page }) => {
+test('Ball Lab visual ball is readable, turf-safe, trail advances, and idle render frames cannot rotate it', async ({ page }) => {
   await page.goto('/');
   const lab = page.locator('[data-ball-lab]');
+  const probe = page.locator('[data-ball-state]');
 
   await expect(lab).toHaveAttribute('data-ball-visual-scale', '1.35');
+  const physicalY = Number(await probe.getAttribute('data-y'));
+  const visualY = Number(await lab.getAttribute('data-ball-visual-y'));
+  expect(visualY).toBeGreaterThan(physicalY + 0.03);
+
   const idleQuaternion = await lab.getAttribute('data-ball-visual-quaternion');
   await page.waitForTimeout(250);
   expect(await lab.getAttribute('data-ball-visual-quaternion')).toBe(idleQuaternion);
