@@ -1,7 +1,12 @@
 import { expect, test } from '@playwright/test';
 
-test('Stage 04 Ball Lab launches presets, predicts landing, and exposes deterministic telemetry', async ({ page }) => {
+async function openBallLab(page: import('@playwright/test').Page) {
   await page.goto('/');
+  await page.getByRole('button', { name: 'Ball Lab', exact: true }).click();
+}
+
+test('Stage 04 Ball Lab launches presets, predicts landing, and exposes deterministic telemetry', async ({ page }) => {
+  await openBallLab(page);
   const lab = page.locator('[data-ball-lab]');
   await expect(lab).toBeVisible();
   await expect(page.getByRole('button', { name: /straight 20m/i })).toBeVisible();
@@ -22,8 +27,8 @@ test('Stage 04 Ball Lab launches presets, predicts landing, and exposes determin
   ).toBeGreaterThan(startZ + 6);
 });
 
-test('Ball Lab custom controls and reset are usable without entering Stage 05 mechanics', async ({ page }) => {
-  await page.goto('/');
+test('Ball Lab custom controls and reset remain usable in diagnostics mode', async ({ page }) => {
+  await openBallLab(page);
   const speed = page.getByLabel('Launch speed');
   await speed.fill('28');
   await page.getByLabel('Elevation').fill('18');
@@ -36,7 +41,7 @@ test('Ball Lab custom controls and reset are usable without entering Stage 05 me
 });
 
 test('CSV export is complete even when exported before launching the selected preset', async ({ page }) => {
-  await page.goto('/');
+  await openBallLab(page);
   await page.getByRole('button', { name: /post rebound/i }).click();
 
   const downloadPromise = page.waitForEvent('download');

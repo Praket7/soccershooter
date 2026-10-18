@@ -29,6 +29,11 @@ export interface ActionMapOptions {
   invertY?: boolean;
 }
 
+export interface PointerButtonState {
+  primaryDown: boolean;
+  secondaryDown: boolean;
+}
+
 export const DEFAULT_MOUSE_SENSITIVITY = 0.00325;
 
 const TAU = Math.PI * 2;
@@ -68,7 +73,31 @@ function pressed(keys: ReadonlySet<string>, ...codes: string[]): boolean {
 function actionBitsForCode(code: string): number {
   if (code === 'Space') return PlayerActionBits.Jump;
   if (code === 'KeyC' || code === 'KeyB' || code === 'ControlLeft' || code === 'ControlRight') return PlayerActionBits.Tackle;
+  if (code === 'KeyE') return PlayerActionBits.Pass;
   return 0;
+}
+
+export function pointerStateToActionBits(primaryDown: boolean, secondaryDown: boolean): number {
+  let actionBits = 0;
+  if (primaryDown) actionBits |= PlayerActionBits.ShootHeld;
+  if (secondaryDown) actionBits |= PlayerActionBits.Precision;
+  return actionBits >>> 0;
+}
+
+/**
+ * Applies mouse-button state independently of pointer-lock acquisition. The
+ * same first LMB press that captures the mouse therefore also begins charging
+ * a shot instead of being swallowed by the camera-control transition.
+ */
+export function applyPointerButtonDown(
+  primaryDown: boolean,
+  secondaryDown: boolean,
+  button: number,
+): PointerButtonState {
+  return {
+    primaryDown: primaryDown || button === 0,
+    secondaryDown: secondaryDown || button === 2,
+  };
 }
 
 export function keyboardStateToIntent(sample: Readonly<KeyboardIntentSample>): InputIntent {
@@ -78,6 +107,7 @@ export function keyboardStateToIntent(sample: Readonly<KeyboardIntentSample>): I
   let actionBits = 0;
   if (pressed(sample.keys, 'Space')) actionBits |= PlayerActionBits.Jump;
   if (pressed(sample.keys, 'KeyC', 'KeyB', 'ControlLeft', 'ControlRight')) actionBits |= PlayerActionBits.Tackle;
+  if (pressed(sample.keys, 'KeyQ')) actionBits |= PlayerActionBits.Technique;
   return {
     moveX: move.x,
     moveY: move.y,
@@ -98,6 +128,8 @@ export class ActionMap {
   #pendingPitchDelta = 0;
   #pendingZoomDelta = 0;
   #pendingActionBits = 0;
+  #primaryDown = false;
+  #secondaryDown = false;
   #lastInputTimestamp: number | null = null;
   #attached = false;
 
@@ -116,6 +148,8 @@ export class ActionMap {
   readonly #onBlur = () => {
     this.#keys.clear();
     this.#pendingActionBits = 0;
+    this.#primaryDown = false;
+    this.#secondaryDown = false;
   };
 
   readonly #onPointerMove = (event: PointerEvent) => {
@@ -138,8 +172,29 @@ export class ActionMap {
     );
   };
 
-  readonly #onPointerDown = () => {
-    if (document.pointerLockElement !== this.#pointerTarget) void this.#pointerTarget.requestPointerLock();
+  readonly #onPointerDown = (event: PointerEvent) => {
+    const next = applyPointerButtonDown(this.#primaryDown, this.#secondaryDown, event.button);
+    this.#primaryDown = next.primaryDown;
+    this.#secondaryDown = next.secondaryDown;
+    if (event.button === 2) event.preventDefault();
+    this.#lastInputTimestamp = performance.now();
+
+    if (document.pointerLockElement !== this.#pointerTarget) {
+      void this.#pointerTarget.requestPointerLock();
+    }
+  };
+
+  readonly #onPointerUp = (event: PointerEvent) => {
+    if (event.button === 0 && this.#primaryDown) {
+      this.#primaryDown = false;
+      this.#pendingActionBits |= PlayerActionBits.ShootReleased;
+    }
+    if (event.button === 2) this.#secondaryDown = false;
+    this.#lastInputTimestamp = performance.now();
+  };
+
+  readonly #onContextMenu = (event: Event) => {
+    event.preventDefault();
   };
 
   constructor(keyboardTarget: Window, pointerTarget: HTMLElement, options: ActionMapOptions = {}) {
@@ -159,8 +214,10 @@ export class ActionMap {
     this.#keyboardTarget.addEventListener('keyup', this.#onKeyUp);
     this.#keyboardTarget.addEventListener('blur', this.#onBlur);
     this.#keyboardTarget.addEventListener('pointermove', this.#onPointerMove);
+    this.#keyboardTarget.addEventListener('pointerup', this.#onPointerUp);
     this.#pointerTarget.addEventListener('pointerdown', this.#onPointerDown);
     this.#pointerTarget.addEventListener('wheel', this.#onWheel, { passive: false });
+    this.#pointerTarget.addEventListener('contextmenu', this.#onContextMenu);
   }
 
   detach(): void {
@@ -170,11 +227,15 @@ export class ActionMap {
     this.#keyboardTarget.removeEventListener('keyup', this.#onKeyUp);
     this.#keyboardTarget.removeEventListener('blur', this.#onBlur);
     this.#keyboardTarget.removeEventListener('pointermove', this.#onPointerMove);
+    this.#keyboardTarget.removeEventListener('pointerup', this.#onPointerUp);
     this.#pointerTarget.removeEventListener('pointerdown', this.#onPointerDown);
     this.#pointerTarget.removeEventListener('wheel', this.#onWheel);
+    this.#pointerTarget.removeEventListener('contextmenu', this.#onContextMenu);
     this.#keys.clear();
     this.#pendingActionBits = 0;
     this.#pendingZoomDelta = 0;
+    this.#primaryDown = false;
+    this.#secondaryDown = false;
   }
 
   setAimYaw(yaw: number): void {
@@ -188,7 +249,11 @@ export class ActionMap {
 
   consumeFrame(): ActionFrame {
     const intent = keyboardStateToIntent({ keys: this.#keys, aimYaw: this.#aimYaw });
-    intent.actionBits = (intent.actionBits | this.#pendingActionBits) >>> 0;
+    intent.actionBits = (
+      intent.actionBits
+      | this.#pendingActionBits
+      | pointerStateToActionBits(this.#primaryDown, this.#secondaryDown)
+    ) >>> 0;
     const frame: ActionFrame = {
       intent,
       look: { yawDelta: this.#pendingYawDelta, pitchDelta: this.#pendingPitchDelta },

@@ -1,0 +1,203 @@
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.mode-switch {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 9px;
+  background: rgba(255,255,255,.025);
+}
+
+.mode-switch button {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 6px;
+  color: #8fa1ad;
+  background: transparent;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .04em;
+}
+
+.mode-switch button[data-active="true"] {
+  color: #eaf6b7;
+  background: rgba(217,243,91,.11);
+  box-shadow: inset 0 0 0 1px rgba(217,243,91,.22);
+}
+
+.football-practice-panel {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 7;
+  width: min(420px, calc(100% - 28px));
+  padding: 13px;
+  border: 1px solid rgba(217,243,91,.22);
+  border-radius: 13px;
+  background: linear-gradient(180deg, rgba(9,16,20,.94), rgba(7,12,16,.88));
+  box-shadow: 0 18px 48px rgba(0,0,0,.34), inset 0 1px rgba(255,255,255,.04);
+  backdrop-filter: blur(14px);
+}
+
+.football-practice-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 7px;
+}
+
+.football-practice-heading > div { display: grid; gap: 2px; }
+.football-practice-heading span {
+  color: #7f909a;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+}
+.football-practice-heading strong { font-size: 18px; letter-spacing: -.02em; }
+.football-practice-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  color: #b8c987 !important;
+}
+.football-practice-live i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #d9f35b;
+  box-shadow: 0 0 10px rgba(217,243,91,.65);
+}
+
+.football-practice-panel p {
+  margin: 0 0 10px;
+  color: #9cacb5;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.shot-style-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+}
+
+.shot-style-row button,
+.practice-actions button {
+  min-height: 34px;
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 7px;
+  color: #a7b4bc;
+  background: rgba(255,255,255,.035);
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 750;
+  text-transform: capitalize;
+}
+
+.shot-style-row button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.shot-style-row button:hover,
+.practice-actions button:hover {
+  border-color: rgba(217,243,91,.3);
+  color: #f3f7f8;
+  background: rgba(217,243,91,.055);
+}
+
+.shot-style-row button[data-active="true"] {
+  border-color: rgba(217,243,91,.42);
+  color: #e7f6a5;
+  background: rgba(217,243,91,.095);
+}
+
+.practice-actions {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 9px;
+  margin-top: 9px;
+  color: #7f919c;
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+.practice-actions button { padding: 0 9px; }
+
+.action-debug-hud {
+  position: absolute;
+  left: 28px;
+  top: 28px;
+  z-index: 8;
+  width: min(270px, calc(100% - 56px));
+  padding: 11px 12px;
+  border: 1px solid rgba(217,243,91,.16);
+  border-radius: 10px;
+  background: rgba(6,11,15,.82);
+  box-shadow: 0 12px 32px rgba(0,0,0,.26);
+  backdrop-filter: blur(10px);
+  pointer-events: none;
+}
+
+.football-practice-panel + .action-debug-hud {
+  top: auto;
+  bottom: 28px;
+}
+
+.action-debug-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.action-debug-heading span {
+  color: #748792;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.action-debug-heading strong {
+  color: #edf4f6;
+  font-size: 11px;
+  letter-spacing: .06em;
+}
+.action-debug-result {
+  margin: 6px 0 8px;
+  padding: 5px 7px;
+  border-radius: 6px;
+  color: #dce7e9;
+  background: rgba(255,255,255,.04);
+  font: 700 9px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.action-debug-result[data-ok="true"] { color: #dff39d; background: rgba(217,243,91,.07); }
+.action-debug-result[data-ok="false"] { color: #ffbc8d; background: rgba(255,143,74,.08); }
+.action-debug-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px 7px;
+  color: #7f919b;
+  font-size: 8px;
+}
+.action-debug-grid span { display: grid; gap: 2px; }
+.action-debug-grid b { color: #d9e2e6; font-size: 9px; font-weight: 750; }
+
+@media (max-width: 900px) {
+  .header-actions { align-items: flex-end; }
+  .football-practice-panel { width: min(360px, calc(100% - 28px)); }
+  .shot-style-row { grid-template-columns: repeat(2, 1fr); }
+}

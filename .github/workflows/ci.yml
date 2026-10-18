@@ -47,6 +47,12 @@ jobs:
       - name: Million-launch deterministic ball fuzz
         run: pnpm ball:fuzz
 
+      - name: Stage 05 football action fuzz
+        run: pnpm football:fuzz
+
+      - name: Stage 05 exploit-bot balance gate
+        run: pnpm football:balance
+
       - name: Standalone headless determinism trace
         run: pnpm determinism:headless
 
