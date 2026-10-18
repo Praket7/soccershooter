@@ -52,6 +52,23 @@ function projectedGoalCrossing(
   return { eta, x: world.ball.position.x + world.ball.velocity.x * eta };
 }
 
+function boundedClaimTarget(
+  world: Readonly<BotWorldSnapshot>,
+  goalkeeperId: string,
+  interceptPoint: Readonly<Vec3>,
+): Vec3 {
+  const goalkeeper = findPlayer(world, goalkeeperId);
+  const direction = attackingDirection(goalkeeper.team);
+  const goalZ = ownGoalZ(world, goalkeeper.team);
+  const requestedDepth = direction * (interceptPoint.z - goalZ);
+  const claimDepth = clamp(requestedDepth, 1.0, 3.35);
+  return fieldClamp(world, {
+    x: clamp(interceptPoint.x, -world.field.goalHalfWidth - 1.1, world.field.goalHalfWidth + 1.1),
+    y: 0,
+    z: goalZ + direction * claimDepth,
+  }, 0.35);
+}
+
 export function computeGoalkeeperDecision(
   world: Readonly<BotWorldSnapshot>,
   goalkeeperId: string,
@@ -79,7 +96,7 @@ export function computeGoalkeeperDecision(
   const intercept = predictBallIntercept(goalkeeper, world.ball, 1.25);
   const closeDanger = horizontalDistance(world.ball.position, { x: 0, y: 0, z: ownGoalZ(world, goalkeeper.team) }) < 6.2;
   if (closeDanger && intercept.reachable && intercept.timeSeconds <= 0.95) {
-    return { kind: 'claim', targetPosition: fieldClamp(world, intercept.point, 0.35), distributionTargetId: null };
+    return { kind: 'claim', targetPosition: boundedClaimTarget(world, goalkeeperId, intercept.point), distributionTargetId: null };
   }
   return { kind: 'position', targetPosition: home, distributionTargetId: null };
 }
