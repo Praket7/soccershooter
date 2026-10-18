@@ -110,7 +110,11 @@ function closestFramePoint(position: Readonly<Vec3>, frame: GoalFrame): ClosestP
     { id: 'right-post', a: { x: frame.halfWidth, y: 0, z: frame.planeZ }, b: { x: frame.halfWidth, y: frame.height, z: frame.planeZ } },
     { id: 'crossbar', a: { x: -frame.halfWidth, y: frame.height, z: frame.planeZ }, b: { x: frame.halfWidth, y: frame.height, z: frame.planeZ } },
   ];
-  let best: ClosestPointResult = { point: { ...members[0]!.a }, distance: Number.POSITIVE_INFINITY, id: members[0]!.id };
+  let best: ClosestPointResult = {
+    point: { ...members[0]!.a },
+    distance: Number.POSITIVE_INFINITY,
+    id: members[0]!.id,
+  };
   for (const member of members) {
     const point = closestPointOnSegment(position, member.a, member.b);
     const distance = magnitude(subtract(position, point));
@@ -165,22 +169,43 @@ function resolveSweptGoalFrameCollision(
   const contactRadius = BALL_CONSTANTS.radius + frame.postRadius;
   const sampleSpacing = Math.max(0.015, contactRadius * 0.25);
   const samples = Math.max(1, Math.min(48, Math.ceil(distance / sampleSpacing)));
+  const endTime = current.flightSeconds;
 
   for (let index = 1; index <= samples; index += 1) {
     const t = index / samples;
     const position = add(previous.position, scale(displacement, t));
     const closest = closestFramePoint(position, frame);
     if (closest.distance >= contactRadius) continue;
+
+    const impactTime = previous.flightSeconds + (endTime - previous.flightSeconds) * t;
     const candidate = cloneBallState(current);
     candidate.position = position;
-    candidate.flightSeconds = previous.flightSeconds + (current.flightSeconds - previous.flightSeconds) * t;
-    return resolveGoalFrameCollision(candidate, frame, profile);
+    candidate.flightSeconds = impactTime;
+    let resolved = resolveGoalFrameCollision(candidate, frame, profile);
+
+    // The swept hit occurs partway through this authoritative 120 Hz step.
+    // Resolve at impact, then consume the remainder with the reflected velocity
+    // so a frame contact cannot silently shorten simulation time.
+    const remainingSeconds = Math.max(0, endTime - impactTime);
+    resolved.position = add(resolved.position, scale(resolved.velocity, remainingSeconds));
+    resolved.flightSeconds = endTime;
+
+    // A corner hit can end the residual move against another frame member.
+    // Re-resolving only at the endpoint keeps the state non-penetrating without
+    // adding another time increment or any artificial energy.
+    resolved = resolveGoalFrameCollision(resolved, frame, profile);
+    resolved.flightSeconds = endTime;
+    return resolved;
   }
 
   return resolveGoalFrameCollision(current, frame, profile);
 }
 
-export function crossedGoalPlane(previous: Readonly<BallState>, current: Readonly<BallState>, frame: GoalFrame = STANDARD_GOAL_FRAME): boolean {
+export function crossedGoalPlane(
+  previous: Readonly<BallState>,
+  current: Readonly<BallState>,
+  frame: GoalFrame = STANDARD_GOAL_FRAME,
+): boolean {
   if (!(previous.position.z < frame.planeZ && current.position.z >= frame.planeZ)) return false;
   const dz = current.position.z - previous.position.z;
   const t = Math.abs(dz) < 1e-9 ? 1 : (frame.planeZ - previous.position.z) / dz;
@@ -220,10 +245,13 @@ export function stepBall(
   state.position.z += state.velocity.z * clampedDt;
   state.flightSeconds += clampedDt;
 
+  // Resolve thin goal-frame geometry before turf response. This keeps a low
+  // driven shot from applying ground friction first and then using that altered
+  // velocity to retroactively resolve an earlier post impact in the same step.
+  if (goalFrame) state = resolveSweptGoalFrameCollision(beforeMove, state, goalFrame, profile);
   if (state.position.y <= BALL_CONSTANTS.radius || wasGrounded) {
     state = resolveGroundContact(state, clampedDt, profile);
   }
-  if (goalFrame) state = resolveSweptGoalFrameCollision(beforeMove, state, goalFrame, profile);
   return state;
 }
 
@@ -261,5 +289,9 @@ export function predictTrajectory(initial: Readonly<BallState>, options: Predict
     }
   }
 
-  return { landing: { position: { ...state.position }, time: maxSteps * BALL_SUBSTEP_DT }, apex, samples };
+  return {
+    landing: { position: { ...state.position }, time: maxSteps * BALL_SUBSTEP_DT },
+    apex,
+    samples,
+  };
 }
