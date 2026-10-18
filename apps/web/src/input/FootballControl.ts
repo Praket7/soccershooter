@@ -55,6 +55,20 @@ export function resolveDribbleIntent(
 }
 
 /**
+ * For football contacts, a moving player's hips/feet are considered oriented
+ * with travel rather than with the free-look camera. At very low speed we keep
+ * the prior facing so standing shot/pass setup remains stable.
+ */
+export function resolveTravelFacingYaw(
+  velocity: HorizontalDirection,
+  fallbackYaw: number,
+  minimumSpeed = 0.35,
+): number {
+  const speed = Math.hypot(velocity.x, velocity.z);
+  return speed > minimumSpeed ? Math.atan2(velocity.x, velocity.z) : fallbackYaw;
+}
+
+/**
  * Keeps shooting aim free while preserving the body setup that existed when
  * shot preparation began. Mouse/right-stick yaw may keep changing the aim
  * vector during charge, but the contact model still receives a stable body
