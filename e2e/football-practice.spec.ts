@@ -27,10 +27,6 @@ async function installPointerLockHarness(page: Page): Promise<void> {
 
 async function capturePointerWithoutNativePlaywrightLock(page: Page): Promise<void> {
   const canvas = page.locator('[data-game-viewport]');
-  // Production button chords use mouse events because each physical button
-  // transition must be observable even while another mouse button is held.
-  // Dispatch the initial capture mousedown directly so the deterministic
-  // pointer-lock harness exercises the same listener contract.
   await canvas.dispatchEvent('mousedown', {
     button: 0,
     buttons: 1,
@@ -39,18 +35,15 @@ async function capturePointerWithoutNativePlaywrightLock(page: Page): Promise<vo
   });
 }
 
-test('visible football controls expose the ergonomic bindings and no legacy Z/X chords', async ({ page }) => {
-  await page.goto('/');
-  const controls = page.locator('.control-card');
-  await expect(controls).toContainText('RMB+E');
-  await expect(controls).toContainText('Ctrl+Q');
-  await expect(controls).toContainText('RMB+LMB');
-  await expect(controls).toContainText('Ctrl+LMB');
-  await expect(controls).not.toContainText('Z+E');
-  await expect(controls).not.toContainText('Z+Q');
-  await expect(controls).not.toContainText('Z finesse');
-  await expect(controls).not.toContainText('X chip');
-});
+async function sampleSeparation(page: Page): Promise<number> {
+  const ballProbe = page.locator('[data-football-state]');
+  const playerProbe = page.locator('[data-player-state]');
+  const playerX = Number(await playerProbe.getAttribute('data-x'));
+  const playerZ = Number(await playerProbe.getAttribute('data-z'));
+  const ballX = Number(await ballProbe.getAttribute('data-ball-x'));
+  const ballZ = Number(await ballProbe.getAttribute('data-ball-z'));
+  return Math.hypot(ballX - playerX, ballZ - playerZ);
+}
 
 test('Stage 05 practice starts physical, idle, non-magnetic, and visually grounded', async ({ page }) => {
   await page.goto('/');
@@ -61,6 +54,14 @@ test('Stage 05 practice starts physical, idle, non-magnetic, and visually ground
   await expect(practice).toBeVisible();
   await expect(page.getByRole('button', { name: 'Football Practice', exact: true })).toHaveAttribute('data-active', 'true');
   await expect(page.locator('[data-ball-lab]')).toBeHidden();
+
+  const controls = page.locator('.control-card');
+  await expect(controls).toContainText('RMB+E');
+  await expect(controls).toContainText('Ctrl+Q');
+  await expect(controls).toContainText('RMB+LMB');
+  await expect(controls).toContainText('Ctrl+LMB');
+  await expect(controls).not.toContainText('Z+');
+  await expect(controls).not.toContainText('X chip');
 
   const before = {
     x: Number(await probe.getAttribute('data-ball-x')),
@@ -82,7 +83,7 @@ test('Stage 05 practice starts physical, idle, non-magnetic, and visually ground
   expect(visualFootY).toBeCloseTo(playerY, 5);
 });
 
-test('ordinary multi-second dribbling keeps the free ball inside the recoverable control corridor', async ({ page }) => {
+test('ordinary multi-second dribbling keeps a competent carry compact instead of flirting with loss', async ({ page }) => {
   await page.goto('/');
   const ballProbe = page.locator('[data-football-state]');
   const playerProbe = page.locator('[data-player-state]');
@@ -93,21 +94,47 @@ test('ordinary multi-second dribbling keeps the free ball inside the recoverable
 
   let maximumSeparation = 0;
   let maximumLateralError = 0;
-  for (let sample = 0; sample < 9; sample += 1) {
-    await page.waitForTimeout(160);
+  for (let sample = 0; sample < 12; sample += 1) {
+    await page.waitForTimeout(140);
     const playerX = Number(await playerProbe.getAttribute('data-x'));
-    const playerZ = Number(await playerProbe.getAttribute('data-z'));
     const ballX = Number(await ballProbe.getAttribute('data-ball-x'));
-    const ballZ = Number(await ballProbe.getAttribute('data-ball-z'));
-    maximumSeparation = Math.max(maximumSeparation, Math.hypot(ballX - playerX, ballZ - playerZ));
+    maximumSeparation = Math.max(maximumSeparation, await sampleSeparation(page));
     maximumLateralError = Math.max(maximumLateralError, Math.abs(ballX - playerX));
   }
   await page.keyboard.up('w');
 
-  expect(maximumSeparation).toBeLessThan(1.32);
-  expect(maximumLateralError).toBeLessThan(0.7);
+  expect(maximumSeparation).toBeLessThan(1.12);
+  expect(maximumLateralError).toBeLessThan(0.45);
   expect(Number(await ballProbe.getAttribute('data-ball-speed'))).toBeGreaterThan(2.5);
+  await expect(probeAction(ballProbe)).not.toMatch(/FIRST TOUCH FAILED/);
 });
+
+test('sprinting uses recoverable knock-ons and does not simply run away from the player', async ({ page }) => {
+  await page.goto('/');
+  const ballProbe = page.locator('[data-football-state]');
+
+  await page.keyboard.press('g');
+  await page.waitForTimeout(80);
+  await page.keyboard.down('w');
+  await page.keyboard.down('Shift');
+
+  let maximumSeparation = 0;
+  for (let sample = 0; sample < 14; sample += 1) {
+    await page.waitForTimeout(120);
+    maximumSeparation = Math.max(maximumSeparation, await sampleSeparation(page));
+  }
+
+  await page.keyboard.up('Shift');
+  await page.keyboard.up('w');
+
+  expect(maximumSeparation).toBeLessThan(1.38);
+  expect(Number(await ballProbe.getAttribute('data-ball-speed'))).toBeGreaterThan(3.5);
+  await expect(probeAction(ballProbe)).not.toMatch(/FIRST TOUCH FAILED/);
+});
+
+async function probeAction(probe: ReturnType<Page['locator']>): Promise<string> {
+  return (await probe.getAttribute('data-action')) ?? '';
+}
 
 test('first click captures camera only, then locked LMB charges through the permanent reticle', async ({ page }) => {
   await installPointerLockHarness(page);
