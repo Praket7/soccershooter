@@ -1,6 +1,11 @@
 import { describe, expect, test } from 'vitest';
 import { PlayerActionBits } from '@soccershooter/sim/player/PlayerState';
-import { DEFAULT_MOUSE_SENSITIVITY, keyboardStateToIntent, normalizeMoveAxes } from './ActionMap';
+import {
+  DEFAULT_MOUSE_SENSITIVITY,
+  keyboardStateToIntent,
+  normalizeMoveAxes,
+  normalizeWheelZoomDelta,
+} from './ActionMap';
 import { DEFAULT_GAMEPAD_YAW_RATE, gamepadSnapshotToFrame } from './GamepadAdapter';
 
 describe('Stage 03 normalized input contract', () => {
@@ -14,6 +19,14 @@ describe('Stage 03 normalized input contract', () => {
     const value = normalizeMoveAxes(0.6, 0.8, 0.15);
     expect(Math.hypot(value.x, value.y)).toBeCloseTo(value.magnitude, 10);
     expect(value.magnitude).toBeCloseTo(1, 10);
+  });
+
+  test('trackpad and wheel zoom deltas preserve direction across browser delta modes and stay bounded', () => {
+    expect(normalizeWheelZoomDelta(60, 0)).toBeGreaterThan(0);
+    expect(normalizeWheelZoomDelta(-60, 0)).toBeLessThan(0);
+    expect(normalizeWheelZoomDelta(3, 1)).toBeGreaterThan(0);
+    expect(normalizeWheelZoomDelta(-1, 2)).toBeLessThan(0);
+    expect(Math.abs(normalizeWheelZoomDelta(100000, 0))).toBeLessThanOrEqual(1);
   });
 
   test('default camera input is faster than the first playtest build without becoming twitchy', () => {
