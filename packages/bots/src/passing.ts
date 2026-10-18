@@ -179,8 +179,7 @@ export function planPassChain(
   for (let step = 0; step < count; step += 1) {
     const carrier = findPlayer(virtual, carrierId);
     const options = teamPlayers(virtual, team)
-      .filter((candidate) => candidate.id !== carrierId)
-      .filter((candidate) => !candidate.goalkeeper || step >= 2)
+      .filter((candidate) => candidate.id !== carrierId && !candidate.goalkeeper)
       .map((candidate) => {
         const edge = `${carrierId}->${candidate.id}`;
         const tactical = scorePassOption(virtual, carrierId!, candidate.id);
