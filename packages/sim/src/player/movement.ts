@@ -90,7 +90,7 @@ export interface BenchmarkZone {
 
 export const BENCHMARK_COURSE: Readonly<{ spawn: Vec3; zones: readonly BenchmarkZone[] }> = Object.freeze({
   spawn: Object.freeze({ x: 0, y: 0, z: -13 }),
-  zones: Object.freeze([
+  zones: Object.freeze<BenchmarkZone[]>([
     { id: 'sprint', label: 'STRAIGHT SPRINT', center: { x: 0, y: 0, z: -10 }, size: { x: 2.4, y: 0, z: 5 } },
     { id: 'cut', label: 'HARD CUT', center: { x: -4, y: 0, z: -5 }, size: { x: 4, y: 0, z: 3 } },
     { id: 'stop', label: 'STOP TEST', center: { x: 4, y: 0, z: -5 }, size: { x: 4, y: 0, z: 3 } },

@@ -15,8 +15,13 @@ import { ThirdPersonCamera, type CameraObstacle } from './camera/ThirdPersonCame
 import { MovementHud } from './debug/MovementHud';
 import './styles.css';
 
-const app = document.querySelector<HTMLElement>('#app');
-if (!app) throw new Error('Missing #app root');
+function requireElement<T extends Element>(selector: string): T {
+  const element = document.querySelector<T>(selector);
+  if (!element) throw new Error(`Missing required element: ${selector}`);
+  return element;
+}
+
+const app = requireElement<HTMLElement>('#app');
 
 const reference = runReferenceTrace();
 app.innerHTML = `
@@ -58,9 +63,8 @@ app.innerHTML = `
 
 document.title = 'SoccerShooter Movement Lab';
 
-const viewport = document.querySelector<HTMLElement>('#game-viewport');
-const playerProbe = document.querySelector<HTMLOutputElement>('[data-player-state]');
-if (!viewport || !playerProbe) throw new Error('Movement lab DOM failed to initialize');
+const viewport = requireElement<HTMLElement>('#game-viewport');
+const playerProbe = requireElement<HTMLOutputElement>('[data-player-state]');
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0b1118);
