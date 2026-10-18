@@ -4,6 +4,7 @@ export default defineConfig({
   test: {
     include: [
       'packages/**/*.test.ts',
+      'apps/**/*.test.ts',
       'tools/**/*.test.ts',
     ],
     exclude: [
