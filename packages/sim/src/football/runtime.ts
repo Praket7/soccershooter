@@ -42,9 +42,6 @@ export function stepFootballRuntime(
     releasedShotCharge = clampFootball(shotChargeSeconds / MAX_SHOT_CHARGE_SECONDS, 0.12, 1);
     shotChargeSeconds = 0;
   } else if (state.shotWasHeld && !shootHeld) {
-    // A missing release edge means the input source disappeared (blur,
-    // pointer-lock loss, controller disconnect) or the player cancelled the
-    // preparation. Never bank that hidden charge into the next shot.
     shotChargeSeconds = 0;
   }
 
@@ -66,10 +63,10 @@ export function markControlTouch(
 ): FootballRuntimeState {
   return {
     ...state,
-    // Frequent but still discrete touches: fast enough to steer a dribble,
-    // slow enough that the free ball always gets real physics time between
-    // contacts. Effort-turn/trap touches use the controlled cadence.
-    controlTouchCooldown: sprint ? 0.17 : 0.12,
+    // Calibrated against the owner cut/sprint probe: discrete physical touches
+    // remain visible, but full-speed steering gets a new legal touch before the
+    // ball can drift outside the recoverable control envelope.
+    controlTouchCooldown: sprint ? 0.14 : 0.12,
     lastAction: 'touch',
   };
 }
