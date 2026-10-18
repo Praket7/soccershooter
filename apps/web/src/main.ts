@@ -60,9 +60,9 @@ app.innerHTML = `
         <span>RMB / LT · close-control dribble</span>
         <span>F · receive / trap · F + WASD controlled exit</span>
         <span>E · ground pass · Q · through pass · R · lofted pass</span>
-        <span>Z+E · driven · Z+Q · chipped through</span>
-        <span>LMB · hold power / release shot · Z finesse · X chip</span>
-        <span>C · challenge · Shift+C committed · Space aerial</span>
+        <span>RMB+E · driven ground pass · Ctrl+Q · chipped through ball</span>
+        <span>LMB · hold power / release shot · RMB+LMB finesse · Ctrl+LMB chip</span>
+        <span>C / B · challenge · Shift+C committed · Space aerial</span>
         <span>G · reset ball in practice only</span>
       </aside>
       <aside class="action-feedback" data-action-feedback data-action="idle" aria-live="polite">
@@ -77,7 +77,7 @@ app.innerHTML = `
       </aside>
     </section>
     <footer class="lab-footer">
-      <span>Practice: F receive · E/Q/R passes · LMB shot · RMB close control · G reset</span>
+      <span>Practice: F receive · E/Q/R passes · RMB+E driven · Ctrl+Q chipped through · RMB/Ctrl + LMB shot variants</span>
       <span>Debug tools: F8 trace · P replay · K player reset · F1 HUD · ${PLAYER_MOVEMENT_TICK_HZ} Hz</span>
     </footer>
     <output data-determinism-hash="${reference.hash}" data-determinism-ticks="${reference.ticks}" hidden>${reference.hash}</output>
@@ -489,7 +489,14 @@ function frame(now: number): void {
 
     const beforeVelocity = player.velocity;
     player = stepPlayerMovement(player, tickIntent, practiceMode ? practiceWorld : world, FIXED_DT);
-    if (practiceMode && !playingBack) footballPractice.processIntent(player, tickIntent, FIXED_DT);
+    if (practiceMode) {
+      if (!playingBack) footballPractice.processIntent(player, tickIntent, FIXED_DT);
+      // Keep the independent football on the same authoritative timeline as
+      // player movement. Advancing it later from render delta allowed the
+      // player to move multiple fixed ticks while the ball stood still during
+      // slow frames, producing frame-rate-dependent dribble separation.
+      footballPractice.update(FIXED_DT);
+    }
     jumpAcknowledgedThisFrame ||= player.actionHooks.jumpRequested;
     tackleAcknowledgedThisFrame ||= player.actionHooks.tackleRequested;
     lastAcceleration = Math.hypot(player.velocity.x - beforeVelocity.x, player.velocity.z - beforeVelocity.z) / FIXED_DT;
@@ -542,8 +549,11 @@ function frame(now: number): void {
   camera.updateProjectionMatrix();
   updateWorldAim();
 
-  if (practiceMode) footballPractice.update(rawDelta);
-  else ballLab.update(rawDelta);
+  if (practiceMode) {
+    // Refresh presentation/aim markers without advancing authoritative ball
+    // state a second time from render-frame delta.
+    footballPractice.update(0);
+  } else ballLab.update(rawDelta);
 
   playerProbe.dataset.x = String(player.position.x);
   playerProbe.dataset.y = String(player.position.y);
