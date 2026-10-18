@@ -89,13 +89,14 @@ function targetForRole(
   }
   if (assignment.role === 'ball-carrier') {
     const decision = chooseCarrierAction(world, player.id);
-    const targetPlayer = decision.targetPlayerId ? findPlayer(world, decision.targetPlayerId) : null;
     const direction = attackingDirection(team);
-    const actionTarget = decision.kind === 'pass' && targetPlayer
-      ? targetPlayer.position
-      : decision.kind === 'shoot' || decision.kind === 'dribble' || decision.kind === 'clear'
-        ? { x: 0, y: 0, z: opponentGoalZ(world, team) - direction * (decision.kind === 'dribble' ? 5 : 0) }
-        : assignment.targetPosition;
+    // Locomotion and action aim are intentionally separate. A pass aims at the
+    // receiver, but the passer should not physically run into the receiving lane.
+    // Likewise, a player preparing a shot or protecting the ball holds the current
+    // carrier target while dribble/clear are the actions that create travel intent.
+    const actionTarget = decision.kind === 'dribble' || decision.kind === 'clear'
+      ? { x: 0, y: 0, z: opponentGoalZ(world, team) - direction * (decision.kind === 'dribble' ? 5 : 0) }
+      : assignment.targetPosition;
     return {
       target: actionTarget,
       targetPlayerId: decision.targetPlayerId,
