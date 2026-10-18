@@ -6,11 +6,24 @@ describe('Stage 04 goal geometry and continuous collision safety', () => {
   test('goal-plane crossing requires the whole ball to be inside the scoring aperture', () => {
     const previous = createBallState({ position: { x: 0, y: 1, z: STANDARD_GOAL_FRAME.planeZ - 0.2 } });
     const scored = createBallState({ position: { x: 0, y: 1, z: STANDARD_GOAL_FRAME.planeZ + 0.2 } });
-    const wide = createBallState({ position: { x: STANDARD_GOAL_FRAME.halfWidth, y: 1, z: STANDARD_GOAL_FRAME.planeZ + 0.2 } });
-    const high = createBallState({ position: { x: 0, y: STANDARD_GOAL_FRAME.height, z: STANDARD_GOAL_FRAME.planeZ + 0.2 } });
+
+    const widePrevious = createBallState({
+      position: { x: STANDARD_GOAL_FRAME.halfWidth, y: 1, z: STANDARD_GOAL_FRAME.planeZ - 0.2 },
+    });
+    const wide = createBallState({
+      position: { x: STANDARD_GOAL_FRAME.halfWidth, y: 1, z: STANDARD_GOAL_FRAME.planeZ + 0.2 },
+    });
+
+    const highPrevious = createBallState({
+      position: { x: 0, y: STANDARD_GOAL_FRAME.height, z: STANDARD_GOAL_FRAME.planeZ - 0.2 },
+    });
+    const high = createBallState({
+      position: { x: 0, y: STANDARD_GOAL_FRAME.height, z: STANDARD_GOAL_FRAME.planeZ + 0.2 },
+    });
+
     expect(crossedGoalPlane(previous, scored)).toBe(true);
-    expect(crossedGoalPlane(previous, wide)).toBe(false);
-    expect(crossedGoalPlane(previous, high)).toBe(false);
+    expect(crossedGoalPlane(widePrevious, wide)).toBe(false);
+    expect(crossedGoalPlane(highPrevious, high)).toBe(false);
   });
 
   test('a legal high-speed shot cannot tunnel through a post in one 120 Hz substep', () => {
