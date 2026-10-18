@@ -1,5 +1,6 @@
 import type { PlayerState, Vec3 } from '@soccershooter/sim/player/PlayerState';
 import type { LookDelta } from '../input/ActionMap';
+import { readFootballPracticeCameraPresentation } from './FootballPracticeCamera';
 
 export interface CameraObstacle {
   id: string;
@@ -191,10 +192,15 @@ export class ThirdPersonCamera {
     this.#userDistance += (this.#desiredDistance - this.#userDistance) * zoomAlpha;
     this.#userDistance = clamp(this.#userDistance, this.settings.minDistance, this.settings.maxDistance);
 
+    const practicePresentation = obstacles.length === 0
+      ? readFootballPracticeCameraPresentation(player.position)
+      : null;
+    const focusPosition = practicePresentation?.focusPosition ?? player.position;
+    const activeObstacles = practicePresentation?.obstacles ?? obstacles;
     const rawTarget = {
-      x: player.position.x,
-      y: player.position.y + this.settings.targetHeight,
-      z: player.position.z,
+      x: focusPosition.x,
+      y: focusPosition.y + this.settings.targetHeight,
+      z: focusPosition.z,
     };
     if (!this.#targetInitialized) {
       this.#targetInitialized = true;
@@ -211,7 +217,7 @@ export class ThirdPersonCamera {
 
     let nearestT = 1;
     let nearestId: string | null = null;
-    for (const obstacle of obstacles) {
+    for (const obstacle of activeObstacles) {
       const hit = segmentAabbT(target, fullPosition, obstacle, this.settings.collisionRadius);
       if (hit !== null && hit < nearestT) {
         nearestT = hit;
