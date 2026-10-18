@@ -44,6 +44,7 @@ const KEEPER_Z = STANDARD_GOAL_FRAME.planeZ - 0.72;
 const KEEPER_MAX_SPEED = 4.8;
 const KEEPER_HALF_REACH = 0.68;
 const VISUAL_SCALE = 1.35;
+const PRACTICE_KNUCKLE_SEED = 0x5a17f00d;
 const SHOT_STYLES: readonly ShotStyle[] = Object.freeze([
   'normal', 'driven', 'finesse', 'chip', 'knuckle', 'outside-foot',
 ]);
@@ -353,11 +354,12 @@ export class FootballPractice {
         pressure: actor.pressure,
         balance: actor.balance,
         contactFoot: actor.preferredFoot,
+        knuckleSeed: PRACTICE_KNUCKLE_SEED,
       });
       this.#recordAction(elevated ? 'volley' : `${this.#shotStyle} shot`, shot.legal, shot.reason);
       if (shot.command) {
         this.#applyCommand(shot.command);
-        if (this.#shotStyle === 'knuckle') this.#state.knuckleSeed = 0x5a17f00d;
+        this.#state.knuckleSeed = shot.knuckleSeed;
         this.#runtime = markKick(this.#runtime, 'shot');
       }
       this.#updateHud();
