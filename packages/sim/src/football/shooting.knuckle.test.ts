@@ -32,7 +32,7 @@ function shot(style: 'normal' | 'knuckle', knuckleSeed?: number) {
     pressure: 0,
     balance: 1,
     contactFoot: 'right',
-    knuckleSeed,
+    ...(knuckleSeed === undefined ? {} : { knuckleSeed }),
   });
 }
 
