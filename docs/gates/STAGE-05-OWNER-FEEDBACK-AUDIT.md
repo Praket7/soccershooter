@@ -34,7 +34,7 @@ Precision control always requested another directional touch. There was no separ
 
 ### Shooting / pointer lock
 
-The same primary mouse gesture both enters pointer lock and charges a shot. A very short focus click could therefore release a forced minimum-power shot. Shot preparation also preserved a hidden earlier body yaw while the rendered player had already turned, making contact legality disagree with what the player saw.
+The same primary mouse gesture both enters pointer lock and charges a shot. A very short focus click could therefore release a forced minimum-power shot. Shot preparation also preserved a hidden earlier body yaw while the rendered player had already turned, making contact legality disagree with what the player saw. A final integration audit also found that moving shots were still being fed a velocity-derived actor yaw even though the rendered player uses `player.facingYaw`.
 
 ### Presentation
 
@@ -103,7 +103,8 @@ Research on change-of-direction performance consistently highlights braking and 
 - An ultra-short focus click below approximately `60 ms` is ignored as a shot release, preventing accidental weak kicks while capturing the mouse.
 - A world-space aim arrow is visible while shot preparation is active.
 - Mouse / right-stick yaw continues changing the aim vector during charge.
-- Contact legality now follows the body orientation visibly shown at release instead of a hidden yaw frozen at the beginning of charge.
+- Contact legality follows the body orientation visibly shown at release instead of a hidden yaw frozen at the beginning of charge.
+- Football Practice now feeds shot contact the authoritative `player.facingYaw` used by the rendered mesh, including while moving; velocity-derived travel facing remains available for dribble/control logic.
 - Body alignment still matters; the fix improves readability and control rather than authorizing impossible contacts.
 
 ### 6. Grounded player presentation
@@ -118,6 +119,7 @@ Research on change-of-direction performance consistently highlights braking and 
 - The player remains the primary camera anchor.
 - Both visible goal frames contribute post/crossbar collision volumes to the existing spring-arm solver.
 - The camera therefore shortens before goal geometry rather than clipping through the white goal frame.
+- The generic `ThirdPersonCamera` remains presentation-agnostic and DOM-independent; Football Practice explicitly composes the ball focus and goal obstacles before calling it.
 - This is presentation-only. It does not modify player, ball, possession, touch, or aim state.
 
 ## TDD evidence
@@ -134,7 +136,7 @@ RED head demonstrated that a ~33 ms focus click still emitted the forced minimum
 
 ### Visible-body shot contact
 
-RED demonstrated a hidden contact yaw of `0.15 rad` while the current visible setup had rotated to `1.05 rad`. Production now uses the current visible body orientation during hold and release.
+RED demonstrated a hidden contact yaw of `0.15 rad` while the current visible setup had rotated to `1.05 rad`. Production now uses the current visible body orientation during hold and release. Final call-site inspection then found moving Football Practice shots still passed `actor.facingYaw`; commit `8c3059a737ff61b33f0a64b4edb75bc7e3376f8f` changed that integration to the actual `player.facingYaw` shown by the mesh.
 
 ### Practice camera integration
 
@@ -145,7 +147,7 @@ RED CI run `39147456176`, job `117734092473`:
 - failure 1: expected ball-aware target bias but `target.x` remained `0`;
 - failure 2: expected opposite-goal post collision but collision remained inactive.
 
-After implementation both integration tests passed.
+After implementation both integration tests passed. A second RED contract then proved the generic camera was implicitly reading Football Practice DOM state; that hidden dependency was removed and the integration tests now exercise the explicit production wiring instead.
 
 ### Sprint separation feedback
 
@@ -185,28 +187,25 @@ This verifies that the feedback changes direction as intended: knock ahead when 
 
 ## Exact source verification
 
-Source head before this documentation commit:
+Final functional source head before this documentation commit:
 
-`d61efb84decafc03ffdb93cb977ec4d369443dd5`
+`8c3059a737ff61b33f0a64b4edb75bc7e3376f8f`
 
 Exact-head workflows:
 
-- CI run `39147761436` — **PASS**
-- CI job `117734972624` — **PASS**
-- Stage 01 contracts run `39147761493` — **PASS**
+- CI run `39148534644` — **PASS**
+- CI job `117737261612` — **PASS**
+- Stage 01 contracts run `39148534649` — **PASS**
 
-All substantive CI steps passed:
+Exact functional-head evidence:
 
-- source/private-content guards;
-- strict TypeScript;
-- unit and contract tests;
-- Stage 04 one-million-launch deterministic ball fuzz;
-- Stage 05 250,000-case football action fuzz;
-- Stage 05 exploit-bot balance gate;
-- standalone deterministic trace;
-- production build;
-- server health;
-- Chromium E2E / browser parity.
+- `29` unit/contract files, `156 / 156` tests passed;
+- Stage 04 ball fuzz: `1,000,000` launches, `4,000,000` states, `0` failures, checksum `e0afd3f7`;
+- Stage 05 football fuzz: `250,000` cases, `1,000,000` actions, `0` failures, checksum `fecee5e1`;
+- sprint-only, shot-spam, tackle-spam, and dribble-circle exploit bots all failed to dominate their varied/timed reference policies;
+- deterministic trace hash remained `d55b2d0b968372a5`;
+- FICTIONAL_PUBLIC production build and server health passed;
+- Chromium E2E/browser parity: `23 / 23` passed.
 
 ## Owner retest checklist
 
@@ -215,7 +214,7 @@ Before Stage 05 is accepted or merged, retest this revised build specifically:
 1. Dribble straight, then make one deliberate 90° turn and one full reversal. The ball should brake / redirect rather than keep travelling down its old line.
 2. Hold sprint and dribble straight for at least 5–6 seconds. The ball should remain recoverable rather than gradually outrunning the player.
 3. Release movement near a moving ball and hold `RMB`. The ball should be physically trapped / slowed close to you.
-4. Hold `LMB`, move the mouse while charging, verify the aim arrow moves, then release. The shot should follow the requested aim subject to visible body alignment.
+4. Hold `LMB`, move the mouse while charging, verify the aim arrow moves, then release. The shot should follow the requested aim subject to the same body facing you see on screen, including while moving.
 5. Make a tiny click only to capture the mouse. It should not weak-shot the ball.
 6. Verify the player marker visibly touches the pitch.
 7. Turn/dribble near both goals. The camera should shorten around posts/crossbars rather than letting a white goal member fill the screen.
@@ -227,4 +226,4 @@ Before Stage 05 is accepted or merged, retest this revised build specifically:
 
 **Do not merge yet.**
 
-The engineering defects identified in the first owner playtest are repaired and the exact source head is green. Stage 05 becomes a final PASS only after the owner confirms the revised feel is acceptable and explicitly requests the merge.
+The engineering defects identified in the first owner playtest are repaired and the final functional source head is green. Stage 05 becomes a final PASS only after the owner confirms the revised feel is acceptable and explicitly requests the merge.
