@@ -1,8 +1,14 @@
 import { describe, expect, test } from 'vitest';
 import type { InputIntent } from '@soccershooter/sim';
 import { PlayerActionBits } from '@soccershooter/sim/player/PlayerState';
-import { applyPointerButtonDown } from './ActionMap';
-import { resolveDribbleIntent, resolveTravelFacingYaw, updateShotFacingLock } from './FootballControl';
+import { resolvePointerButtonDown } from './ActionMap';
+import {
+  CLOSE_CONTROL_MOVE_SCALE,
+  resolveDribbleIntent,
+  resolveTravelFacingYaw,
+  shapeFootballMovementIntent,
+  updateShotFacingLock,
+} from './FootballControl';
 
 describe('Stage 05 owner control feedback', () => {
   test('dribble direction follows the newly requested camera-relative input, not old player velocity', () => {
@@ -31,9 +37,6 @@ describe('Stage 05 owner control feedback', () => {
     const begin = updateShotFacingLock(null, PlayerActionBits.ShootHeld, 0.15);
     expect(begin.contactFacingYaw).toBeCloseTo(0.15, 8);
 
-    // While charging, locomotion visibly rotates the player toward the current
-    // camera/aim direction. Contact legality must follow that visible body,
-    // not a hidden yaw frozen at the first frame of the charge.
     const continued = updateShotFacingLock(begin.latchedYaw, PlayerActionBits.ShootHeld, 1.05);
     expect(continued.contactFacingYaw).toBeCloseTo(1.05, 8);
 
@@ -42,9 +45,40 @@ describe('Stage 05 owner control feedback', () => {
     expect(released.contactFacingYaw).toBeCloseTo(1.05, 8);
   });
 
-  test('the first primary pointer-down becomes a shot hold even when that click also captures the mouse', () => {
-    const next = applyPointerButtonDown(false, false, 0);
-    expect(next.primaryDown).toBe(true);
-    expect(next.secondaryDown).toBe(false);
+  test('the first unlocked primary pointer-down requests camera capture and emits no football action', () => {
+    const result = resolvePointerButtonDown({
+      primaryDown: false,
+      secondaryDown: false,
+      button: 0,
+      pointerLocked: false,
+    });
+    expect(result.requestPointerLock).toBe(true);
+    expect(result.primaryDown).toBe(false);
+    expect(result.actionBits & PlayerActionBits.ShootHeld).toBe(0);
+  });
+
+  test('RMB close control lowers locomotion authority and disables sprint while preserving requested direction', () => {
+    const intent: InputIntent = {
+      moveX: 0.6,
+      moveY: 0.8,
+      aimYaw: 0.4,
+      sprint: true,
+      actionBits: PlayerActionBits.Precision,
+    };
+    const shaped = shapeFootballMovementIntent(intent);
+    expect(shaped.sprint).toBe(false);
+    expect(Math.hypot(shaped.moveX, shaped.moveY)).toBeCloseTo(CLOSE_CONTROL_MOVE_SCALE, 8);
+    expect(shaped.moveX / shaped.moveY).toBeCloseTo(intent.moveX / intent.moveY, 8);
+  });
+
+  test('normal locomotion is unchanged when close control is not held', () => {
+    const intent: InputIntent = {
+      moveX: -0.4,
+      moveY: 0.7,
+      aimYaw: -0.2,
+      sprint: true,
+      actionBits: 0,
+    };
+    expect(shapeFootballMovementIntent(intent)).toEqual(intent);
   });
 });
