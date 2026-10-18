@@ -20,7 +20,40 @@ describe('Stage 05 football runtime cadence', () => {
     expect(release.releasedShotCharge).not.toBeNull();
     expect(release.releasedShotCharge!).toBeGreaterThan(0.45);
     expect(release.releasedShotCharge!).toBeLessThan(0.75);
+    expect(release.releasedShotStyle).toBe('normal');
     expect(release.state.shotChargeSeconds).toBe(0);
+  });
+
+  test('shot technique latches at charge start even when the modifier is released before LMB', () => {
+    let state = createFootballRuntimeState();
+    state = stepFootballRuntime(
+      state,
+      PlayerActionBits.ShootHeld | PlayerActionBits.Precision,
+      0.2,
+    ).state;
+    expect(state.shotStyleLatched).toBe('finesse');
+
+    state = stepFootballRuntime(state, PlayerActionBits.ShootHeld, 0.2).state;
+    expect(state.shotStyleLatched).toBe('finesse');
+
+    const release = stepFootballRuntime(state, PlayerActionBits.ShootReleased, 1 / 60);
+    expect(release.releasedShotCharge).not.toBeNull();
+    expect(release.releasedShotStyle).toBe('finesse');
+    expect(release.state.shotStyleLatched).toBeNull();
+  });
+
+  test('chip technique latches at charge start and takes precedence over simultaneous precision', () => {
+    let state = createFootballRuntimeState();
+    state = stepFootballRuntime(
+      state,
+      PlayerActionBits.ShootHeld | PlayerActionBits.Precision | PlayerActionBits.ChipModifier,
+      0.2,
+    ).state;
+    expect(state.shotStyleLatched).toBe('chip');
+
+    const release = stepFootballRuntime(state, PlayerActionBits.ShootReleased, 0.1);
+    expect(release.releasedShotStyle).toBe('chip');
+    expect(release.state.shotStyleLatched).toBeNull();
   });
 
   test('a very short focus click never becomes a minimum-power accidental shot', () => {
@@ -31,6 +64,7 @@ describe('Stage 05 football runtime cadence', () => {
     expect(state.shotChargeSeconds).toBeLessThan(0.05);
     const release = stepFootballRuntime(state, PlayerActionBits.ShootReleased, 1 / 60);
     expect(release.releasedShotCharge).toBeNull();
+    expect(release.releasedShotStyle).toBeNull();
     expect(release.state.shotChargeSeconds).toBe(0);
   });
 
@@ -45,18 +79,25 @@ describe('Stage 05 football runtime cadence', () => {
     expect(state.receive.lastOutcome).toBe('consumed');
   });
 
-  test('losing the held-shot state without a release cancels stale charge instead of banking it', () => {
+  test('losing the held-shot state without a release cancels stale charge and technique instead of banking it', () => {
     let state = createFootballRuntimeState();
     for (let index = 0; index < 24; index += 1) {
-      state = stepFootballRuntime(state, PlayerActionBits.ShootHeld, 1 / 60).state;
+      state = stepFootballRuntime(
+        state,
+        PlayerActionBits.ShootHeld | PlayerActionBits.Precision,
+        1 / 60,
+      ).state;
     }
     expect(state.shotChargeSeconds).toBeGreaterThan(0.35);
     expect(state.shotWasHeld).toBe(true);
+    expect(state.shotStyleLatched).toBe('finesse');
 
     const cancelled = stepFootballRuntime(state, 0, 1 / 60);
     expect(cancelled.releasedShotCharge).toBeNull();
+    expect(cancelled.releasedShotStyle).toBeNull();
     expect(cancelled.state.shotChargeSeconds).toBe(0);
     expect(cancelled.state.shotWasHeld).toBe(false);
+    expect(cancelled.state.shotStyleLatched).toBeNull();
   });
 
   test('touch and kick cooldowns prevent 60 Hz magnetic re-contact spam', () => {
@@ -64,7 +105,7 @@ describe('Stage 05 football runtime cadence', () => {
     expect(state.controlTouchCooldown).toBeGreaterThan(0.1);
     let result = stepFootballRuntime(state, 0, 0.05);
     expect(result.state.controlTouchCooldown).toBeGreaterThan(0);
-    result = stepFootballRuntime(result.state, 0, 0.2);
+    result = stepFootballRuntime(result.state, 0, 0.3);
     expect(result.state.controlTouchCooldown).toBe(0);
 
     state = markKick(result.state);
@@ -77,15 +118,19 @@ describe('Stage 05 football runtime cadence', () => {
     const sprint = markControlTouch(createFootballRuntimeState(), true, 'sprint');
     expect(effort.controlTouchCooldown).toBeLessThan(normal.controlTouchCooldown);
     expect(normal.controlTouchCooldown).toBeLessThan(sprint.controlTouchCooldown);
-    expect(effort.controlTouchCooldown).toBeLessThanOrEqual(0.09);
+    expect(effort.controlTouchCooldown).toBeLessThanOrEqual(0.13);
   });
 
-  test('dribble cadence matches the owner-calibrated recovery envelope', () => {
-    const sprint = markControlTouch(createFootballRuntimeState(), true);
-    const controlled = markControlTouch(createFootballRuntimeState(), false);
-    expect(sprint.controlTouchCooldown).toBeCloseTo(0.14, 8);
-    expect(controlled.controlTouchCooldown).toBeCloseTo(0.12, 8);
-    expect(sprint.controlTouchCooldown).toBeGreaterThan(controlled.controlTouchCooldown);
+  test('dribble cadence uses tighter repeated touches for control and longer knock-on cadence for sprint', () => {
+    const sprint = markControlTouch(createFootballRuntimeState(), true, 'sprint');
+    const normal = markControlTouch(createFootballRuntimeState(), false, 'normal');
+    const precision = markControlTouch(createFootballRuntimeState(), false, 'precision');
+
+    expect(precision.controlTouchCooldown).toBeCloseTo(0.16, 8);
+    expect(normal.controlTouchCooldown).toBeCloseTo(0.2, 8);
+    expect(sprint.controlTouchCooldown).toBeCloseTo(0.28, 8);
+    expect(precision.controlTouchCooldown).toBeLessThan(normal.controlTouchCooldown);
+    expect(normal.controlTouchCooldown).toBeLessThan(sprint.controlTouchCooldown);
   });
 
   test('runtime stepping is exactly repeatable for the same bit trace', () => {
@@ -99,11 +144,11 @@ describe('Stage 05 football runtime cadence', () => {
     ];
     const run = () => {
       let state = createFootballRuntimeState();
-      const releases: Array<number | null> = [];
+      const releases: Array<{ charge: number | null; style: string | null }> = [];
       for (const bits of trace) {
         const result = stepFootballRuntime(state, bits, 1 / 60);
         state = result.state;
-        releases.push(result.releasedShotCharge);
+        releases.push({ charge: result.releasedShotCharge, style: result.releasedShotStyle });
       }
       return JSON.stringify({ state, releases });
     };
