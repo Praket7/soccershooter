@@ -86,7 +86,6 @@ export function keyboardStateToIntent(sample: Readonly<KeyboardIntentSample>): I
   let actionBits = 0;
   if (pressed(sample.keys, 'Space')) actionBits |= PlayerActionBits.Jump;
   if (pressed(sample.keys, 'KeyC', 'KeyB', 'ControlLeft', 'ControlRight')) actionBits |= PlayerActionBits.Tackle;
-  if (pressed(sample.keys, 'KeyE')) actionBits |= PlayerActionBits.Pass;
   if (pressed(sample.keys, 'KeyQ')) actionBits |= PlayerActionBits.Technique;
   return {
     moveX: move.x,
