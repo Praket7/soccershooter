@@ -83,17 +83,17 @@ describe('Stage 04 Ball Lab control contract', () => {
     expect(trace.at(-1)?.time ?? 0).toBeGreaterThan(0.5);
   });
 
-  test('complete export keeps sampling after a chip becomes grounded so roll can be audited', () => {
-    // Reproduces the owner-exported low-speed chip configuration. Exact first
-    // ground time is intentionally not asserted because the uploaded file may
-    // come from a slightly different slider state. The invariant is that export
-    // cannot terminate while the grounded ball is still moving materially.
+  test('complete export keeps sampling after the owner chip becomes grounded so roll can be audited', () => {
+    // Exact owner-exported state: 4.5 m/s, 34 degrees, +34 rad/s around X.
+    // In Ball Lab coordinates +X angular velocity is the "top" axis. The
+    // supplied CSV reaches its first grounded state at 0.900 s while still
+    // moving at about 3.4107 m/s, so a complete audit trace must continue.
     const controls: BallLabControls = {
       speed: 4.5,
       elevationDegrees: 34,
       azimuthDegrees: 0,
       spinRate: 34,
-      spinAxis: 'back',
+      spinAxis: 'top',
       profileId: 'match-balanced-v1',
       slowMotion: 1,
       trailEnabled: true,
@@ -103,7 +103,8 @@ describe('Stage 04 Ball Lab control contract', () => {
     const firstGroundedIndex = trace.findIndex((sample) => sample.state.grounded);
     expect(firstGroundedIndex).toBeGreaterThan(0);
     const firstGrounded = trace[firstGroundedIndex]!;
-    expect(Math.hypot(firstGrounded.state.velocity.x, firstGrounded.state.velocity.z)).toBeGreaterThan(3);
+    expect(firstGrounded.time).toBeCloseTo(0.9, 4);
+    expect(Math.hypot(firstGrounded.state.velocity.x, firstGrounded.state.velocity.z)).toBeCloseTo(3.4107, 3);
     expect(trace.length).toBeGreaterThan(firstGroundedIndex + 1);
     expect(trace.at(-1)?.time ?? 0).toBeGreaterThan(firstGrounded.time + 1);
     expect(Math.hypot(trace.at(-1)!.state.velocity.x, trace.at(-1)!.state.velocity.z)).toBeLessThan(0.05);
