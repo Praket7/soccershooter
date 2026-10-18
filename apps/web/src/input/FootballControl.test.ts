@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest';
 import type { InputIntent } from '@soccershooter/sim';
 import { PlayerActionBits } from '@soccershooter/sim/player/PlayerState';
 import { applyPointerButtonDown } from './ActionMap';
-import { resolveDribbleIntent, updateShotFacingLock } from './FootballControl';
+import { resolveDribbleIntent, resolveTravelFacingYaw, updateShotFacingLock } from './FootballControl';
 
 describe('Stage 05 owner control feedback', () => {
   test('dribble direction follows the newly requested camera-relative input, not old player velocity', () => {
@@ -17,6 +17,14 @@ describe('Stage 05 owner control feedback', () => {
     expect(resolved.magnitude).toBeCloseTo(1, 8);
     expect(resolved.direction.x).toBeCloseTo(-1, 8);
     expect(resolved.direction.z).toBeCloseTo(0, 8);
+  });
+
+  test('football body-facing follows travel direction during a reversal instead of stale camera yaw', () => {
+    const reversed = resolveTravelFacingYaw({ x: 0, z: -6.5 }, 0);
+    expect(Math.abs(Math.abs(reversed) - Math.PI)).toBeLessThan(1e-8);
+
+    const idle = resolveTravelFacingYaw({ x: 0.05, z: 0.02 }, 0.7);
+    expect(idle).toBeCloseTo(0.7, 8);
   });
 
   test('shot preparation keeps the body-facing reference while mouse aim remains free to move', () => {
