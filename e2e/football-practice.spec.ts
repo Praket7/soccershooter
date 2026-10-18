@@ -56,6 +56,33 @@ test('Stage 05 practice starts physical, idle, non-magnetic, and visually ground
   expect(visualFootY).toBeCloseTo(playerY, 5);
 });
 
+test('ordinary multi-second dribbling keeps the free ball inside the recoverable control corridor', async ({ page }) => {
+  await page.goto('/');
+  const ballProbe = page.locator('[data-football-state]');
+  const playerProbe = page.locator('[data-player-state]');
+
+  await page.keyboard.press('g');
+  await page.waitForTimeout(80);
+  await page.keyboard.down('w');
+
+  let maximumSeparation = 0;
+  let maximumLateralError = 0;
+  for (let sample = 0; sample < 9; sample += 1) {
+    await page.waitForTimeout(160);
+    const playerX = Number(await playerProbe.getAttribute('data-x'));
+    const playerZ = Number(await playerProbe.getAttribute('data-z'));
+    const ballX = Number(await ballProbe.getAttribute('data-ball-x'));
+    const ballZ = Number(await ballProbe.getAttribute('data-ball-z'));
+    maximumSeparation = Math.max(maximumSeparation, Math.hypot(ballX - playerX, ballZ - playerZ));
+    maximumLateralError = Math.max(maximumLateralError, Math.abs(ballX - playerX));
+  }
+  await page.keyboard.up('w');
+
+  expect(maximumSeparation).toBeLessThan(1.32);
+  expect(maximumLateralError).toBeLessThan(0.7);
+  expect(Number(await ballProbe.getAttribute('data-ball-speed'))).toBeGreaterThan(2.5);
+});
+
 test('first click captures camera only, then locked LMB charges through the permanent reticle', async ({ page }) => {
   await installPointerLockHarness(page);
   await page.goto('/');
