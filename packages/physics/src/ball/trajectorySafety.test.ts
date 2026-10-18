@@ -39,4 +39,16 @@ describe('Stage 04 goal geometry and continuous collision safety', () => {
     expect(kineticEnergy(after)).toBeLessThanOrEqual(beforeEnergy * 1.000001);
     expect(Math.abs(after.position.x - STANDARD_GOAL_FRAME.halfWidth)).toBeLessThan(BALL_CONSTANTS.radius + STANDARD_GOAL_FRAME.postRadius + 0.02);
   });
+
+  test('a swept goal-frame impact still consumes exactly one fixed physics step', () => {
+    const incoming = createBallState({
+      position: { x: STANDARD_GOAL_FRAME.halfWidth - 0.02, y: 1.15, z: STANDARD_GOAL_FRAME.planeZ - 0.22 },
+      velocity: { x: 0, y: 0, z: 42 },
+      angularVelocity: { x: 0, y: 30, z: 0 },
+      flightSeconds: 1.25,
+    });
+    const after = stepBall(incoming, BALL_SUBSTEP_DT, undefined, STANDARD_GOAL_FRAME);
+    expect(after.lastContact?.kind).toBe('goal-frame');
+    expect(after.flightSeconds).toBeCloseTo(incoming.flightSeconds + BALL_SUBSTEP_DT, 12);
+  });
 });
