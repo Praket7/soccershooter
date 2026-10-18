@@ -16,6 +16,7 @@ import {
 
 export const TACTICAL_DECISION_HZ = 10;
 export const TACTICAL_DECISION_INTERVAL = 1 / TACTICAL_DECISION_HZ;
+const TEAMMATE_SEPARATION_RADIUS = 3;
 
 export interface TeamBotIntent {
   playerId: string;
@@ -155,6 +156,42 @@ function steeringIntent(
   };
 }
 
+function applyTeammateSeparation(
+  world: Readonly<BotWorldSnapshot>,
+  team: TeamId,
+  intents: readonly TeamBotIntent[],
+): TeamBotIntent[] {
+  const fieldPlayers = world.players.filter((player) => player.team === team && !player.goalkeeper);
+  return intents.map((intent) => {
+    const player = findPlayer(world, intent.playerId);
+    if (player.goalkeeper) return intent;
+    let repelX = 0;
+    let repelZ = 0;
+    for (const teammate of fieldPlayers) {
+      if (teammate.id === player.id) continue;
+      const dx = player.position.x - teammate.position.x;
+      const dz = player.position.z - teammate.position.z;
+      const distance = Math.hypot(dx, dz);
+      if (distance >= TEAMMATE_SEPARATION_RADIUS) continue;
+      const fallbackX = player.id < teammate.id ? -1 : 1;
+      const direction = distance > 1e-6
+        ? { x: dx / distance, z: dz / distance }
+        : { x: fallbackX, z: 0 };
+      const strength = clamp01((TEAMMATE_SEPARATION_RADIUS - distance) / TEAMMATE_SEPARATION_RADIUS) * 0.9;
+      repelX += direction.x * strength;
+      repelZ += direction.z * strength;
+    }
+    let moveX = intent.moveX + repelX;
+    let moveY = intent.moveY + repelZ;
+    const magnitude = Math.hypot(moveX, moveY);
+    if (magnitude > 1) {
+      moveX /= magnitude;
+      moveY /= magnitude;
+    }
+    return { ...intent, moveX, moveY };
+  });
+}
+
 export function stepTeamBotRuntime(
   world: Readonly<BotWorldSnapshot>,
   team: TeamId,
@@ -167,7 +204,8 @@ export function stepTeamBotRuntime(
   const criticalBallEvent = ballEventIsCritical(world, state);
   const reevaluated = missingRoles || possessionChanged || intervalElapsed || criticalBallEvent;
   const roles = reevaluated ? assignTeamRoles(world, team, state.roles) : state.roles;
-  const intents = roles.assignments.map((assignment) => steeringIntent(world, team, assignment));
+  const baseIntents = roles.assignments.map((assignment) => steeringIntent(world, team, assignment));
+  const intents = applyTeammateSeparation(world, team, baseIntents);
   return {
     state: {
       roles,
