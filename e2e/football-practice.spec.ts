@@ -41,6 +41,22 @@ test('Stage 05 pass contact moves the free ball without teleporting it', async (
   expect(Number(await probe.getAttribute('data-ball-speed'))).toBeGreaterThan(2);
 });
 
+test('Stage 05 practice ball visual rotation advances from physics steps, never idle render frames', async ({ page }) => {
+  await page.goto('/');
+  const probe = page.locator('[data-football-state]');
+
+  await page.keyboard.press('g');
+  await page.waitForTimeout(100);
+  const idleQuaternion = await probe.getAttribute('data-ball-visual-quaternion');
+  expect(idleQuaternion).toMatch(/^-?\d+\.\d+,-?\d+\.\d+,-?\d+\.\d+,-?\d+\.\d+$/);
+  await page.waitForTimeout(300);
+  expect(await probe.getAttribute('data-ball-visual-quaternion')).toBe(idleQuaternion);
+
+  await page.keyboard.press('e');
+  await expect.poll(async () => await probe.getAttribute('data-ball-visual-quaternion'), { timeout: 2500 })
+    .not.toBe(idleQuaternion);
+});
+
 test('Stage 05 exposes shot-style mastery and tackle commitment recovery', async ({ page }) => {
   await page.goto('/');
   const probe = page.locator('[data-football-state]');
