@@ -12,6 +12,7 @@ import {
 } from '@soccershooter/sim/player/movement';
 import { ActionMap } from './input/ActionMap';
 import { GamepadAdapter } from './input/GamepadAdapter';
+import { mergeInputSources } from './input/InputMerge';
 import { ThirdPersonCamera, type CameraObstacle } from './camera/ThirdPersonCamera';
 import { MovementHud } from './debug/MovementHud';
 import './styles.css';
@@ -42,6 +43,7 @@ app.innerHTML = `
         <span>W / S · forward / back</span>
         <span>A / D · screen-left / screen-right</span>
         <span>Mouse / right stick · camera</span>
+        <span>Trackpad pinch / scroll · camera zoom</span>
         <span>Shift / L3 · sprint</span>
         <span>Space / gamepad A · jump input hook</span>
         <span>C or B / gamepad B · tackle input hook</span>
@@ -338,17 +340,14 @@ function frame(now: number): void {
   const keyboardFrame = actionMap.consumeFrame();
   bufferedActionBits |= keyboardFrame.intent.actionBits;
   const gamepadFrame = gamepad.read(actionMap.aimYaw, rawDelta);
-  let intent = { ...keyboardFrame.intent, actionBits: bufferedActionBits >>> 0 };
-  let look = { ...keyboardFrame.look };
-  if (gamepadFrame?.active) {
-    bufferedActionBits |= gamepadFrame.intent.actionBits;
-    intent = { ...gamepadFrame.intent, actionBits: bufferedActionBits >>> 0 };
-    look = {
-      yawDelta: look.yawDelta + gamepadFrame.look.yawDelta,
-      pitchDelta: look.pitchDelta + gamepadFrame.look.pitchDelta,
-    };
+  if (gamepadFrame) bufferedActionBits |= gamepadFrame.intent.actionBits;
+  const mergedFrame = mergeInputSources(keyboardFrame, gamepadFrame, bufferedActionBits);
+  let intent = mergedFrame.intent;
+  const look = mergedFrame.look;
+  if (gamepadFrame && (Math.abs(gamepadFrame.look.yawDelta) + Math.abs(gamepadFrame.look.pitchDelta) > 1e-9)) {
     actionMap.setAimYaw(gamepadFrame.intent.aimYaw);
   }
+  cameraController.adjustZoom(mergedFrame.zoomDelta);
 
   let stepped = false;
   let jumpAcknowledgedThisFrame = false;
@@ -420,6 +419,7 @@ function frame(now: number): void {
   playerProbe.dataset.sprinting = String(intent.sprint);
   playerProbe.dataset.jumpHook = String(jumpAcknowledgedThisFrame);
   playerProbe.dataset.tackleHook = String(tackleAcknowledgedThisFrame);
+  playerProbe.dataset.cameraDistance = cameraState.userDistance.toFixed(3);
 
   renderActionFeedback(
     now,
