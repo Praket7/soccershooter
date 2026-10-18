@@ -1,5 +1,6 @@
 import type { InputIntent } from '@soccershooter/sim';
 import type { ActionFrame, LookDelta } from './ActionMap';
+import { shapeFootballMovementIntent } from './FootballControl';
 import type { GamepadFrame } from './GamepadAdapter';
 
 export interface MergedInputFrame extends ActionFrame {}
@@ -14,8 +15,9 @@ export function mergeInputSources(
 ): MergedInputFrame {
   const keyboardBits = (keyboard.intent.actionBits | bufferedActionBits) >>> 0;
   if (!gamepad) {
+    const intent = shapeFootballMovementIntent({ ...keyboard.intent, actionBits: keyboardBits });
     return {
-      intent: { ...keyboard.intent, actionBits: keyboardBits },
+      intent,
       look: { ...keyboard.look },
       inputTimestamp: keyboard.inputTimestamp,
       zoomDelta: keyboard.zoomDelta,
@@ -28,13 +30,13 @@ export function mergeInputSources(
     yawDelta: keyboard.look.yawDelta + gamepad.look.yawDelta,
     pitchDelta: keyboard.look.pitchDelta + gamepad.look.pitchDelta,
   };
-  const intent: InputIntent = {
+  const intent: InputIntent = shapeFootballMovementIntent({
     moveX: gamepadMoving ? gamepad.intent.moveX : keyboard.intent.moveX,
     moveY: gamepadMoving ? gamepad.intent.moveY : keyboard.intent.moveY,
     aimYaw: gamepadLooking ? gamepad.intent.aimYaw : keyboard.intent.aimYaw,
     sprint: keyboard.intent.sprint || gamepad.intent.sprint,
     actionBits: (keyboardBits | gamepad.intent.actionBits) >>> 0,
-  };
+  });
 
   return {
     intent,
