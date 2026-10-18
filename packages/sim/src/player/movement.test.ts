@@ -50,6 +50,51 @@ describe('Stage 03 deterministic movement', () => {
     expect(state.velocity.z).toBeLessThan(-1);
   });
 
+  test('a 90-degree sprint direction change plants instead of drawing a wide circle', () => {
+    const world = createFlatMovementWorld();
+    const right: InputIntent = { moveX: 1, moveY: 0, aimYaw: 0, sprint: true, actionBits: 0 };
+    let state = createPlayerState({ velocity: { x: 0, y: 0, z: DEFAULT_MOVEMENT_CONFIG.sprintSpeed } });
+    let maxForwardDrift = 0;
+    for (let tick = 0; tick < 36; tick += 1) {
+      state = stepPlayerMovement(state, right, world, CONTROL_DT);
+      maxForwardDrift = Math.max(maxForwardDrift, state.position.z);
+    }
+    expect(maxForwardDrift).toBeLessThan(2.35);
+    expect(state.velocity.x).toBeLessThan(-7);
+    expect(Math.abs(state.velocity.z)).toBeLessThan(2.2);
+  });
+
+  test('stepping off raised ground becomes a short deterministic fall instead of a vertical teleport', () => {
+    const world: MovementWorld = {
+      bounds: { minX: -5, maxX: 5, minZ: -5, maxZ: 5 },
+      obstacles: [],
+      ground: [{ id: 'platform', minX: -2, maxX: 2, minZ: -2, maxZ: 0, baseHeight: 0.35, slopeX: 0, slopeZ: 0 }],
+    };
+    let state = createPlayerState({
+      position: { x: 0, y: 0.35, z: -0.02 },
+      velocity: { x: 0, y: 0, z: DEFAULT_MOVEMENT_CONFIG.jogSpeed },
+      grounded: true,
+      groundHeight: 0.35,
+    });
+
+    state = stepPlayerMovement(state, FORWARD, world, CONTROL_DT);
+    expect(state.grounded).toBe(false);
+    expect(state.locomotion).toBe('airborne');
+    expect(state.position.y).toBeGreaterThan(0.3);
+    expect(state.velocity.y).toBeLessThan(0);
+
+    let airborneTicks = 1;
+    while (!state.grounded && airborneTicks < 120) {
+      state = stepPlayerMovement(state, FORWARD, world, CONTROL_DT);
+      airborneTicks += 1;
+    }
+    expect(airborneTicks).toBeGreaterThan(5);
+    expect(airborneTicks).toBeLessThan(40);
+    expect(state.grounded).toBe(true);
+    expect(state.position.y).toBeCloseTo(0, 8);
+    expect(state.velocity.y).toBe(0);
+  });
+
   test('sprint is materially faster than normal running after one second', () => {
     const world = createFlatMovementWorld();
     let jog = createPlayerState();
@@ -150,11 +195,11 @@ describe('Stage 03 deterministic movement', () => {
     expect(blocked.position.y).toBe(0);
   });
 
-  test('full sprint has a broader turn arc than low-speed movement', () => {
+  test('small sprint steering still has a broader arc than low-speed movement', () => {
     const world = createFlatMovementWorld();
     const fast = createPlayerState({ velocity: { x: 0, y: 0, z: DEFAULT_MOVEMENT_CONFIG.sprintSpeed } });
     const slow = createPlayerState({ velocity: { x: 0, y: 0, z: 1 } });
-    const cut: InputIntent = { moveX: 1, moveY: 0, aimYaw: 0, sprint: true, actionBits: 0 };
+    const cut: InputIntent = { moveX: Math.SQRT1_2, moveY: Math.SQRT1_2, aimYaw: 0, sprint: true, actionBits: 0 };
     const fastAfter = stepPlayerMovement(fast, cut, world, DT);
     const slowAfter = stepPlayerMovement(slow, { ...cut, sprint: false }, world, DT);
     const fastHeading = Math.atan2(fastAfter.velocity.x, fastAfter.velocity.z);
