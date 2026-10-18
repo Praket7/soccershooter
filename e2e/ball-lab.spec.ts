@@ -2,13 +2,22 @@ import { expect, test } from '@playwright/test';
 
 async function openBallLab(page: import('@playwright/test').Page) {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Ball Lab', exact: true }).click();
+  const modeButton = page.getByRole('button', { name: 'Ball Lab', exact: true });
+  await modeButton.click();
+  await expect(modeButton).toHaveAttribute('data-active', 'true');
+  await expect(page.locator('[data-ball-lab]')).toBeVisible();
+}
+
+async function releaseModeSwitchFocus(page: import('@playwright/test').Page) {
+  // Ball Lab intentionally ignores shortcuts while an interactive control owns
+  // keyboard focus. A player normally returns focus to play before using the
+  // global physics-lab hotkeys; mirror that state explicitly in the test.
+  await page.locator('[data-ball-lab] .ball-lab-heading strong').click();
 }
 
 test('Stage 04 Ball Lab exposes deterministic presets and launches the physical ball', async ({ page }) => {
   await openBallLab(page);
 
-  await expect(page.getByText('Ball Lab', { exact: true })).toBeVisible();
   const lab = page.locator('[data-ball-lab]');
   await expect(lab).toHaveAttribute('data-preset', 'straight');
   await expect(lab).toHaveAttribute('data-playing', 'false');
@@ -36,6 +45,7 @@ test('Stage 04 Ball Lab exposes deterministic presets and launches the physical 
 test('Stage 04 Ball Lab supports deterministic keyboard presets and trace export', async ({ page }) => {
   await openBallLab(page);
   const lab = page.locator('[data-ball-lab]');
+  await releaseModeSwitchFocus(page);
 
   await page.keyboard.press('7');
   await expect(lab).toHaveAttribute('data-preset', 'knuckle');
