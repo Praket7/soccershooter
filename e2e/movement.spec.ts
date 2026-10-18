@@ -24,6 +24,20 @@ test('Stage 03 movement lab is controllable in the browser', async ({ page }) =>
   expect(inputToRenderMs).toBeGreaterThanOrEqual(0);
 });
 
+test('Stage 03 action hooks visibly acknowledge keyboard requests', async ({ page }) => {
+  await page.goto('/');
+  const feedback = page.locator('[data-action-feedback]');
+  await expect(feedback).toHaveAttribute('data-action', 'idle');
+
+  await page.keyboard.press('c');
+  await expect(feedback).toHaveAttribute('data-action', 'tackle');
+  await expect(feedback).toContainText(/tackle/i);
+
+  await page.keyboard.press('Space');
+  await expect(feedback).toHaveAttribute('data-action', 'jump');
+  await expect(feedback).toContainText(/jump/i);
+});
+
 test('Stage 02 deterministic browser parity evidence remains exposed', async ({ page }) => {
   await page.goto('/');
   const result = page.locator('[data-determinism-hash]');
