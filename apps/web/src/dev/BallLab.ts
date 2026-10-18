@@ -60,6 +60,9 @@ const DEFAULT_CONTROLS: BallLabControls = Object.freeze({
 // gets a modest readability multiplier without altering collision geometry.
 export const BALL_VISUAL_SCALE = 1.35;
 const BALL_VISUAL_CENTER_OFFSET = BALL_CONSTANTS.radius * (BALL_VISUAL_SCALE - 1);
+export const BALL_LAB_MAX_SIM_SECONDS = 20;
+const BALL_LAB_SETTLE_SPEED = 0.05;
+const BALL_LAB_SETTLE_MIN_SECONDS = 0.35;
 
 export const BALL_LAB_PRESETS: readonly BallLabPreset[] = Object.freeze([
   { id: 'driven', label: 'Driven 10m', description: 'Low, fast service benchmark', controls: { speed: 14, elevationDegrees: 5, spinRate: 8, spinAxis: 'back', azimuthDegrees: 0, knuckleSeed: 0 } },
@@ -117,13 +120,27 @@ export function buildLaunchFromControls(input: BallLabControls): BallState {
   });
 }
 
+export function shouldStopBallLabSimulation(state: Readonly<BallState>): boolean {
+  if (state.flightSeconds >= BALL_LAB_MAX_SIM_SECONDS) return true;
+  const horizontalSpeed = Math.hypot(state.velocity.x, state.velocity.z);
+  return state.grounded
+    && Math.abs(state.velocity.y) < 1e-6
+    && horizontalSpeed < BALL_LAB_SETTLE_SPEED
+    && state.flightSeconds > BALL_LAB_SETTLE_MIN_SECONDS;
+}
+
 export function buildCompleteExportTrace(input: BallLabControls): readonly TrajectorySample[] {
   const profile = PROFILES[input.profileId] ?? MATCH_BALL_PROFILE;
-  return predictTrajectory(buildLaunchFromControls(input), {
-    profile,
-    goalFrame: STANDARD_GOAL_FRAME,
-    maxSeconds: 8,
-  }).samples;
+  let state = buildLaunchFromControls(input);
+  const samples: TrajectorySample[] = [{ time: 0, state: cloneBallState(state) }];
+  const maxSteps = Math.ceil(BALL_LAB_MAX_SIM_SECONDS * BALL_SUBSTEP_HZ);
+
+  for (let step = 0; step < maxSteps; step += 1) {
+    state = stepBall(state, BALL_SUBSTEP_DT, profile, STANDARD_GOAL_FRAME);
+    samples.push({ time: state.flightSeconds, state: cloneBallState(state) });
+    if (shouldStopBallLabSimulation(state)) break;
+  }
+  return samples;
 }
 
 function formatCsvNumber(value: number): string {
@@ -436,8 +453,7 @@ export class BallLab {
         this.#accumulator -= BALL_SUBSTEP_DT;
         steps += 1;
       }
-      const speed = Math.hypot(this.#state.velocity.x, this.#state.velocity.y, this.#state.velocity.z);
-      if (this.#state.flightSeconds >= 8 || (this.#state.grounded && speed < 0.12 && this.#state.flightSeconds > 0.35)) {
+      if (shouldStopBallLabSimulation(this.#state)) {
         this.#playing = false;
         this.root.classList.remove('is-playing');
       }
