@@ -1,5 +1,7 @@
 import { PlayerActionBits } from '../player/PlayerState';
+import { decodeFootballActionIntent } from './actionIntent';
 import { consumeReceive, createReceiveState, requestReceive, stepReceiveState, type ReceiveState } from './receive';
+import type { ShotStyle } from './shooting';
 import { clampFootball } from './types';
 
 export interface FootballRuntimeState {
@@ -7,6 +9,7 @@ export interface FootballRuntimeState {
   kickCooldown: number;
   shotChargeSeconds: number;
   shotWasHeld: boolean;
+  shotStyleLatched: ShotStyle | null;
   receive: ReceiveState;
   lastAction: 'idle' | 'touch' | 'pass' | 'shot' | 'challenge' | 'aerial';
 }
@@ -14,6 +17,7 @@ export interface FootballRuntimeState {
 export interface FootballRuntimeStep {
   state: FootballRuntimeState;
   releasedShotCharge: number | null;
+  releasedShotStyle: ShotStyle | null;
 }
 
 export const MAX_SHOT_CHARGE_SECONDS = 0.85;
@@ -26,6 +30,7 @@ export function createFootballRuntimeState(): FootballRuntimeState {
     kickCooldown: 0,
     shotChargeSeconds: 0,
     shotWasHeld: false,
+    shotStyleLatched: null,
     receive: createReceiveState(),
     lastAction: 'idle',
   };
@@ -39,17 +44,25 @@ export function stepFootballRuntime(
   const dt = clampFootball(Number.isFinite(deltaSeconds) ? deltaSeconds : 0, 0, 0.25);
   const shootHeld = (actionBits & PlayerActionBits.ShootHeld) !== 0;
   const shootReleased = (actionBits & PlayerActionBits.ShootReleased) !== 0;
+  const shotStarted = shootHeld && !state.shotWasHeld;
+
   let shotChargeSeconds = state.shotChargeSeconds;
+  let shotStyleLatched = state.shotStyleLatched;
+  if (shotStarted) shotStyleLatched = decodeFootballActionIntent(actionBits).shotStyle;
   if (shootHeld) shotChargeSeconds = Math.min(MAX_SHOT_CHARGE_SECONDS, shotChargeSeconds + dt);
 
   let releasedShotCharge: number | null = null;
+  let releasedShotStyle: ShotStyle | null = null;
   if (shootReleased && (state.shotWasHeld || shotChargeSeconds > 0)) {
     if (shotChargeSeconds >= MIN_SHOT_CHARGE_SECONDS) {
       releasedShotCharge = clampFootball(shotChargeSeconds / MAX_SHOT_CHARGE_SECONDS, 0.12, 1);
+      releasedShotStyle = shotStyleLatched ?? decodeFootballActionIntent(actionBits).shotStyle;
     }
     shotChargeSeconds = 0;
+    shotStyleLatched = null;
   } else if (state.shotWasHeld && !shootHeld) {
     shotChargeSeconds = 0;
+    shotStyleLatched = null;
   }
 
   let receive = state.receive;
@@ -62,10 +75,12 @@ export function stepFootballRuntime(
       kickCooldown: Math.max(0, state.kickCooldown - dt),
       shotChargeSeconds,
       shotWasHeld: shootHeld,
+      shotStyleLatched,
       receive,
       lastAction: state.lastAction,
     },
     releasedShotCharge,
+    releasedShotStyle,
   };
 }
 
@@ -78,10 +93,11 @@ export function markControlTouch(
   sprint: boolean,
   mode: 'normal' | 'precision' | 'sprint' | 'effort-turn' | 'trap' | 'receive-exit' = sprint ? 'sprint' : 'normal',
 ): FootballRuntimeState {
-  let controlTouchCooldown = sprint ? 0.14 : 0.12;
-  if (mode === 'effort-turn') controlTouchCooldown = 0.08;
-  else if (mode === 'precision') controlTouchCooldown = 0.1;
-  else if (mode === 'trap' || mode === 'receive-exit') controlTouchCooldown = 0.09;
+  let controlTouchCooldown = 0.2;
+  if (mode === 'sprint') controlTouchCooldown = 0.28;
+  else if (mode === 'effort-turn') controlTouchCooldown = 0.12;
+  else if (mode === 'precision') controlTouchCooldown = 0.16;
+  else if (mode === 'trap' || mode === 'receive-exit') controlTouchCooldown = 0.1;
   return {
     ...state,
     controlTouchCooldown,
