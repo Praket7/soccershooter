@@ -4,19 +4,23 @@ import { keyboardStateToIntent, pointerStateToActionBits } from './ActionMap';
 import { GamepadAdapter, gamepadSnapshotToFrame } from './GamepadAdapter';
 
 afterEach(() => {
-  // Individual tests may install a lightweight gamepad navigator.
   Reflect.deleteProperty(globalThis, 'navigator');
 });
 
-describe('Stage 05 football input mapping', () => {
-  test('keyboard E is an edge-triggered pass while Q remains a held technique modifier', () => {
-    const intent = keyboardStateToIntent({ keys: new Set(['KeyW', 'KeyE', 'KeyQ']), aimYaw: 0.4 });
-    expect(intent.moveY).toBeGreaterThan(0);
-    expect(intent.actionBits & PlayerActionBits.Pass).toBe(0);
-    expect(intent.actionBits & PlayerActionBits.Technique).toBe(PlayerActionBits.Technique);
+describe('Stage 05 owner-overhaul football input mapping', () => {
+  test('keyboard exposes dedicated E ground, Q through, R lofted and F receive intents', () => {
+    const ground = keyboardStateToIntent({ keys: new Set(['KeyW', 'KeyE']), aimYaw: 0.4 });
+    const through = keyboardStateToIntent({ keys: new Set(['KeyQ']), aimYaw: 0.4 });
+    const lofted = keyboardStateToIntent({ keys: new Set(['KeyR']), aimYaw: 0.4 });
+    const receive = keyboardStateToIntent({ keys: new Set(['KeyF']), aimYaw: 0.4 });
+    expect(ground.moveY).toBeGreaterThan(0);
+    expect(ground.actionBits & PlayerActionBits.Pass).toBe(PlayerActionBits.Pass);
+    expect(through.actionBits & PlayerActionBits.ThroughPass).toBe(PlayerActionBits.ThroughPass);
+    expect(lofted.actionBits & PlayerActionBits.LoftedPass).toBe(PlayerActionBits.LoftedPass);
+    expect(receive.actionBits & PlayerActionBits.Receive).toBe(PlayerActionBits.Receive);
   });
 
-  test('pointer primary/secondary state maps to shot hold and precision control', () => {
+  test('pointer primary/secondary state maps to shot hold and close-control precision', () => {
     const primary = pointerStateToActionBits(true, false);
     expect(primary & PlayerActionBits.ShootHeld).toBe(PlayerActionBits.ShootHeld);
     expect(primary & PlayerActionBits.Precision).toBe(0);
@@ -26,14 +30,17 @@ describe('Stage 05 football input mapping', () => {
     expect(secondary & PlayerActionBits.ShootHeld).toBe(0);
   });
 
-  test('standard gamepad exposes pass, shot, precision, technique, aerial, tackle and sprint intents', () => {
+  test('standard gamepad exposes the same high-level football intents as keyboard/mouse', () => {
     const buttons = Array.from({ length: 16 }, () => ({ pressed: false, value: 0 }));
     buttons[0] = { pressed: true, value: 1 }; // A aerial/jump
     buttons[1] = { pressed: true, value: 1 }; // B tackle
-    buttons[2] = { pressed: true, value: 1 }; // X pass
-    buttons[5] = { pressed: true, value: 1 }; // RB technique
-    buttons[6] = { pressed: true, value: 1 }; // LT precision
+    buttons[2] = { pressed: true, value: 1 }; // X ground pass
+    buttons[3] = { pressed: true, value: 1 }; // Y through pass
+    buttons[4] = { pressed: true, value: 1 }; // LB lofted pass
+    buttons[5] = { pressed: true, value: 1 }; // RB driven/finesse modifier
+    buttons[6] = { pressed: true, value: 1 }; // LT close control
     buttons[7] = { pressed: true, value: 1 }; // RT shoot
+    buttons[8] = { pressed: true, value: 1 }; // View receive/trap
     buttons[10] = { pressed: true, value: 1 }; // L3 sprint
 
     const frame = gamepadSnapshotToFrame(
@@ -46,20 +53,19 @@ describe('Stage 05 football input mapping', () => {
     expect(frame.intent.actionBits & PlayerActionBits.Jump).toBe(PlayerActionBits.Jump);
     expect(frame.intent.actionBits & PlayerActionBits.Tackle).toBe(PlayerActionBits.Tackle);
     expect(frame.intent.actionBits & PlayerActionBits.Pass).toBe(PlayerActionBits.Pass);
+    expect(frame.intent.actionBits & PlayerActionBits.ThroughPass).toBe(PlayerActionBits.ThroughPass);
+    expect(frame.intent.actionBits & PlayerActionBits.LoftedPass).toBe(PlayerActionBits.LoftedPass);
+    expect(frame.intent.actionBits & PlayerActionBits.Receive).toBe(PlayerActionBits.Receive);
     expect(frame.intent.actionBits & PlayerActionBits.ShootHeld).toBe(PlayerActionBits.ShootHeld);
     expect(frame.intent.actionBits & PlayerActionBits.Precision).toBe(PlayerActionBits.Precision);
-    expect(frame.intent.actionBits & PlayerActionBits.Technique).toBe(PlayerActionBits.Technique);
+    expect(frame.intent.actionBits & PlayerActionBits.DrivenModifier).toBe(PlayerActionBits.DrivenModifier);
   });
 
-  test('holding gamepad X emits one pass edge until the button is released and pressed again', () => {
+  test('holding any dedicated gamepad action emits one edge until released and pressed again', () => {
     const buttons = Array.from({ length: 16 }, () => ({ pressed: false, value: 0 }));
     buttons[2] = { pressed: true, value: 1 };
-    const pad = {
-      connected: true,
-      mapping: 'standard',
-      axes: [0, 0, 0, 0],
-      buttons,
-    };
+    buttons[3] = { pressed: true, value: 1 };
+    const pad = { connected: true, mapping: 'standard', axes: [0, 0, 0, 0], buttons };
     Object.defineProperty(globalThis, 'navigator', {
       configurable: true,
       value: { getGamepads: () => [pad] },
@@ -68,10 +74,12 @@ describe('Stage 05 football input mapping', () => {
     const adapter = new GamepadAdapter();
     const first = adapter.read(0, 1 / 60);
     const held = adapter.read(0, 1 / 60);
-    expect((first?.intent.actionBits ?? 0) & PlayerActionBits.Pass).toBe(PlayerActionBits.Pass);
-    expect((held?.intent.actionBits ?? 0) & PlayerActionBits.Pass).toBe(0);
+    const edges = PlayerActionBits.Pass | PlayerActionBits.ThroughPass;
+    expect((first?.intent.actionBits ?? 0) & edges).toBe(edges);
+    expect((held?.intent.actionBits ?? 0) & edges).toBe(0);
 
     buttons[2] = { pressed: false, value: 0 };
+    buttons[3] = { pressed: false, value: 0 };
     adapter.read(0, 1 / 60);
     buttons[2] = { pressed: true, value: 1 };
     const pressedAgain = adapter.read(0, 1 / 60);
