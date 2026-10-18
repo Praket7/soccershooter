@@ -117,6 +117,15 @@ export function buildLaunchFromControls(input: BallLabControls): BallState {
   });
 }
 
+export function buildCompleteExportTrace(input: BallLabControls): readonly TrajectorySample[] {
+  const profile = PROFILES[input.profileId] ?? MATCH_BALL_PROFILE;
+  return predictTrajectory(buildLaunchFromControls(input), {
+    profile,
+    goalFrame: STANDARD_GOAL_FRAME,
+    maxSeconds: 8,
+  }).samples;
+}
+
 function formatCsvNumber(value: number): string {
   return Number.isFinite(value) ? value.toFixed(6) : '0.000000';
 }
@@ -440,7 +449,9 @@ export class BallLab {
   }
 
   exportCsv(): void {
-    const blob = new Blob([traceToCsv(this.#actualSamples)], { type: 'text/csv;charset=utf-8' });
+    this.#readControls();
+    const samples = buildCompleteExportTrace(this.#controls);
+    const blob = new Blob([traceToCsv(samples)], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
