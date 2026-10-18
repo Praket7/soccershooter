@@ -6,13 +6,18 @@ async function loadTournament() {
   return module as NonNullable<typeof module>;
 }
 
+function deterministicMetrics<T extends { averageDecisionMsPerTeam: number; maxDecisionMsPerTeam: number }>(report: T) {
+  const { averageDecisionMsPerTeam: _average, maxDecisionMsPerTeam: _max, ...deterministic } = report;
+  return deterministic;
+}
+
 describe('Stage 06 headless tactical tournament', () => {
   it('is deterministic and completes thousands of 3v3 possessions without swarming or keeper abandonment', async () => {
     const { runTacticalTournament } = await loadTournament();
     const options = { possessions: 2000, seed: 0x600d5eed };
     const first = runTacticalTournament(options);
     const second = runTacticalTournament(options);
-    expect(second).toEqual(first);
+    expect(deterministicMetrics(second)).toEqual(deterministicMetrics(first));
     expect(first.possessionsRequested).toBe(2000);
     expect(first.possessionsCompleted).toBe(2000);
     expect(first.failures).toBe(0);
