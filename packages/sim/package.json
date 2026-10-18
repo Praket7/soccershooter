@@ -14,6 +14,7 @@
     "./football/passing": "./src/football/passing.ts",
     "./football/shooting": "./src/football/shooting.ts",
     "./football/defending": "./src/football/defending.ts",
-    "./football/aerial": "./src/football/aerial.ts"
+    "./football/aerial": "./src/football/aerial.ts",
+    "./football/runtime": "./src/football/runtime.ts"
   }
 }
