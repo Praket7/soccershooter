@@ -52,8 +52,9 @@ test('Stage 07 adaptation changes only at legal PvE boundaries and is locked in 
 test('Stage 07 personality selector changes the real carrier decision surface', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: adaptiveButtonName, exact: true }).click();
-  const select = page.locator('[data-personality]');
-  const decision = page.locator('[data-tier-decision="standard"]');
+  const lab = page.locator('[data-adaptive-bot-lab]');
+  const select = lab.locator('select[data-personality]');
+  const decision = lab.locator('[data-tier-decision="standard"]');
 
   await select.selectOption('playmaker');
   const playmaker = await decision.textContent();
