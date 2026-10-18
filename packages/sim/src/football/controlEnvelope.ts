@@ -27,7 +27,8 @@ export type ControlFailureReason =
   | 'out-of-reach'
   | 'behind-body'
   | 'ball-too-high'
-  | 'ball-too-fast';
+  | 'ball-too-fast'
+  | 'idle-no-touch';
 
 export interface ControlTouchResult {
   eligible: boolean;
@@ -49,6 +50,8 @@ const CONTROL_REACH = 1.32;
 const MAX_CONTROL_HEIGHT = 0.72;
 const HARD_INCOMING_SPEED = 26;
 const MIN_FRONT_DOT = Math.cos(128 * Math.PI / 180);
+const IDLE_PLAYER_SPEED = 0.35;
+const IDLE_BALL_SPEED = 0.8;
 
 function actorSpeed(actor: Readonly<FootballActorSnapshot>): number {
   return horizontalMagnitude(actor.velocity);
@@ -80,6 +83,7 @@ export function buildControlTouch(input: Readonly<ControlTouchInput>): ControlTo
   }, facing);
   const reach = horizontalDistance(input.actor.position, input.ball.position);
   const incomingSpeed = Math.hypot(input.ball.velocity.x, input.ball.velocity.y, input.ball.velocity.z);
+  const playerSpeed = actorSpeed(input.actor);
   const ballFacingDot = horizontalDot(facing, toBall);
   const desiredFacingDot = horizontalDot(facing, direction);
   const pressure = clampFootball(input.pressure, 0, 1);
@@ -93,13 +97,13 @@ export function buildControlTouch(input: Readonly<ControlTouchInput>): ControlTo
 
   const precisionDistance = 0.43;
   const normalDistance = 0.67;
-  const sprintDistance = 1.27 + clampFootball(actorSpeed(input.actor) - 6, 0, 3) * 0.08;
+  const sprintDistance = 1.27 + clampFootball(playerSpeed - 6, 0, 3) * 0.08;
   const touchDistance = input.sprint ? sprintDistance : input.precision ? precisionDistance : normalDistance;
   const targetBallSpeed = input.sprint
-    ? clampFootball(6.6 + actorSpeed(input.actor) * 0.48, 7, 10.8)
+    ? clampFootball(6.6 + playerSpeed * 0.48, 7, 10.8)
     : input.precision
-      ? clampFootball(2.4 + actorSpeed(input.actor) * 0.34, 2.4, 5.2)
-      : clampFootball(3.6 + actorSpeed(input.actor) * 0.4, 3.6, 6.8);
+      ? clampFootball(2.4 + playerSpeed * 0.34, 2.4, 5.2)
+      : clampFootball(3.6 + playerSpeed * 0.4, 3.6, 6.8);
   const plannedPoint = targetPoint(input.actor, direction, touchDistance, Math.max(input.ball.radius, input.ball.position.y));
 
   if (reach > CONTROL_REACH) {
@@ -113,6 +117,9 @@ export function buildControlTouch(input: Readonly<ControlTouchInput>): ControlTo
   }
   if (incomingSpeed > HARD_INCOMING_SPEED) {
     return { eligible: false, reason: 'ball-too-fast', quality, touchDistance, targetBallSpeed, targetPoint: plannedPoint };
+  }
+  if (playerSpeed < IDLE_PLAYER_SPEED && incomingSpeed < IDLE_BALL_SPEED) {
+    return { eligible: false, reason: 'idle-no-touch', quality, touchDistance, targetBallSpeed, targetPoint: plannedPoint };
   }
 
   const desiredVelocity: FootballVec3 = {
