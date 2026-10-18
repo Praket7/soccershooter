@@ -77,7 +77,9 @@ describe('Stage 05 owner dribble feedback', () => {
 
     expect(touch.eligible).toBe(true);
     expect(touch.touchMode).toBe('sprint');
-    expect(touch.targetBallSpeed).toBeLessThanOrEqual(playerSpeed + 1.05);
-    expect(touch.touchDistance).toBeLessThanOrEqual(1.2);
+    // A sprint touch should separate the ball enough to feel fast, but not
+    // continuously pull away from an 8+ m/s runner on calibrated turf.
+    expect(touch.targetBallSpeed).toBeLessThanOrEqual(playerSpeed + 0.45);
+    expect(touch.touchDistance).toBeLessThanOrEqual(1.08);
   });
 });
