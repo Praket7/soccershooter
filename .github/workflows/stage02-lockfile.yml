@@ -35,7 +35,7 @@ jobs:
         run: |
           rm -f pnpm-lock.yaml
           pnpm install --lockfile-only
-          test "$(grep -c '^---$' pnpm-lock.yaml)" -eq 1
+          test "$(grep -c '^lockfileVersion:' pnpm-lock.yaml)" -eq 1
           grep -q "@playwright/test:" pnpm-lock.yaml
           grep -q "apps/web:" pnpm-lock.yaml
           grep -q "packages/sim:" pnpm-lock.yaml
