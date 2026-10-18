@@ -93,11 +93,16 @@ export function markControlTouch(
   sprint: boolean,
   mode: 'normal' | 'precision' | 'sprint' | 'effort-turn' | 'trap' | 'receive-exit' = sprint ? 'sprint' : 'normal',
 ): FootballRuntimeState {
-  let controlTouchCooldown = 0.2;
-  if (mode === 'sprint') controlTouchCooldown = 0.28;
-  else if (mode === 'effort-turn') controlTouchCooldown = 0.12;
-  else if (mode === 'precision') controlTouchCooldown = 0.16;
-  else if (mode === 'trap' || mode === 'receive-exit') controlTouchCooldown = 0.1;
+  // These are control-contact opportunities, not literal animation beats. They
+  // are deliberately quicker than the older free-ball-lab values so a routine
+  // dribble can make several small corrective contacts before a modest error
+  // becomes unrecoverable. Sprint still has the longest cadence so it reads as
+  // a knock-on rather than close control.
+  let controlTouchCooldown = 0.16;
+  if (mode === 'sprint') controlTouchCooldown = 0.20;
+  else if (mode === 'effort-turn') controlTouchCooldown = 0.09;
+  else if (mode === 'precision') controlTouchCooldown = 0.13;
+  else if (mode === 'trap' || mode === 'receive-exit') controlTouchCooldown = 0.08;
   return {
     ...state,
     controlTouchCooldown,
