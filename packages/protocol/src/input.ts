@@ -1,4 +1,4 @@
-import type { InputIntent } from '../../sim/src/index';
+import type { InputIntent } from '@soccershooter/sim';
 
 const REQUIRED_KEYS = ['moveX', 'moveY', 'aimYaw', 'sprint', 'actionBits'] as const;
 const REQUIRED_KEY_SET = new Set<string>(REQUIRED_KEYS);
