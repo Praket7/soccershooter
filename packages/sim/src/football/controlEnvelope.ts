@@ -144,8 +144,37 @@ function corridorCorrection(
 }
 
 /**
+ * Match the Stage 04 turf solver's rolling convention. groundContact.ts defines
+ * horizontal slip as:
+ *   slipX = v.x + omega.z * R
+ *   slipZ = v.z - omega.x * R
+ * so a no-slip rolling target is omega.x = v.z/R and omega.z = -v.x/R.
+ *
+ * The old control touch used the opposite signs and tiny fixed spin increments.
+ * That manufactured backspin/sliding after every dribble contact, causing turf
+ * friction to brake the ball while the player kept accelerating. A grounded
+ * control touch now asks for the rolling spin that belongs to its commanded
+ * horizontal velocity. Position remains untouched; this is still a physical
+ * contact command rather than possession welding.
+ */
+function rollingAngularVelocityDelta(
+  ball: Readonly<FootballBallSnapshot>,
+  desiredVelocity: Readonly<FootballVec3>,
+): FootballVec3 {
+  const radius = Math.max(0.001, ball.radius);
+  const targetOmegaX = desiredVelocity.z / radius;
+  const targetOmegaZ = -desiredVelocity.x / radius;
+  return {
+    x: targetOmegaX - ball.angularVelocity.x,
+    y: -ball.angularVelocity.y * 0.2,
+    z: targetOmegaZ - ball.angularVelocity.z,
+  };
+}
+
+/**
  * Generates one physically bounded touch. The target point is a planning aid;
- * only a velocity impulse is returned. The football is never snapped to it.
+ * only velocity and spin impulses are returned. The football is never snapped
+ * to the target point.
  *
  * Routine carry is deliberately competent: normal touches stay compact, sprint
  * touches are longer but recoverable, and modest control errors receive a legal
@@ -265,30 +294,40 @@ export function buildControlTouch(input: Readonly<ControlTouchInput>): ControlTo
         : input.sprint ? 7.1 : input.precision ? 5.8 : 6.8;
   const qualityFloor = trapRequested || receiveExitRequested || effortTurn ? 0.55 : 0.4;
   const maxDeltaSpeed = baseDeltaSpeed * (qualityFloor + (1 - qualityFloor) * quality);
-  const angularVelocityDelta: FootballVec3 = trapRequested
-    ? {
-        x: -input.ball.angularVelocity.x * 0.62,
-        y: -input.ball.angularVelocity.y * 0.45,
-        z: -input.ball.angularVelocity.z * 0.62,
-      }
-    : receiveExitRequested
-      ? {
-          x: direction.z * -1.8,
-          y: -input.ball.angularVelocity.y * 0.2,
-          z: direction.x * 1.8,
-        }
-      : {
-          x: direction.z * (effortTurn ? -3.1 : -2.2),
-          y: 0,
-          z: direction.x * (effortTurn ? 3.1 : 2.2),
-        };
+
+  let angularVelocityDelta: FootballVec3;
+  if (trapRequested) {
+    angularVelocityDelta = {
+      x: -input.ball.angularVelocity.x * 0.62,
+      y: -input.ball.angularVelocity.y * 0.45,
+      z: -input.ball.angularVelocity.z * 0.62,
+    };
+  } else if (input.ball.grounded) {
+    angularVelocityDelta = rollingAngularVelocityDelta(input.ball, desiredVelocity);
+  } else if (receiveExitRequested) {
+    angularVelocityDelta = {
+      x: direction.z * 1.8,
+      y: -input.ball.angularVelocity.y * 0.2,
+      z: direction.x * -1.8,
+    };
+  } else {
+    // Slightly airborne control keeps modest directional topspin. Once the ball
+    // is grounded the next touch converges it to the exact rolling relation.
+    const spinRate = effortTurn ? 3.1 : 2.2;
+    angularVelocityDelta = {
+      x: direction.z * spinRate,
+      y: 0,
+      z: direction.x * -spinRate,
+    };
+  }
+
   const command = commandTowardVelocity(
     'control-touch',
     input.ball,
     desiredVelocity,
     angularVelocityDelta,
     input.ball.mass * maxDeltaSpeed,
-    `control mode=${touchMode} q=${quality.toFixed(3)} turnDot=${ballDirectionDot.toFixed(3)} corridor=(${correction.x.toFixed(2)},${correction.z.toFixed(2)}) reach=${reach.toFixed(2)}/${controlReach(touchMode).toFixed(2)} pressure=${pressure.toFixed(3)}`,
+    `control mode=${touchMode} q=${quality.toFixed(3)} turnDot=${ballDirectionDot.toFixed(3)} corridor=(${correction.x.toFixed(2)},${correction.z.toFixed(2)}) reach=${reach.toFixed(2)}/${controlReach(touchMode).toFixed(2)} rolling=${input.ball.grounded} pressure=${pressure.toFixed(3)}`,
   );
 
   return {
