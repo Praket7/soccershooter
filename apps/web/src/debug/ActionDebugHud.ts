@@ -1,3 +1,5 @@
+import '../stage05.css';
+
 export interface ActionDebugSnapshot {
   action: string;
   success: boolean;
