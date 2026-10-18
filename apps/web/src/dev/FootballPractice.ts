@@ -198,6 +198,39 @@ function createOppositeGoal(scene: THREE.Scene): THREE.Group {
   return group;
 }
 
+export interface KeeperPlaneCrossing {
+  fraction: number;
+  position: FootballVec3;
+  remainingSeconds: number;
+}
+
+/**
+ * Evaluates keeper reach at the exact swept crossing of the keeper plane.
+ * Using the substep endpoint can shift a fast diagonal shot by several
+ * centimeters and produce a false save or miss near the keeper's reach edge.
+ */
+export function evaluateKeeperPlaneCrossing(
+  previous: Readonly<BallState>,
+  current: Readonly<BallState>,
+  planeZ: number,
+  keeperX: number,
+  halfReach: number,
+  maxHeight: number,
+): KeeperPlaneCrossing | null {
+  if (previous.velocity.z <= 0 || !(previous.position.z < planeZ && current.position.z >= planeZ)) return null;
+  const dz = current.position.z - previous.position.z;
+  if (Math.abs(dz) <= 1e-12) return null;
+  const fraction = clamp((planeZ - previous.position.z) / dz, 0, 1);
+  const position: FootballVec3 = {
+    x: previous.position.x + (current.position.x - previous.position.x) * fraction,
+    y: previous.position.y + (current.position.y - previous.position.y) * fraction,
+    z: planeZ,
+  };
+  if (Math.abs(position.x - keeperX) > halfReach || position.y > maxHeight) return null;
+  const stepSeconds = Math.max(0, current.flightSeconds - previous.flightSeconds);
+  return { fraction, position, remainingSeconds: stepSeconds * (1 - fraction) };
+}
+
 export class FootballPractice {
   readonly root: HTMLElement;
   readonly ballVisual: THREE.Group;
@@ -549,21 +582,40 @@ export class FootballPractice {
   }
 
   #keeperSaveIfEligible(previous: Readonly<BallState>, next: Readonly<BallState>): BallState | null {
-    if (previous.velocity.z <= 0 || !(previous.position.z < KEEPER_Z && next.position.z >= KEEPER_Z)) return null;
-    if (Math.abs(next.position.x - this.#keeperX) > KEEPER_HALF_REACH || next.position.y > 2.18) return null;
-    const away = normalizeHorizontal({ x: next.position.x - this.#keeperX, z: -1 });
-    const result = this.#applyCommandToState(next, commandTowardVelocity(
-      'interception', ballSnapshot(next),
+    const crossing = evaluateKeeperPlaneCrossing(previous, next, KEEPER_Z, this.#keeperX, KEEPER_HALF_REACH, 2.18);
+    if (!crossing) return null;
+
+    const contact = cloneBallState(next);
+    contact.position = { ...crossing.position };
+    contact.velocity = {
+      x: previous.velocity.x + (next.velocity.x - previous.velocity.x) * crossing.fraction,
+      y: previous.velocity.y + (next.velocity.y - previous.velocity.y) * crossing.fraction,
+      z: previous.velocity.z + (next.velocity.z - previous.velocity.z) * crossing.fraction,
+    };
+    contact.angularVelocity = {
+      x: previous.angularVelocity.x + (next.angularVelocity.x - previous.angularVelocity.x) * crossing.fraction,
+      y: previous.angularVelocity.y + (next.angularVelocity.y - previous.angularVelocity.y) * crossing.fraction,
+      z: previous.angularVelocity.z + (next.angularVelocity.z - previous.angularVelocity.z) * crossing.fraction,
+    };
+    contact.flightSeconds = previous.flightSeconds
+      + (next.flightSeconds - previous.flightSeconds) * crossing.fraction;
+
+    const away = normalizeHorizontal({ x: crossing.position.x - this.#keeperX, z: -1 });
+    let result = this.#applyCommandToState(contact, commandTowardVelocity(
+      'interception', ballSnapshot(contact),
       {
-        x: away.x * Math.max(2.2, Math.abs(next.velocity.x) * 0.45),
-        y: Math.max(2.4, Math.abs(next.velocity.y) * 0.45),
-        z: -Math.max(5.5, Math.abs(next.velocity.z) * 0.52),
+        x: away.x * Math.max(2.2, Math.abs(contact.velocity.x) * 0.45),
+        y: Math.max(2.4, Math.abs(contact.velocity.y) * 0.45),
+        z: -Math.max(5.5, Math.abs(contact.velocity.z) * 0.52),
       },
       { x: 3, y: 2, z: 0 }, 10.5,
       'keeper parry',
     ));
+    if (crossing.remainingSeconds > 1e-9) {
+      result = stepBall(result, crossing.remainingSeconds, MATCH_BALL_PROFILE, STANDARD_GOAL_FRAME);
+    }
     this.#saves += 1;
-    this.#recordAction('keeper save', true, 'bounded-parry-contact');
+    this.#recordAction('keeper save', true, 'swept-plane bounded-parry-contact');
     return result;
   }
 
