@@ -28,15 +28,35 @@ test('Stage 06 Tactical Bot Lab turnover control causes immediate phase/possessi
   await page.goto('/');
   await page.getByRole('button', { name: 'Tactical Bot Lab', exact: true }).click();
 
-  const lab = page.locator('[data-bot-tactical-lab]');
   const probe = page.locator('[data-bot-state]');
   const before = await probe.getAttribute('data-possession-team');
   expect(before).toMatch(/home|away/);
 
-  await lab.getByRole('button', { name: 'Force Turnover', exact: true }).click();
+  const observedTurnover = await page.evaluate(async () => {
+    const state = document.querySelector<HTMLOutputElement>('[data-bot-state]');
+    const button = document.querySelector<HTMLButtonElement>('[data-bot-turnover]');
+    if (!state || !button) throw new Error('Tactical Bot Lab turnover controls are missing');
+
+    return await new Promise<string>((resolve, reject) => {
+      const timeout = window.setTimeout(() => {
+        observer.disconnect();
+        reject(new Error('turnover event was not observed'));
+      }, 1200);
+      const observer = new MutationObserver(() => {
+        const value = state.dataset.lastEvent ?? '';
+        if (!value.startsWith('turnover:')) return;
+        window.clearTimeout(timeout);
+        observer.disconnect();
+        resolve(value);
+      });
+      observer.observe(state, { attributes: true, attributeFilter: ['data-last-event'] });
+      button.click();
+    });
+  });
+
+  expect(observedTurnover).toMatch(/^turnover:(home|away|loose)->(home|away)$/);
   await expect.poll(async () => await probe.getAttribute('data-possession-team'), { timeout: 1500 })
     .not.toBe(before);
-  await expect(probe).toHaveAttribute('data-last-event', /turnover/);
 });
 
 test('Stage 06 role overlay is optional and never required to identify movement', async ({ page }) => {
