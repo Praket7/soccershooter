@@ -1,5 +1,11 @@
 import * as THREE from 'three';
-import { BALL_CONSTANTS, cloneBallState, createBallState, type BallState } from '@soccershooter/physics/ball/BallState';
+import {
+  BALL_CONSTANTS,
+  cloneBallState,
+  createBallState,
+  kineticEnergy,
+  type BallState,
+} from '@soccershooter/physics/ball/BallState';
 import { MATCH_BALL_PROFILE, type BallCoefficientProfile } from '@soccershooter/physics/ball/aerodynamics';
 import {
   BALL_SUBSTEP_DT,
@@ -49,6 +55,11 @@ const DEFAULT_CONTROLS: BallLabControls = Object.freeze({
   knuckleSeed: 0,
 });
 
+// Authoritative physics remains regulation radius 0.11 m. The stylized
+// greybox athlete/environment reads larger than real scale, so presentation
+// gets a modest readability multiplier without altering collision geometry.
+export const BALL_VISUAL_SCALE = 1.35;
+
 export const BALL_LAB_PRESETS: readonly BallLabPreset[] = Object.freeze([
   { id: 'driven', label: 'Driven 10m', description: 'Low, fast service benchmark', controls: { speed: 14, elevationDegrees: 5, spinRate: 8, spinAxis: 'back', azimuthDegrees: 0, knuckleSeed: 0 } },
   { id: 'straight', label: 'Straight 20m', description: 'Stable zero-spin strike benchmark', controls: { speed: 24, elevationDegrees: 12, spinRate: 0, spinAxis: 'none', azimuthDegrees: 0, knuckleSeed: 0 } },
@@ -57,7 +68,15 @@ export const BALL_LAB_PRESETS: readonly BallLabPreset[] = Object.freeze([
   { id: 'loft', label: 'Loft', description: 'Backspin carry and softer drop', controls: { speed: 19, elevationDegrees: 27, spinRate: 22, spinAxis: 'back', azimuthDegrees: 0, knuckleSeed: 0 } },
   { id: 'chip', label: 'Chip', description: 'High launch with strong backspin', controls: { speed: 15, elevationDegrees: 34, spinRate: 34, spinAxis: 'back', azimuthDegrees: 0, knuckleSeed: 0 } },
   { id: 'knuckle', label: 'Knuckle', description: 'Seeded low-spin wake instability', controls: { speed: 24, elevationDegrees: 10, spinRate: 0.4, spinAxis: 'side', azimuthDegrees: 0, knuckleSeed: 0x9a17b5 } },
-  { id: 'post', label: 'Post rebound', description: 'Rigid-frame rebound benchmark', controls: { speed: 28, elevationDegrees: 4, spinRate: 8, spinAxis: 'side', azimuthDegrees: 10.1, knuckleSeed: 0 } },
+  {
+    id: 'post',
+    label: 'Post rebound',
+    description: 'In-flight rigid right-post rebound benchmark',
+    // From z=-9 to the goal plane at z=12, ~9.9 degrees aims directly at the
+    // 3.66 m right post. Zero sidespin keeps this a collision benchmark rather
+    // than allowing Magnus curve to carry the ball outside the frame.
+    controls: { speed: 28, elevationDegrees: 12, spinRate: 0, spinAxis: 'none', azimuthDegrees: 9.9, knuckleSeed: 0 },
+  },
 ]);
 
 const PROFILES: Readonly<Record<string, BallCoefficientProfile>> = Object.freeze({
@@ -102,21 +121,29 @@ function formatCsvNumber(value: number): string {
 }
 
 export function traceToCsv(samples: readonly TrajectorySample[]): string {
-  const rows = ['time,x,y,z,vx,vy,vz,wx,wy,wz'];
+  const rows = ['time,x,y,z,vx,vy,vz,wx,wy,wz,speed,spin,energyJ,grounded,contactKind,contactId'];
   for (const sample of samples) {
     const { position, velocity, angularVelocity } = sample.state;
+    const speed = Math.hypot(velocity.x, velocity.y, velocity.z);
+    const spin = Math.hypot(angularVelocity.x, angularVelocity.y, angularVelocity.z);
     rows.push([
-      sample.time,
-      position.x,
-      position.y,
-      position.z,
-      velocity.x,
-      velocity.y,
-      velocity.z,
-      angularVelocity.x,
-      angularVelocity.y,
-      angularVelocity.z,
-    ].map(formatCsvNumber).join(','));
+      formatCsvNumber(sample.time),
+      formatCsvNumber(position.x),
+      formatCsvNumber(position.y),
+      formatCsvNumber(position.z),
+      formatCsvNumber(velocity.x),
+      formatCsvNumber(velocity.y),
+      formatCsvNumber(velocity.z),
+      formatCsvNumber(angularVelocity.x),
+      formatCsvNumber(angularVelocity.y),
+      formatCsvNumber(angularVelocity.z),
+      formatCsvNumber(speed),
+      formatCsvNumber(spin),
+      formatCsvNumber(kineticEnergy(sample.state)),
+      String(sample.state.grounded),
+      sample.state.lastContact?.kind ?? '',
+      sample.state.lastContact?.id ?? '',
+    ].join(','));
   }
   return rows.join('\n');
 }
@@ -165,14 +192,15 @@ function createGoalFrame(scene: THREE.Scene): THREE.Group {
 function createBallVisual(scene: THREE.Scene): THREE.Group {
   const group = new THREE.Group();
   group.name = 'stage04-ball';
+  const visualRadius = BALL_CONSTANTS.radius * BALL_VISUAL_SCALE;
   const shell = new THREE.Mesh(
-    new THREE.SphereGeometry(BALL_CONSTANTS.radius, 28, 20),
+    new THREE.SphereGeometry(visualRadius, 28, 20),
     new THREE.MeshStandardMaterial({ color: 0xf2f0e9, roughness: 0.72, metalness: 0.01 }),
   );
   shell.castShadow = true;
   shell.receiveShadow = true;
   const panelLines = new THREE.Mesh(
-    new THREE.IcosahedronGeometry(BALL_CONSTANTS.radius * 1.012, 2),
+    new THREE.IcosahedronGeometry(visualRadius * 1.012, 2),
     new THREE.MeshBasicMaterial({ color: 0x1b2024, wireframe: true, transparent: true, opacity: 0.58 }),
   );
   group.add(shell, panelLines);
@@ -263,6 +291,9 @@ export class BallLab {
     this.root.dataset.ballX = '0';
     this.root.dataset.ballZ = '-9';
     this.root.dataset.goal = 'false';
+    this.root.dataset.ballVisualScale = String(BALL_VISUAL_SCALE);
+    this.root.dataset.actualTrailPoints = '2';
+    this.root.dataset.ballVisualQuaternion = '0.000000,0.000000,0.000000,1.000000';
     this.root.innerHTML = `
       <div class="ball-lab-heading">
         <div><span>Stage 04 instrument</span><strong>Ball Lab</strong></div>
@@ -344,8 +375,10 @@ export class BallLab {
     this.#accumulator = 0;
     this.#goalScored = false;
     this.#playing = true;
+    this.ballVisual.quaternion.identity();
     this.root.dataset.goal = 'false';
     this.root.classList.add('is-playing');
+    setLinePoints(this.#actualTrail, this.#actualSamples);
     this.#refreshPrediction();
     this.#syncVisuals();
   }
@@ -357,6 +390,7 @@ export class BallLab {
     this.#accumulator = 0;
     this.#goalScored = false;
     this.#playing = false;
+    this.ballVisual.quaternion.identity();
     this.root.dataset.goal = 'false';
     this.root.classList.remove('is-playing');
     setLinePoints(this.#actualTrail, this.#actualSamples);
@@ -383,6 +417,7 @@ export class BallLab {
       while (this.#accumulator + 1e-12 >= BALL_SUBSTEP_DT && steps < 24) {
         this.#previousState = cloneBallState(this.#state);
         this.#state = stepBall(this.#state, BALL_SUBSTEP_DT, this.#profile, STANDARD_GOAL_FRAME);
+        this.#advanceVisualRotation(BALL_SUBSTEP_DT);
         if (!this.#goalScored && crossedGoalPlane(this.#previousState, this.#state, STANDARD_GOAL_FRAME)) {
           this.#goalScored = true;
           this.root.dataset.goal = 'true';
@@ -396,7 +431,7 @@ export class BallLab {
         this.#playing = false;
         this.root.classList.remove('is-playing');
       }
-      if (this.#controls.trailEnabled && this.#actualSamples.length % 2 === 0) {
+      if (steps > 0 && this.#controls.trailEnabled) {
         setLinePoints(this.#actualTrail, this.#actualSamples, 2);
       }
     }
@@ -471,25 +506,36 @@ export class BallLab {
     `;
   }
 
-  #syncVisuals(): void {
-    this.ballVisual.position.set(this.#state.position.x, this.#state.position.y, this.#state.position.z);
+  #advanceVisualRotation(dt: number): void {
     const angularSpeed = Math.hypot(
       this.#state.angularVelocity.x,
       this.#state.angularVelocity.y,
       this.#state.angularVelocity.z,
     );
-    if (angularSpeed > 1e-6) {
-      const axis = new THREE.Vector3(
-        this.#state.angularVelocity.x,
-        this.#state.angularVelocity.y,
-        this.#state.angularVelocity.z,
-      ).normalize();
-      this.ballVisual.rotateOnWorldAxis(axis, Math.min(0.18, angularSpeed * BALL_SUBSTEP_DT));
-    }
+    if (angularSpeed <= 1e-6 || dt <= 0) return;
+    const axis = new THREE.Vector3(
+      this.#state.angularVelocity.x,
+      this.#state.angularVelocity.y,
+      this.#state.angularVelocity.z,
+    ).normalize();
+    this.ballVisual.rotateOnWorldAxis(axis, angularSpeed * dt);
+  }
+
+  #syncVisuals(): void {
+    this.ballVisual.position.set(this.#state.position.x, this.#state.position.y, this.#state.position.z);
     this.root.dataset.flightSeconds = this.#state.flightSeconds.toFixed(3);
     this.root.dataset.ballX = this.#state.position.x.toFixed(4);
     this.root.dataset.ballZ = this.#state.position.z.toFixed(4);
     this.root.dataset.playing = String(this.#playing);
+    this.root.dataset.actualTrailPoints = String(this.#actualTrail.geometry.getAttribute('position')?.count ?? 0);
+    this.root.dataset.ballVisualQuaternion = [
+      this.ballVisual.quaternion.x,
+      this.ballVisual.quaternion.y,
+      this.ballVisual.quaternion.z,
+      this.ballVisual.quaternion.w,
+    ].map((value) => value.toFixed(6)).join(',');
+    this.root.dataset.contactKind = this.#state.lastContact?.kind ?? '';
+    this.root.dataset.contactId = this.#state.lastContact?.id ?? '';
     this.#probe.dataset.active = String(this.#playing);
     this.#probe.dataset.x = this.#state.position.x.toFixed(6);
     this.#probe.dataset.y = this.#state.position.y.toFixed(6);
