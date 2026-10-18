@@ -80,4 +80,32 @@ describe('Stage 05 owner dribble feedback', () => {
     expect(touch.targetBallSpeed).toBeLessThanOrEqual(playerSpeed + 0.3);
     expect(touch.touchDistance).toBeLessThanOrEqual(1.0);
   });
+
+  test('sprint touch near the outside of control lets the player catch up instead of adding more separation', () => {
+    const playerSpeed = 8.4;
+    const fresh = buildControlTouch({
+      actor: actor({ velocity: { x: 0, y: 0, z: playerSpeed }, sprinting: true }),
+      ball: ball({ position: { x: 0, y: 0.11, z: 0.78 }, velocity: { x: 0, y: 0, z: 8.1 } }),
+      desiredDirection: { x: 0, z: 1 },
+      precision: false,
+      sprint: true,
+      pressure: 0,
+      moveIntentMagnitude: 1,
+    });
+    const stretched = buildControlTouch({
+      actor: actor({ velocity: { x: 0, y: 0, z: playerSpeed }, sprinting: true }),
+      ball: ball({ position: { x: 0, y: 0.11, z: 1.20 }, velocity: { x: 0, y: 0, z: 8.3 } }),
+      desiredDirection: { x: 0, z: 1 },
+      precision: false,
+      sprint: true,
+      pressure: 0,
+      moveIntentMagnitude: 1,
+    });
+
+    expect(fresh.eligible).toBe(true);
+    expect(stretched.eligible).toBe(true);
+    expect(fresh.targetBallSpeed).toBeGreaterThan(playerSpeed);
+    expect(stretched.targetBallSpeed).toBeLessThanOrEqual(playerSpeed);
+    expect(stretched.targetBallSpeed).toBeLessThan(fresh.targetBallSpeed);
+  });
 });
