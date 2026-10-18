@@ -19,6 +19,7 @@ import { ThirdPersonCamera, type CameraObstacle } from './camera/ThirdPersonCame
 import { MovementHud } from './debug/MovementHud';
 import { BallLab } from './dev/BallLab';
 import { FootballPractice } from './dev/FootballPractice';
+import { PLAYER_VISUAL_LAYOUT, playerVisualFootY } from './presentation/PlayerVisualLayout';
 import './styles.css';
 
 function requireElement<T extends Element>(selector: string): T {
@@ -50,11 +51,11 @@ app.innerHTML = `
       <div id="game-viewport" class="game-viewport"></div>
       <aside class="control-card">
         <strong>Football controls</strong>
-        <span>WASD · move / shape body</span>
-        <span>Mouse / right stick · camera + aim</span>
+        <span>WASD · move / steer every touch</span>
+        <span>Mouse / right stick · camera + shot aim</span>
         <span>Shift / L3 · sprint</span>
-        <span>LMB / RT · hold power, release shot</span>
-        <span>RMB / LT · precision touch / through pass</span>
+        <span>LMB / RT · hold power + aim, release shot</span>
+        <span>RMB / LT · close control · no movement = trap/stop</span>
         <span>E / X · pass · Q / RB technique modifier</span>
         <span>Space / A · aerial contest / header</span>
         <span>C / B · challenge · sprint + C commits</span>
@@ -62,7 +63,7 @@ app.innerHTML = `
       </aside>
       <aside class="action-feedback" data-action-feedback data-action="idle" aria-live="polite">
         <strong>PLAY READY</strong>
-        <span>Move into the ball and let each physical touch breathe</span>
+        <span>Move into the ball and steer the next touch with your current input</span>
       </aside>
       <aside class="course-card">
         <strong>Stage 05 focus</strong>
@@ -72,7 +73,7 @@ app.innerHTML = `
       </aside>
     </section>
     <footer class="lab-footer">
-      <span>Practice: LMB shoot · RMB precision · E pass · Q modifier · G reset</span>
+      <span>Practice: LMB shoot/aim · RMB close/trap · E pass · Q modifier · G reset</span>
       <span>Tools: mode switch · R trace · P replay · X player reset · F1 HUD · ${PLAYER_MOVEMENT_TICK_HZ} Hz</span>
     </footer>
     <output data-determinism-hash="${reference.hash}" data-determinism-ticks="${reference.ticks}" hidden>${reference.hash}</output>
@@ -201,16 +202,24 @@ courseVisuals.push(cutLine);
 const playerGroup = new THREE.Group();
 const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0xd9f35b, roughness: 0.62, metalness: 0.02 });
 const accentMaterial = new THREE.MeshStandardMaterial({ color: 0x10202a, roughness: 0.75 });
-const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.38, 1.08, 20), bodyMaterial);
-torso.position.y = 0.82;
+const torso = new THREE.Mesh(
+  new THREE.CylinderGeometry(
+    PLAYER_VISUAL_LAYOUT.torsoTopRadius,
+    PLAYER_VISUAL_LAYOUT.torsoBottomRadius,
+    PLAYER_VISUAL_LAYOUT.torsoHeight,
+    20,
+  ),
+  bodyMaterial,
+);
+torso.position.y = PLAYER_VISUAL_LAYOUT.torsoCenterY;
 torso.castShadow = true;
 playerGroup.add(torso);
-const head = new THREE.Mesh(new THREE.SphereGeometry(0.25, 18, 14), bodyMaterial);
-head.position.y = 1.58;
+const head = new THREE.Mesh(new THREE.SphereGeometry(PLAYER_VISUAL_LAYOUT.headRadius, 18, 14), bodyMaterial);
+head.position.y = PLAYER_VISUAL_LAYOUT.headCenterY;
 head.castShadow = true;
 playerGroup.add(head);
 const facingBar = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.78), accentMaterial);
-facingBar.position.set(0, 1.1, 0.42);
+facingBar.position.set(0, PLAYER_VISUAL_LAYOUT.facingBarY, PLAYER_VISUAL_LAYOUT.facingBarForward);
 playerGroup.add(facingBar);
 scene.add(playerGroup);
 
@@ -391,11 +400,11 @@ function renderActionFeedback(
     bodyMaterial.emissive.setHex(0x6b3100);
     bodyMaterial.emissiveIntensity = 0.65;
   } else if (mode === 'sprint') {
-    actionFeedback.innerHTML = `<strong>SPRINT ENGAGED</strong><span>Longer, harder touches · target ${Math.round(DEFAULT_MOVEMENT_CONFIG.sprintSpeed * 3.6)} km/h</span>`;
+    actionFeedback.innerHTML = `<strong>SPRINT ENGAGED</strong><span>Recoverable knock-on touches · target ${Math.round(DEFAULT_MOVEMENT_CONFIG.sprintSpeed * 3.6)} km/h</span>`;
     bodyMaterial.emissive.setHex(0x233000);
     bodyMaterial.emissiveIntensity = 0.35;
   } else {
-    actionFeedback.innerHTML = '<strong>PLAY READY</strong><span>Move into the ball · precision and body angle shape every touch</span>';
+    actionFeedback.innerHTML = '<strong>PLAY READY</strong><span>Steer the next touch · hold RMB without movement to trap the ball</span>';
     bodyMaterial.emissive.setHex(0x000000);
     bodyMaterial.emissiveIntensity = 0;
   }
@@ -513,6 +522,7 @@ function frame(now: number): void {
   playerProbe.dataset.y = String(player.position.y);
   playerProbe.dataset.z = String(player.position.z);
   playerProbe.dataset.facingYaw = String(player.facingYaw);
+  playerProbe.dataset.visualFootY = playerVisualFootY(displayPlayer.position.y).toFixed(6);
   playerProbe.dataset.tick = String(simTick);
   playerProbe.dataset.inputToSimulationMs = inputToSimulationMs === null ? '' : inputToSimulationMs.toFixed(3);
   playerProbe.dataset.inputToRenderMs = inputToRenderMs === null ? '' : inputToRenderMs.toFixed(3);
