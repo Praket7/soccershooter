@@ -15,6 +15,12 @@ export interface FootballRuntimeStep {
 }
 
 export const MAX_SHOT_CHARGE_SECONDS = 0.85;
+/**
+ * Pointer lock is acquired from the same primary-button gesture used to shoot.
+ * A tap shorter than this is treated as focus/capture rather than a football
+ * contact so entering mouse-look cannot accidentally kick the ball.
+ */
+export const MIN_SHOT_CHARGE_SECONDS = 0.06;
 
 export function createFootballRuntimeState(): FootballRuntimeState {
   return {
@@ -39,7 +45,9 @@ export function stepFootballRuntime(
 
   let releasedShotCharge: number | null = null;
   if (shootReleased && (state.shotWasHeld || shotChargeSeconds > 0)) {
-    releasedShotCharge = clampFootball(shotChargeSeconds / MAX_SHOT_CHARGE_SECONDS, 0.12, 1);
+    if (shotChargeSeconds >= MIN_SHOT_CHARGE_SECONDS) {
+      releasedShotCharge = clampFootball(shotChargeSeconds / MAX_SHOT_CHARGE_SECONDS, 0.12, 1);
+    }
     shotChargeSeconds = 0;
   } else if (state.shotWasHeld && !shootHeld) {
     shotChargeSeconds = 0;
