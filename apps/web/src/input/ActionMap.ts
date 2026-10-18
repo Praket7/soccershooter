@@ -28,6 +28,8 @@ export interface ActionMapOptions {
   invertY?: boolean;
 }
 
+export const DEFAULT_MOUSE_SENSITIVITY = 0.00325;
+
 const TAU = Math.PI * 2;
 
 function wrapYaw(yaw: number): number {
@@ -120,7 +122,7 @@ export class ActionMap {
   constructor(keyboardTarget: Window, pointerTarget: HTMLElement, options: ActionMapOptions = {}) {
     this.#keyboardTarget = keyboardTarget;
     this.#pointerTarget = pointerTarget;
-    this.#mouseSensitivity = options.mouseSensitivity ?? 0.00225;
+    this.#mouseSensitivity = options.mouseSensitivity ?? DEFAULT_MOUSE_SENSITIVITY;
     this.#invertY = options.invertY ?? false;
     if (!Number.isFinite(this.#mouseSensitivity) || this.#mouseSensitivity <= 0) {
       throw new RangeError('mouseSensitivity must be a positive finite number');
