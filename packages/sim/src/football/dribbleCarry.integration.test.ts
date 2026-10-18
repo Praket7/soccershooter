@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'vitest';
-import { BALL_CONSTANTS, createBallState, type BallState } from '@soccershooter/physics/ball/BallState';
-import { MATCH_BALL_PROFILE } from '@soccershooter/physics/ball/aerodynamics';
-import { BALL_SUBSTEP_DT, stepBall } from '@soccershooter/physics/ball/trajectory';
-import { PlayerActionBits, createPlayerState, type PlayerState } from '../player/PlayerState';
+import { BALL_CONSTANTS, createBallState, type BallState } from '../../../physics/src/ball/BallState';
+import { MATCH_BALL_PROFILE } from '../../../physics/src/ball/aerodynamics';
+import { BALL_SUBSTEP_DT, stepBall } from '../../../physics/src/ball/trajectory';
+import { createPlayerState, type PlayerState } from '../player/PlayerState';
 import { createFlatMovementWorld, DEFAULT_MOVEMENT_CONFIG, stepPlayerMovement } from '../player/movement';
 import { buildControlTouch, type ControlFailureReason } from './controlEnvelope';
 import { createFootballRuntimeState, markControlTouch, stepFootballRuntime } from './runtime';
