@@ -22,6 +22,17 @@ export class ActionDebugHud {
     this.root.dataset.actionDebug = 'true';
     this.root.setAttribute('aria-live', 'polite');
     host.append(this.root);
+
+    // Mode switches live outside the canvas. Releasing their button focus after
+    // activation keeps number/letter gameplay shortcuts active without weakening
+    // the deliberate input/select/textarea typing guards in Ball Lab.
+    document.addEventListener('click', (event) => {
+      const target = event.target;
+      if (target instanceof HTMLButtonElement && target.matches('[data-mode-practice], [data-mode-ball-lab]')) {
+        target.blur();
+      }
+    });
+
     this.update({
       action: 'ready',
       success: true,
