@@ -34,3 +34,19 @@ test('Ball Lab custom controls and reset are usable without entering Stage 05 me
   await page.getByRole('button', { name: /reset ball/i }).click();
   await expect(page.locator('[data-ball-state]')).toHaveAttribute('data-active', 'false');
 });
+
+test('CSV export is complete even when exported before launching the selected preset', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /post rebound/i }).click();
+
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: /export csv/i }).click();
+  const download = await downloadPromise;
+  const stream = await download.createReadStream();
+  let csv = '';
+  for await (const chunk of stream) csv += chunk.toString();
+
+  const lines = csv.trim().split('\n');
+  expect(lines.length).toBeGreaterThan(100);
+  expect(csv).toContain('goal-frame,right-post');
+});
