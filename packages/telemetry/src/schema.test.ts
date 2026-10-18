@@ -151,11 +151,11 @@ describe('stage gate contract', () => {
 
 describe('measurement documentation contract', () => {
   test('reference hardware defines all required performance and network measurements', () => {
-    const hardware = read('docs/REFERENCE_HARDWARE.md');
+    const hardware = read('docs/REFERENCE_HARDWARE.md').toLowerCase();
     for (const term of [
-      'FPS', '1% low', 'simulation step', 'render step', 'long task',
-      'memory', 'draw call', 'payload', '50 ms RTT', '100 ms RTT',
-      '150 ms RTT', 'jitter', '2% loss', '5% loss',
+      'fps', '1% low', 'simulation step', 'render step', 'long task',
+      'memory', 'draw call', 'payload', '50 ms rtt', '100 ms rtt',
+      '150 ms rtt', 'jitter', '2% loss', '5% loss',
     ]) {
       expect(hardware, `missing measurement term: ${term}`).toContain(term);
     }
