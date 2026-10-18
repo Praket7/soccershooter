@@ -95,6 +95,8 @@ test('normal play no longer exposes six shot hotkeys; specialist contacts live i
   const probe = page.locator('[data-football-state]');
   const panel = page.locator('.practice-technique-panel');
   await expect(panel).toContainText('Practice-only specialist contacts');
+  await panel.locator('summary').click();
+  await expect(panel).toHaveAttribute('open', '');
 
   for (const style of ['normal', 'knuckle', 'outside-foot']) {
     await panel.getByRole('button', { name: style, exact: true }).click();
