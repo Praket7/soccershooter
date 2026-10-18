@@ -1,168 +1,282 @@
 # Stage 05 Handoff — Core Football Interactions
 
-## Status
+## Current status
 
-Stage 05 implementation is feature-complete and the engineering gate is green.
+**Engineering implementation and the first owner-feedback repair pass are complete. Revised owner feel retest is still required before merge.**
 
-The only remaining acceptance item is the owner feel/playtest gate in `docs/gates/STAGE-05-PLAYTEST.md`.
-
-Do **not** begin Stage 06 and do **not** merge PR #13 until the owner playtest is accepted and the owner explicitly requests merge.
-
-## Source freeze before final documentation
-
+- repository: `Praket7/soccershooter`
 - branch: `stage/05-core-football`
-- implementation head: `2674a19c291586dc5b9e5087253d88b86a4427b6`
-- PR: `#13`
+- PR: `#13` — `[Stage 05] Core football interactions`
 - issue: `#12`
-- CI run: `39143197935`
-- CI job: `117721649012`
-- result: PASS
+- base: `main`
+- base SHA: `7e4841f9132d7190c50fc30229c755d23b7332df`
+- latest verified documentation-inclusive head before this handoff refresh: `a8daef00a38f35b69d03578489e19a147b7c33aa`
+- final functional source head recorded by the owner-feedback audit: `8c3059a737ff61b33f0a64b4edb75bc7e3376f8f`
 
-## What Stage 05 now contains
+**Do not merge PR #13 and do not begin Stage 06 until the owner retests the revised build, accepts the feel gate, and explicitly requests merge.**
 
-### Simulation
+## Why this handoff exists
 
-- physically independent football interaction model
-- first-touch / dribble control envelope
-- bounded touch impulses
-- pressure / balance / body-angle / incoming-speed quality model
-- idle-no-touch anti-magnet rule
-- ground, driven, lofted, and through/lead pass solver
-- bounded pass assist with behind-body legality
-- normal, driven, finesse, chip, knuckle, and outside-foot shooting
-- deterministic knuckle-seed lifecycle
-- standing challenge and committed tackle
-- commitment recovery penalties
+The first owner playtest found Stage 05 basically playable and fun enough to continue, but the supplied recording exposed several serious control/readability defects. Those findings were converted into regression tests, repaired, and re-verified.
+
+The remaining work is not another broad implementation pass. It is a focused owner retest of the repaired controls and camera behavior.
+
+## Owner feedback that was repaired
+
+### 1. Dribble direction change
+
+Problem:
+- the ball could preserve its old velocity direction while the player changed direction;
+- this forced the player to circle around or chase the ball after sharp cuts.
+
+Repair:
+- each control touch now consumes the current camera-relative movement request;
+- sharp changes enter bounded `effort-turn` behavior that brakes the old ball vector before redirecting it;
+- the fix stays physical and does not weld or teleport the ball.
+
+### 2. Sprint dribble runaway
+
+Problem:
+- sustained sprint touches could gradually increase player-ball separation until control was lost.
+
+Repair:
+- sprint cadence: `0.14 s`;
+- normal / close-control cadence: `0.12 s`;
+- sprint target speed now feeds back from current player-ball separation;
+- a close ball may receive a small knock-on lead;
+- an already stretched ball receives less speed so the player can recover.
+
+Scratch validation recorded in the owner-feedback audit:
+- 6 s straight sprint: max separation about `1.07 m`;
+- 90° sprint cut: max separation about `1.10 m`;
+- 180° reversal: max separation about `1.16 m`;
+- hard control reach: `1.32 m`.
+
+Repeated full-speed zigzags can still lose the ball. That is intentional and prevents magnetic sprint possession.
+
+### 3. Physical trap / stop
+
+Problem:
+- there was no deliberate way to kill a moving ball while standing over it.
+
+Repair:
+- hold `RMB` / precision control with no movement request near a controllable ball;
+- the controller enters a physical `trap` mode;
+- trap uses bounded velocity/spin correction rather than teleporting the ball;
+- stationary nearby balls are not repeatedly nudged.
+
+### 4. Shot aim and pointer lock
+
+Problems:
+- a tiny click used only to capture the mouse could create a weak minimum-power shot;
+- shot contact could use a hidden stale body yaw that did not match the visible player orientation;
+- while moving, the shot integration could still pass a velocity-derived yaw instead of the actual rendered `player.facingYaw`.
+
+Repairs:
+- very short focus clicks below roughly `60 ms` do not release a shot;
+- a deliberate held first click can still acquire pointer lock and begin charging in one gesture;
+- a world-space aim guide appears during charge;
+- mouse/right-stick aim remains live while charging;
+- shot contact uses the same visible body orientation shown by the player mesh, including while moving;
+- body alignment still affects legality and quality, so impossible contacts are not authorized.
+
+### 5. Player grounding
+
+Problem:
+- the greybox player appeared visually detached from the pitch.
+
+Repair:
+- the actual `main.ts` player marker now uses the shared grounded visual layout;
+- the lower visible player plane aligns with the movement support plane;
+- browser E2E includes a foot-plane probe so the real integration is protected.
+
+### 6. Ball readability and goal camera collision
+
+Problems from the recording:
+- the ball became difficult to read during cuts;
+- the practice camera could pass through visible goal posts/crossbars and fill the view with white goal geometry.
+
+Repairs:
+- Football Practice adds a capped ball-aware focus bias of at most `0.9 m`;
+- the player remains the primary anchor;
+- both visible goal frames now provide post/crossbar collision volumes to the existing third-person camera spring-arm solver;
+- the generic `ThirdPersonCamera` remains DOM-independent and Football Practice explicitly composes the goal obstacles and ball focus.
+
+## Core Stage 05 functionality preserved
+
+### Football interaction simulation
+
+- physical first touch / dribble control envelope
+- no welded possession and no ball teleporting
+- controlled, precision, sprint, effort-turn, and trap contacts
+- ground pass
+- driven pass
+- lofted pass
+- through / lead pass
+- bounded pass assistance with behind-body legality
+- normal shot
+- driven shot
+- finesse shot
+- chip
+- knuckle shot
+- outside-foot shot
+- deterministic knuckle seed lifecycle
+- standing challenge
+- committed tackle
+- recovery penalties
 - moving interception windows
-- header and volley eligibility
-- deterministic runtime cooldown / charge cadence
+- header eligibility
+- volley eligibility
+- deterministic touch / kick cooldowns
+- deterministic shot-charge lifecycle
 
-### Web practice surface
+### Practice surface
 
 - Football Practice mode
-- Stage 04 Ball Lab preserved separately
-- live physical practice ball
+- Stage 04 Ball Lab preserved as a separate instrument
+- physical practice ball
 - moving receiver marker
 - greybox keeper
-- practice goals
+- both practice goals
 - goal/save counters
-- shot-style UI
-- action diagnostics HUD
-- browser-visible state probe for deterministic E2E
-- visual spin driven by ball-physics substeps
+- shot-style controls
+- diagnostics HUD
+- browser-visible deterministic probes
+- ball spin visual driven by authoritative physics substeps
+- world-space shot aim guide
+- grounded player visual
+- ball-aware practice camera framing
+- goal-frame camera collision
 
-### Input hardening
+## Exact verification evidence
 
-- keyboard pass is edge-triggered
-- standard-gamepad pass is rising-edge-triggered
-- shot charge is hold/release based
-- lost release / focus loss cancels stale charge
-- mixed keyboard/gamepad behavior preserves prior movement controls
+The latest documentation-inclusive head before this handoff refresh was:
 
-## Verification summary
+`a8daef00a38f35b69d03578489e19a147b7c33aa`
 
-### Unit / contract
+Fresh workflow status checked immediately before writing this handoff:
 
-Latest source-freeze run before the final E2E-only cadence adjustment:
+- CI run `39148766571` — **PASS**
+- CI job `117737927209` — **PASS**
+- Stage 01 contracts run `39148766574` — **PASS**
 
-- `139 / 139 PASS`
-- 24 test files
+CI steps confirmed green:
 
-The final cadence adjustment modified only an E2E threshold and the subsequent full CI passed.
+- frozen workspace install
+- authoritative-randomness / private-content guards
+- strict TypeScript
+- unit and contract tests
+- Stage 04 million-launch deterministic ball fuzz
+- Stage 05 football action fuzz
+- Stage 05 exploit-bot balance gate
+- standalone determinism trace
+- production private-import failure proof
+- FICTIONAL_PUBLIC web/server build
+- server health
+- Chromium install
+- browser and Node determinism parity / E2E
 
-### Stage 04 regression
+Recorded exact-head totals from the owner-feedback audit / PR status:
 
-- one-million-launch fuzz: PASS
-- failures: `0`
-- states checked: `4,000,000`
-- checksum: `e0afd3f7`
-- canonical Stage 02 determinism hash: `d55b2d0b968372a5`
+- unit/contract: `156 / 156` PASS across 29 test files
+- Stage 04 fuzz: `1,000,000` launches / `4,000,000` states / `0` failures
+- Stage 05 fuzz: `250,000` cases / `1,000,000` action evaluations / `0` failures
+- exploit bots: sprint-only, shot-spam, tackle-spam, and dribble-circle all fail to dominate their timed/varied references
+- canonical determinism hash: `d55b2d0b968372a5`
+- Chromium E2E/browser parity: `23 / 23` PASS
 
-### Stage 05 football fuzz
+Supplementary randomized control audit recorded in the owner-feedback report:
 
-- cases: `250,000`
-- action evaluations: `1,000,000`
-- contacts applied: `184,057`
-- failures: `0`
-- checksum: `0b8247ef`
-- max impulse: `15.500000000000005 N·s`
-- max resulting speed: `34.9018646963763 m/s`
+- `100,000` touch states
+- `0` non-finite outputs
+- fresh high-speed sprint touch target: about `+0.25 m/s` relative to runner speed
+- stretched high-speed sprint touch target: about `-0.26 m/s` relative to runner speed
 
-### Exploit bots
+## Important files to read next session
 
-All four simple spam policies lose to their timed/varied references:
+Read these before changing anything:
 
-- sprint-only: does not dominate
-- shot-spam: does not dominate
-- tackle-spam: does not dominate
-- dribble-circle: does not dominate
+1. `AGENTS.md`
+2. `docs/superpowers/plans/stages/05-core-football.md`
+3. `docs/gates/STAGE-05-GATE.md`
+4. `docs/gates/STAGE-05-PLAYTEST.md`
+5. `docs/gates/STAGE-05-OWNER-FEEDBACK-AUDIT.md`
+6. `docs/handoffs/STAGE-05-HANDOFF.md`
 
-### Independent local simulation
+Most relevant implementation files:
 
-Supplementary local scratch stress audit:
+- `packages/sim/src/football/controlEnvelope.ts`
+- `packages/sim/src/football/controlEnvelope.owner.test.ts`
+- `packages/sim/src/football/runtime.ts`
+- `packages/sim/src/football/runtime.test.ts`
+- `apps/web/src/input/FootballControl.ts`
+- `apps/web/src/input/FootballControl.test.ts`
+- `apps/web/src/input/ActionMap.ts`
+- `apps/web/src/dev/FootballPractice.ts`
+- `apps/web/src/camera/FootballPracticeCamera.ts`
+- `apps/web/src/camera/FootballPracticeCamera.test.ts`
+- `apps/web/src/camera/ThirdPersonCamera.ts`
+- `apps/web/src/presentation/PlayerVisualLayout.ts`
+- `apps/web/src/main.ts`
+- `e2e/football-practice.spec.ts`
 
-- 100,000 randomized interaction scenarios
-- 0 teleports
-- 0 impulse-cap violations
-- 0 illegal >36 m/s shots
-- 0 NaN / Infinity states
-- 0 turf penetrations
-- deterministic checksum `3aed0d0d`
+## Required owner retest
 
-### Production / browser
+Retest the revised build specifically against the original complaints:
 
-- strict TypeScript: PASS
-- security/private-content guards: PASS
-- FICTIONAL_PUBLIC build: PASS
-- server health: PASS
-- Chromium E2E / parity: PASS
+1. Dribble straight and make a deliberate 90° turn. The ball should brake/redirect rather than continue down the old line.
+2. Perform a 180° reversal. The ball should become recoverable without forcing a large circle around it.
+3. Sprint-dribble straight for 5–6 seconds. The ball should remain recoverable and should not progressively run away.
+4. Near a moving controllable ball, release movement and hold `RMB`. The ball should physically trap/slow close to the player.
+5. Make a tiny LMB click only to capture the mouse. It should not create a weak shot.
+6. Hold LMB deliberately, move the mouse during charge, confirm the aim guide moves, then release. The shot should respond to that aim while respecting the body orientation visible on screen.
+7. Repeat the moving shot while running so hidden velocity-derived facing cannot reappear.
+8. Confirm the player visually touches the pitch.
+9. Dribble/turn near both goals and rotate the camera. Goal posts/crossbars should no longer clip through and dominate the view.
+10. During cuts, confirm the ball-aware framing makes the ball easier to track without making the camera feel ball-dragged.
+11. Retest all four pass types and confirm assistance feels usable while impossible behind-body passes are still rejected.
+12. Give fresh scores for movement, ball control, shooting/aim, camera/readability, and overall fun.
 
-## Important repaired defects
+## Decision tree after retest
 
-The final review did not merely add tests; it exposed and fixed several source-level problems:
+### If the owner accepts the revised feel
 
-1. idle stationary ball could receive repeated cooldown nudges;
-2. moving interception reach used the defender's current rather than predicted position;
-3. lost shot release could bank hidden charge;
-4. pass input could behave as held rather than one-shot;
-5. visual ball spin risked render-frame dependence;
-6. a trajectory test incorrectly enabled knuckle perturbation for non-knuckle shots;
-7. knuckle state could persist unless later contacts explicitly cleared it;
-8. browser assertions depended on wall-clock cadence instead of durable state.
+1. Record the owner result in the Stage 05 gate/playtest docs.
+2. Mark Stage 05 owner feel gate PASS.
+3. Re-run exact documentation-inclusive CI on the final branch head.
+4. Inspect the final PR diff.
+5. Only after the owner explicitly requests merge, mark PR #13 ready and merge the exact verified head into `main`.
+6. Verify post-merge `main` CI is fully green.
+7. Only then read and begin the exact Stage 06 plan.
 
-## Research rationale
+### If any original feel defect remains
 
-Stage 05 tuning is informed by:
+1. Keep PR #13 draft.
+2. Reproduce the specific symptom from the new recording/description.
+3. Add a targeted RED regression test or browser contract.
+4. Fix Stage 05 only.
+5. Run the full exact-head gate again.
+6. Repeat the owner retest for that behavior.
 
-- University of Tsukuba / Football Studies 2026 first-touch biomechanics: controlled approach, receiving posture, and limited rebound support the non-magnetic control model;
-- body-orientation pass-feasibility research: supports treating body orientation as a hard realism constraint rather than letting assist manufacture impossible actions;
-- elite ball-recovery analysis: supports timing/interception value and recovery cost for mistimed defensive commitment.
-
-See `docs/gates/STAGE-05-GATE.md` for references and interpretation.
+Do not weaken the subjective owner gate simply because automated tests are green.
 
 ## Stage boundary
 
-Not implemented here:
+Do **not** add Stage 06+ work from this branch.
 
-- Stage 06+ team/tactical systems
-- production team AI
+Out of Stage 05 scope:
+
+- full team/tactical AI
+- production goalkeeper AI
 - multiplayer/network prediction
 - final animation system
 - advanced bicycle/scissor mechanics
-- production goalkeeper behavior
-- final content, stadium art, audio, progression, economy, or meta
+- stadium/content production
+- audio
+- progression/economy/meta systems
 
-## Remaining owner action
+## Merge status
 
-Run `docs/gates/STAGE-05-PLAYTEST.md`.
+PR #13 remains **draft and unmerged**.
 
-If the playtest passes:
-
-1. record owner scores/findings;
-2. change Stage 05 gate to final PASS;
-3. run exact documentation-inclusive CI;
-4. review final PR diff;
-5. only after explicit owner instruction, mark PR #13 ready and merge its exact verified head;
-6. require post-merge `main` CI PASS before Stage 06 starts.
-
-If the playtest finds a feel defect, keep the PR draft and repair Stage 05 only. Do not hide the problem by weakening the subjective gate.
+That is intentional. Automated engineering evidence is green, but Stage 05 is not considered owner-accepted until the revised feel retest passes and the owner explicitly authorizes the merge.
