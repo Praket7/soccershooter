@@ -40,10 +40,25 @@ describe('owner control overhaul input contract', () => {
     expect(lofted.actionBits & PlayerActionBits.LoftedPass).toBe(PlayerActionBits.LoftedPass);
   });
 
-  test('Z and X are explicit held modifiers rather than hidden shot-style hotkeys', () => {
-    const driven = keyboardStateToIntent({ keys: new Set(['KeyZ']), aimYaw: 0 });
-    const chip = keyboardStateToIntent({ keys: new Set(['KeyX']), aimYaw: 0 });
-    expect(driven.actionBits & PlayerActionBits.DrivenModifier).toBe(PlayerActionBits.DrivenModifier);
-    expect(chip.actionBits & PlayerActionBits.ChipModifier).toBe(PlayerActionBits.ChipModifier);
+  test('Ctrl is the lift modifier and no longer doubles as a tackle key', () => {
+    const left = keyboardStateToIntent({ keys: new Set(['ControlLeft']), aimYaw: 0 });
+    const right = keyboardStateToIntent({ keys: new Set(['ControlRight']), aimYaw: 0 });
+
+    expect(left.actionBits & PlayerActionBits.ChipModifier).toBe(PlayerActionBits.ChipModifier);
+    expect(right.actionBits & PlayerActionBits.ChipModifier).toBe(PlayerActionBits.ChipModifier);
+    expect(left.actionBits & PlayerActionBits.Tackle).toBe(0);
+    expect(right.actionBits & PlayerActionBits.Tackle).toBe(0);
+  });
+
+  test('C and B remain defensive actions while Z and X are removed from normal-match technique chords', () => {
+    const c = keyboardStateToIntent({ keys: new Set(['KeyC']), aimYaw: 0 });
+    const b = keyboardStateToIntent({ keys: new Set(['KeyB']), aimYaw: 0 });
+    const z = keyboardStateToIntent({ keys: new Set(['KeyZ']), aimYaw: 0 });
+    const x = keyboardStateToIntent({ keys: new Set(['KeyX']), aimYaw: 0 });
+
+    expect(c.actionBits & PlayerActionBits.Tackle).toBe(PlayerActionBits.Tackle);
+    expect(b.actionBits & PlayerActionBits.Tackle).toBe(PlayerActionBits.Tackle);
+    expect(z.actionBits & (PlayerActionBits.DrivenModifier | PlayerActionBits.ChipModifier)).toBe(0);
+    expect(x.actionBits & (PlayerActionBits.DrivenModifier | PlayerActionBits.ChipModifier)).toBe(0);
   });
 });
