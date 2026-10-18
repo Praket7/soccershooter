@@ -18,6 +18,8 @@
     "football:fuzz": "tsx tools/perf/football-fuzz.ts --cases=250000 --seed=5904133",
     "football:balance": "tsx tools/balance/exploitBots.ts",
     "bots:tournament": "tsx tools/balance/tournament.ts --possessions=5000 --seed=0x51a6e006",
+    "bots:adaptive-tournament": "tsx tools/balance/adaptiveTournament.ts --scenarios=2000 --seed=0x7007a11",
+    "bots:learning-lab": "tsx tools/balance/learning-lab/harness.ts --training=2200 --episodes=600 --seed=0x7007cafe",
     "build:web": "node tools/security/check-private-imports.mjs && pnpm --filter @soccershooter/web build",
     "build:server": "pnpm --filter @soccershooter/server build",
     "build": "pnpm run build:server && pnpm run build:web"

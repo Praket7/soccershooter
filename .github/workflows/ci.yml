@@ -56,6 +56,12 @@ jobs:
       - name: Stage 06 five-thousand-possession tactical tournament
         run: pnpm bots:tournament
 
+      - name: Stage 07 adaptive cognition tournament
+        run: pnpm bots:adaptive-tournament
+
+      - name: Stage 07 learned-policy research benchmark
+        run: pnpm bots:learning-lab
+
       - name: Standalone headless determinism trace
         run: pnpm determinism:headless
 
