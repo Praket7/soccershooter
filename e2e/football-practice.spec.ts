@@ -27,20 +27,30 @@ async function installPointerLockHarness(page: Page): Promise<void> {
 
 async function capturePointerWithoutNativePlaywrightLock(page: Page): Promise<void> {
   const canvas = page.locator('[data-game-viewport]');
-  // Playwright's high-level click waits for its own mouse-up bookkeeping. When
-  // our deterministic harness changes pointerLockElement synchronously during
-  // pointer-down, Chromium can leave that click waiting until the test timeout.
-  // Dispatch the capture gesture directly so this test exercises our listener
-  // contract without asking Playwright to emulate native pointer-lock behavior.
-  await canvas.dispatchEvent('pointerdown', {
+  // Production button chords use mouse events because each physical button
+  // transition must be observable even while another mouse button is held.
+  // Dispatch the initial capture mousedown directly so the deterministic
+  // pointer-lock harness exercises the same listener contract.
+  await canvas.dispatchEvent('mousedown', {
     button: 0,
     buttons: 1,
-    pointerId: 1,
-    pointerType: 'mouse',
     clientX: 320,
     clientY: 220,
   });
 }
+
+test('visible football controls expose the ergonomic bindings and no legacy Z/X chords', async ({ page }) => {
+  await page.goto('/');
+  const controls = page.locator('.control-card');
+  await expect(controls).toContainText('RMB+E');
+  await expect(controls).toContainText('Ctrl+Q');
+  await expect(controls).toContainText('RMB+LMB');
+  await expect(controls).toContainText('Ctrl+LMB');
+  await expect(controls).not.toContainText('Z+E');
+  await expect(controls).not.toContainText('Z+Q');
+  await expect(controls).not.toContainText('Z finesse');
+  await expect(controls).not.toContainText('X chip');
+});
 
 test('Stage 05 practice starts physical, idle, non-magnetic, and visually grounded', async ({ page }) => {
   await page.goto('/');
