@@ -40,7 +40,9 @@ pnpm install --frozen-lockfile
 pnpm --filter @soccershooter/web dev
 ```
 
-Use the same Tactical Bot Lab/scenarios so differences are attributable to Stage 07 rather than a different test environment.
+Open the same Vite URL. Stage 07 exposes both **Tactical Bot Lab** and **Adaptive Bot Lab**.
+
+Use **Tactical Bot Lab** when you want an apples-to-apples visual comparison with Stage 06. Use **Adaptive Bot Lab** to inspect the difficulty/player-model/personality contracts directly.
 
 ## Pass A — Stage 06 baseline, roles OFF
 
@@ -60,9 +62,46 @@ Use **Force Turnover** repeatedly from different moments.
 
 Then turn **Show Roles** on. The labels should confirm what you already saw, not make unreadable behavior seem sensible after the fact.
 
-## Pass B — Stage 07 difficulty ladder
+## Pass B — Adaptive Bot Lab contract check
 
-Test novice, standard, and elite with the same starting scenarios whenever possible.
+On `stage/07-adaptive-bots`, select **Adaptive Bot Lab** before judging feel.
+
+Confirm these diagnostics first:
+
+1. There are novice, standard, and elite cards.
+2. Reaction/noise/prediction/aim values differ by tier.
+3. The physical-invariant proof says the authoritative physical snapshot is identical.
+4. The learned-policy status says disabled.
+5. The real carrier decision/technique/utility output updates while the lab is active.
+
+### Legal-boundary check
+
+1. Click **Add elite-like samples** until model confidence is high.
+2. Record the current tier.
+3. Click **Try mid-possession change**. The tier must stay unchanged.
+4. Click **Apply restart boundary**. PvE may move one tier.
+5. Toggle **Mode: PvE** to PvP.
+6. Add opposite-skill samples and click **Apply restart boundary** again. The tier must stay locked in PvP.
+
+Any live-possession tier change or PvP adaptation is a blocker.
+
+### Personality check
+
+Use **Carrier personality** to switch among:
+
+- balanced;
+- playmaker;
+- winger;
+- poacher;
+- anchor;
+- aggressive-presser;
+- calm-keeper.
+
+Watch the real decision text on the tier cards. Personalities should bias choices without changing speed, reach, stamina, or ball physics.
+
+## Pass C — Stage 07 difficulty ladder in play
+
+Test novice, standard, and elite with the same starting scenarios whenever practical.
 
 ### Novice
 
@@ -117,7 +156,7 @@ Red flags:
 - altered ball flight;
 - mid-possession difficulty spikes that feel like the game decided you should lose.
 
-## Pass C — Rubber-band / legal-boundary test
+## Pass D — Rubber-band / legal-boundary feel test
 
 Play through several full possessions on Stage 07.
 
@@ -133,9 +172,7 @@ The difficulty should **not visibly flip mid-possession** to force an outcome. A
 
 If you notice a sudden behavior shift, report the exact moment and whether a restart occurred.
 
-## Pass D — Personality legibility
-
-Where the lab exposes/configures personality assignments, compare repeated scenarios with different profiles.
+## Pass E — Personality legibility in normal play
 
 Expected tendencies:
 
@@ -149,7 +186,7 @@ Expected tendencies:
 
 A personality should change **preference**, not rules. If an archetype only feels different because it seems faster, stronger, or has extra reach, that is a Stage 07 defect.
 
-## Pass E — Blind comparison if practical
+## Pass F — Blind comparison if practical
 
 If someone else is available, have them choose novice/standard/elite without telling you which one is active for a few short runs.
 
@@ -160,7 +197,7 @@ Ask yourself after each run:
 - Could you tell which run forced more tactical adaptation?
 - Did any run feel scripted or rubber-banded?
 
-Blind testing is useful but not required for your first owner pass.
+Blind testing is useful but not required for the first owner pass.
 
 ## Automated commands
 
@@ -173,13 +210,14 @@ pnpm bots:tournament
 pnpm test:e2e
 ```
 
-Stage 07:
+Stage 07 full local verification:
 
 ```bash
 pnpm typecheck
 pnpm test
 pnpm bots:tournament
 pnpm bots:adaptive-tournament
+pnpm bots:learning-lab
 pnpm test:e2e
 ```
 
@@ -194,9 +232,18 @@ pnpm exec vitest run \
   packages/bots/src/adaptiveRuntime.test.ts \
   packages/bots/src/highLevelPolicy.test.ts \
   tools/balance/learning-lab/evaluate.test.ts \
+  tools/balance/learning-lab/harness.test.ts \
   tools/balance/adaptiveTournament.test.ts \
   --reporter=verbose
 ```
+
+The executable learning smoke benchmark is intentionally machine-only:
+
+```bash
+pnpm bots:learning-lab
+```
+
+A PASS there does not mean the learned policy should ship. The current production-enable flag is false and promotion remains blocked until human preference evidence exists.
 
 ## Feedback format
 
