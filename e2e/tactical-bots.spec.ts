@@ -33,24 +33,30 @@ test('Stage 06 Tactical Bot Lab turnover control causes immediate phase/possessi
   expect(before).toMatch(/home|away/);
 
   const observedTurnover = await page.evaluate(async () => {
-    const state = document.querySelector<HTMLOutputElement>('[data-bot-state]');
+    const eventView = document.querySelector<HTMLElement>('[data-bot-event]');
     const button = document.querySelector<HTMLButtonElement>('[data-bot-turnover]');
-    if (!state || !button) throw new Error('Tactical Bot Lab turnover controls are missing');
+    if (!eventView || !button) throw new Error('Tactical Bot Lab turnover controls are missing');
 
     return await new Promise<string>((resolve, reject) => {
-      const timeout = window.setTimeout(() => {
-        observer.disconnect();
-        reject(new Error('turnover event was not observed'));
-      }, 1200);
-      const observer = new MutationObserver(() => {
-        const value = state.dataset.lastEvent ?? '';
-        if (!value.startsWith('turnover:')) return;
+      const read = (): string => eventView.textContent?.trim() ?? '';
+      const finishIfTurnover = (): boolean => {
+        const value = read();
+        if (!value.startsWith('turnover:')) return false;
         window.clearTimeout(timeout);
         observer.disconnect();
         resolve(value);
+        return true;
+      };
+      const timeout = window.setTimeout(() => {
+        observer.disconnect();
+        reject(new Error(`turnover event was not observed; last visible event=${read()}`));
+      }, 1200);
+      const observer = new MutationObserver(() => {
+        finishIfTurnover();
       });
-      observer.observe(state, { attributes: true, attributeFilter: ['data-last-event'] });
+      observer.observe(eventView, { childList: true, subtree: true, characterData: true });
       button.click();
+      finishIfTurnover();
     });
   });
 
