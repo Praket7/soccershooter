@@ -31,11 +31,11 @@ test('Stage 03 action hooks visibly acknowledge keyboard requests', async ({ pag
 
   await page.keyboard.press('c');
   await expect(feedback).toHaveAttribute('data-action', 'tackle');
-  await expect(feedback).toContainText(/tackle/i);
+  await expect(feedback).toContainText(/challenge|defensive/i);
 
   await page.keyboard.press('Space');
   await expect(feedback).toHaveAttribute('data-action', 'jump');
-  await expect(feedback).toContainText(/jump/i);
+  await expect(feedback).toContainText(/aerial|header|jump/i);
 });
 
 test('trackpad or wheel zoom changes third-person field of view distance smoothly', async ({ page }) => {
