@@ -33,6 +33,8 @@ import {
   type FootballVec3,
 } from '@soccershooter/sim/football/types';
 import { ActionDebugHud } from '../debug/ActionDebugHud';
+import { resolveDribbleIntent, updateShotFacingLock } from '../input/FootballControl';
+import { PLAYER_VISUAL_LAYOUT } from '../presentation/PlayerVisualLayout';
 
 export interface FootballPracticeOptions {
   scene: THREE.Scene;
@@ -105,14 +107,58 @@ function createBall(scene: THREE.Scene): THREE.Group {
   return group;
 }
 
+function createBallMarker(scene: THREE.Scene): THREE.Mesh {
+  const marker = new THREE.Mesh(
+    new THREE.RingGeometry(0.22, 0.32, 32),
+    new THREE.MeshBasicMaterial({
+      color: 0xf2ce6b,
+      transparent: true,
+      opacity: 0.74,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    }),
+  );
+  marker.name = 'stage05-ball-marker';
+  marker.rotation.x = -Math.PI / 2;
+  marker.renderOrder = 3;
+  scene.add(marker);
+  return marker;
+}
+
+function createAimGuide(scene: THREE.Scene): THREE.ArrowHelper {
+  const guide = new THREE.ArrowHelper(
+    new THREE.Vector3(0, 0.02, 1),
+    new THREE.Vector3(0, 0.04, 0),
+    4,
+    0xf2ce6b,
+    0.32,
+    0.17,
+  );
+  guide.name = 'stage05-shot-aim-guide';
+  guide.visible = false;
+  scene.add(guide);
+  return guide;
+}
+
 function createAthleteMarker(scene: THREE.Scene, color: number, name: string): THREE.Group {
   const group = new THREE.Group();
   group.name = name;
   const material = new THREE.MeshStandardMaterial({ color, roughness: 0.68 });
-  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.33, 1.04, 16), material);
-  torso.position.y = 0.78;
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 14, 10), material);
-  head.position.y = 1.48;
+  const torso = new THREE.Mesh(
+    new THREE.CylinderGeometry(
+      PLAYER_VISUAL_LAYOUT.torsoTopRadius * 0.83,
+      PLAYER_VISUAL_LAYOUT.torsoBottomRadius * 0.87,
+      PLAYER_VISUAL_LAYOUT.torsoHeight,
+      16,
+    ),
+    material,
+  );
+  torso.position.y = PLAYER_VISUAL_LAYOUT.torsoCenterY;
+  const head = new THREE.Mesh(
+    new THREE.SphereGeometry(PLAYER_VISUAL_LAYOUT.headRadius * 0.84, 14, 10),
+    material,
+  );
+  head.position.y = PLAYER_VISUAL_LAYOUT.headCenterY;
   group.add(torso, head);
   scene.add(group);
   return group;
@@ -124,7 +170,7 @@ function createKeeper(scene: THREE.Scene): THREE.Group {
     new THREE.BoxGeometry(1.42, 0.14, 0.16),
     new THREE.MeshStandardMaterial({ color: 0x152331, roughness: 0.75 }),
   );
-  arms.position.y = 1.25;
+  arms.position.y = 1.18;
   group.add(arms);
   group.position.set(0, 0, KEEPER_Z);
   return group;
@@ -155,6 +201,8 @@ function createOppositeGoal(scene: THREE.Scene): THREE.Group {
 export class FootballPractice {
   readonly root: HTMLElement;
   readonly ballVisual: THREE.Group;
+  readonly ballMarker: THREE.Mesh;
+  readonly aimGuide: THREE.ArrowHelper;
   readonly keeperVisual: THREE.Group;
   readonly receiverVisual: THREE.Group;
   readonly oppositeGoalVisual: THREE.Group;
@@ -179,10 +227,14 @@ export class FootballPractice {
   #lastReason = 'practice-ready';
   #lastSuccess = true;
   #lastPlayer: PlayerState | null = null;
+  #shotFacingYaw: number | null = null;
+  #lastAim = { x: 0, z: 1 };
   #probe: HTMLOutputElement;
 
   constructor(options: FootballPracticeOptions) {
     this.ballVisual = createBall(options.scene);
+    this.ballMarker = createBallMarker(options.scene);
+    this.aimGuide = createAimGuide(options.scene);
     this.keeperVisual = createKeeper(options.scene);
     this.receiverVisual = createAthleteMarker(options.scene, 0xf4c95d, 'stage05-pass-receiver');
     this.oppositeGoalVisual = createOppositeGoal(options.scene);
@@ -196,13 +248,13 @@ export class FootballPractice {
         <div><span>Stage 05</span><strong>Football Practice</strong></div>
         <span class="football-practice-live"><i></i> physical ball</span>
       </div>
-      <p>Dribble with movement. Hold LMB to charge, release to shoot. RMB tightens touches. E passes to the moving gold receiver. Q modifies passes. Sprint + tackle commits.</p>
+      <p>Move to dribble. RMB gives close control; release movement and hold RMB near a moving ball to trap/stop it. Hold LMB to charge, move the mouse/right stick to aim, then release to shoot.</p>
       <div class="shot-style-row" role="group" aria-label="Shot contact style">
         ${SHOT_STYLES.map((style, index) => `<button type="button" data-shot-style="${style}" data-active="${style === this.#shotStyle}"><kbd>${index + 1}</kbd>${style}</button>`).join('')}
       </div>
       <div class="practice-actions">
         <button type="button" data-football-reset>Reset ball <kbd>G</kbd></button>
-        <span>E ground · RMB+E through · Q+E driven · Q+RMB+E lofted</span>
+        <span>E ground · RMB+E through · Q+E driven · Q+RMB+E lofted · RMB+no movement trap</span>
       </div>
       <output data-football-state data-ball-x="${this.#state.position.x}" data-ball-y="${this.#state.position.y}" data-ball-z="${this.#state.position.z}" data-goals="0" data-saves="0" data-shot-style="normal" hidden></output>
     `;
@@ -234,6 +286,8 @@ export class FootballPractice {
     this.root.hidden = !visible;
     this.debugHud.setVisible(visible);
     this.ballVisual.visible = visible;
+    this.ballMarker.visible = visible;
+    this.aimGuide.visible = visible && this.#runtime.shotChargeSeconds > 0.015;
     this.keeperVisual.visible = visible;
     this.receiverVisual.visible = visible;
     this.oppositeGoalVisual.visible = visible;
@@ -262,6 +316,8 @@ export class FootballPractice {
     });
     this.#previousState = cloneBallState(this.#state);
     this.#runtime = createFootballRuntimeState();
+    this.#shotFacingYaw = null;
+    this.#lastAim = forward;
     this.#accumulator = 0;
     this.#goalLatched = false;
     this.#resetCountdown = 0;
@@ -276,6 +332,7 @@ export class FootballPractice {
     else {
       this.#state = createBallState({ position: PRACTICE_BALL_START, grounded: true });
       this.#previousState = cloneBallState(this.#state);
+      this.#shotFacingYaw = null;
       this.ballVisual.quaternion.identity();
       this.#syncVisuals();
     }
@@ -297,6 +354,10 @@ export class FootballPractice {
     const jump = (intent.actionBits & PlayerActionBits.Jump) !== 0;
     const pass = (intent.actionBits & PlayerActionBits.Pass) !== 0;
     const aim = forwardFromYaw(intent.aimYaw);
+    const dribbleIntent = resolveDribbleIntent(intent, playerDirection(player));
+    const shotFacing = updateShotFacingLock(this.#shotFacingYaw, intent.actionBits, player.facingYaw);
+    this.#shotFacingYaw = shotFacing.latchedYaw;
+    this.#lastAim = aim;
 
     if (tackle) {
       const challenge = resolveChallenge({
@@ -344,9 +405,12 @@ export class FootballPractice {
           return;
         }
       }
+      const shotActor: FootballActorSnapshot = shotFacing.contactFacingYaw === null
+        ? actor
+        : { ...actor, facingYaw: shotFacing.contactFacingYaw };
       const shot = buildShot({
         style: this.#shotStyle,
-        shooter: actor,
+        shooter: shotActor,
         ball: snapshot,
         aim,
         charge: runtimeStep.releasedShotCharge,
@@ -374,7 +438,7 @@ export class FootballPractice {
         ball: snapshot,
         receiver: this.#receiverSnapshot(),
         userAim: aim,
-        assist: 0.58,
+        assist: 0.68,
         pressure: actor.pressure,
         allowBehindBodyTechnique: false,
       });
@@ -387,13 +451,14 @@ export class FootballPractice {
       return;
     }
 
-    if (precision && this.#runtime.kickCooldown <= 0) {
+    // Precision movement can still contain/intercept. Releasing movement while
+    // holding precision is reserved for the explicit trap/stop touch below.
+    if (precision && dribbleIntent.magnitude > 0.12 && this.#runtime.kickCooldown <= 0) {
       const interception = evaluateInterception({ defender: actor, ball: snapshot, horizonSeconds: 0.18 });
       if (interception.eligible && interception.timeToWindow <= 0.11) {
-        const desired = playerDirection(player);
         this.#applyCommand(commandTowardVelocity(
           'interception', snapshot,
-          { x: desired.x * 3.6, y: 0, z: desired.z * 3.6 },
+          { x: dribbleIntent.direction.x * 3.6, y: 0, z: dribbleIntent.direction.z * 3.6 },
           { x: -2, y: 0, z: 0 }, 3.4,
           `interception t=${interception.timeToWindow.toFixed(3)}`,
         ));
@@ -408,16 +473,22 @@ export class FootballPractice {
       const touch = buildControlTouch({
         actor,
         ball: snapshot,
-        desiredDirection: playerDirection(player),
+        desiredDirection: dribbleIntent.direction,
         precision,
         sprint: intent.sprint,
         pressure: actor.pressure,
+        moveIntentMagnitude: dribbleIntent.magnitude,
       });
       this.#lastControlQuality = touch.quality;
       if (touch.eligible && touch.command) {
         this.#applyCommand(touch.command);
-        this.#runtime = markControlTouch(this.#runtime, intent.sprint);
-        this.#recordAction(intent.sprint ? 'sprint touch' : precision ? 'precision touch' : 'control touch', true, touch.reason);
+        this.#runtime = markControlTouch(this.#runtime, touch.touchMode === 'sprint');
+        const action = touch.touchMode === 'trap'
+          ? 'trap / stop'
+          : touch.touchMode === 'effort-turn'
+            ? 'effort turn'
+            : `${touch.touchMode} touch`;
+        this.#recordAction(action, true, touch.touchMode);
       } else if (touch.reason !== 'out-of-reach' && touch.reason !== 'idle-no-touch') {
         this.#recordAction('first touch', false, touch.reason);
       }
@@ -536,9 +607,19 @@ export class FootballPractice {
   #syncVisuals(): void {
     const visualOffset = BALL_CONSTANTS.radius * (VISUAL_SCALE - 1);
     this.ballVisual.position.set(this.#state.position.x, this.#state.position.y + visualOffset, this.#state.position.z);
+    this.ballMarker.position.set(this.#state.position.x, 0.014, this.#state.position.z);
     this.keeperVisual.position.x = this.#keeperX;
     const receiver = this.#receiverSnapshot();
     this.receiverVisual.position.set(receiver.position.x, 0, receiver.position.z);
+
+    const shotCharge = clamp(this.#runtime.shotChargeSeconds / 0.85, 0, 1);
+    this.aimGuide.visible = this.#visible && shotCharge > 0.015;
+    if (this.aimGuide.visible) {
+      this.aimGuide.position.set(this.#state.position.x, Math.max(0.045, this.#state.position.y * 0.32), this.#state.position.z);
+      this.aimGuide.setDirection(new THREE.Vector3(this.#lastAim.x, 0.015, this.#lastAim.z).normalize());
+      this.aimGuide.setLength(3.2 + shotCharge * 4.6, 0.34, 0.17);
+    }
+
     this.#probe.dataset.ballX = this.#state.position.x.toFixed(6);
     this.#probe.dataset.ballY = this.#state.position.y.toFixed(6);
     this.#probe.dataset.ballZ = this.#state.position.z.toFixed(6);
@@ -547,7 +628,10 @@ export class FootballPractice {
     this.#probe.dataset.saves = String(this.#saves);
     this.#probe.dataset.keeperX = this.#keeperX.toFixed(6);
     this.#probe.dataset.recovery = this.#defenderState.recoverySeconds.toFixed(6);
-    this.#probe.dataset.shotCharge = (this.#runtime.shotChargeSeconds / 0.85).toFixed(6);
+    this.#probe.dataset.shotCharge = shotCharge.toFixed(6);
+    this.#probe.dataset.aimGuideVisible = String(this.aimGuide.visible);
+    this.#probe.dataset.aimX = this.#lastAim.x.toFixed(6);
+    this.#probe.dataset.aimZ = this.#lastAim.z.toFixed(6);
     this.#probe.dataset.action = this.#lastAction;
     this.#probe.dataset.reason = this.#lastReason;
     this.#probe.dataset.ballVisualQuaternion = [
