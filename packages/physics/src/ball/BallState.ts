@@ -62,7 +62,9 @@ export function createBallState(init: BallStateInit = {}): BallState {
     position: finiteVec(init.position, { x: 0, y: BALL_CONSTANTS.radius, z: 0 }, 'position'),
     velocity: finiteVec(init.velocity, { x: 0, y: 0, z: 0 }, 'velocity'),
     angularVelocity: finiteVec(init.angularVelocity, { x: 0, y: 0, z: 0 }, 'angularVelocity'),
-    knuckleSeed: finiteOr(init.knuckleSeed, 0x51f15e, 'knuckleSeed') >>> 0,
+    // Seed zero means a stable wake. A non-zero seed activates the deterministic
+    // low-spin knuckle perturbation so a straight shot and a knuckle can coexist.
+    knuckleSeed: finiteOr(init.knuckleSeed, 0, 'knuckleSeed') >>> 0,
     flightSeconds: finiteOr(init.flightSeconds, 0, 'flightSeconds'),
     grounded: init.grounded ?? false,
   };

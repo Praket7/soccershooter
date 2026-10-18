@@ -117,6 +117,7 @@ function perpendicularBasis(direction: Readonly<Vec3>): [Vec3, Vec3] {
 }
 
 export function knuckleAcceleration(state: Readonly<BallState>, profile: BallCoefficientProfile = MATCH_BALL_PROFILE): Vec3 {
+  if (state.knuckleSeed === 0) return { x: 0, y: 0, z: 0 };
   const speed = magnitude(state.velocity);
   if (speed < 1e-6) return { x: 0, y: 0, z: 0 };
   const sp = spinParameter(state);
