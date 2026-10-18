@@ -4,9 +4,12 @@ import {
   horizontalDistance,
   opponentsOf,
   phaseForTeam,
+  resolvedMatchState,
   teamPlayers,
   type BotPlayerSnapshot,
   type BotWorldSnapshot,
+  type MatchPhase,
+  type RestartKind,
   type TeamId,
   type TeamPhase,
 } from './types';
@@ -22,6 +25,12 @@ export interface TacticalBlackboard {
   ballProgress: number;
   averagePressure: number;
   possessionConfidence: number;
+  matchPhase: MatchPhase;
+  restartKind: RestartKind;
+  restartTeam: TeamId | null;
+  scoreFor: number;
+  scoreAgainst: number;
+  secondsRemaining: number;
 }
 
 export function buildTacticalBlackboard(
@@ -49,6 +58,7 @@ export function buildTacticalBlackboard(
     : nearestOwnPlayerToBallId
       ? buildBotPerception(world, nearestOwnPlayerToBallId).possessionProbability
       : 0;
+  const match = resolvedMatchState(world);
   return {
     team,
     phase,
@@ -60,5 +70,11 @@ export function buildTacticalBlackboard(
     ballProgress: Math.max(0, Math.min(1, normalizedProgress)),
     averagePressure: teamPressure(world, team),
     possessionConfidence: confidence,
+    matchPhase: match.phase,
+    restartKind: match.restart,
+    restartTeam: match.restartTeam,
+    scoreFor: team === 'home' ? match.scoreHome : match.scoreAway,
+    scoreAgainst: team === 'home' ? match.scoreAway : match.scoreHome,
+    secondsRemaining: Math.max(0, match.secondsRemaining),
   };
 }
