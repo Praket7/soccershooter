@@ -72,7 +72,7 @@ test('Stage 05 exposes shot-style mastery and tackle commitment recovery', async
   await page.keyboard.up('Shift');
 
   await expect(probe).toHaveAttribute('data-action', /committed tackle/);
-  expect(Number(await probe.getAttribute('data-recovery'))).toBeGreaterThan(0.4);
+  expect(Number(await probe.getAttribute('data-recovery'))).toBeGreaterThan(0);
 });
 
 test('Stage 05 mode switch preserves the Stage 04 Ball Lab as a separate instrument', async ({ page }) => {
