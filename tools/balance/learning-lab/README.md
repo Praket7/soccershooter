@@ -35,11 +35,27 @@ A learned policy may propose only high-level football intent:
 
 Unexpected proposal fields are rejected. The default adapter is disabled and no learned policy is a production dependency.
 
-## Suggested local experiments
+The adapter may receive safe read-only scalar/categorical research features, but that does not expand its output authority.
 
-A future experiment may use a free local Python stack such as PyTorch plus PPO, MAPPO, self-play, imitation learning, or a small high-level classifier in a simplified headless environment. The experiment may be trained outside the production dependency graph as long as its runtime output is converted into the validated high-level proposal schema.
+## Executable Stage 07 smoke experiment
 
-Training hardware availability is not a Stage 07 shipping requirement. Stage 07 creates the safe interface and benchmark contract so later research cannot contaminate the deterministic production baseline.
+Stage 07 includes a real research-only benchmark in `harness.ts`.
+
+It deliberately uses a lightweight seeded **tabular behavior-cloning** experiment rather than adding a production ML framework. The harness:
+
+1. generates deterministic abstract football states;
+2. labels them with a deterministic high-level expert;
+3. trains a tabular high-level action policy from seeded examples;
+4. evaluates on held-out seeded episodes;
+5. validates every output through `validateHighLevelProposal`;
+6. measures cooperation, safety, exploit rate, readability/expert agreement, inference latency, and a football-performance proxy;
+7. keeps `humanPreference` null;
+8. keeps `enabledInProduction` false;
+9. refuses promotion until human preference evidence exists.
+
+This is a **smoke benchmark**, not a claim that tabular cloning is the final learned football architecture. Its purpose is to prove the research adapter can actually be trained, executed, validated, timed, reproduced, and compared against a deterministic expert without contaminating the shipping bot.
+
+A future experiment may replace the tabular learner with PPO, MAPPO, self-play, imitation learning, or another method as long as it obeys the same high-level adapter and promotion contract.
 
 ## Reward design and specification-gaming defenses
 
@@ -55,7 +71,7 @@ The adaptive tournament verifies that pass spam is flagged and that a genuinely 
 
 ## Promotion benchmark
 
-A candidate learned policy must be compared with the deterministic production bot on the same seeded scenarios. Promotion evidence must cover all of these dimensions:
+A candidate learned policy must be compared with the deterministic production bot/expert on the same seeded scenarios. Promotion evidence must cover:
 
 1. **Cooperation** — support, passing, spacing, and team shape.
 2. **Corner-case safety** — legal finite behavior around restarts, pressure, loose balls, near-goal states, and sparse-action states.
@@ -75,7 +91,7 @@ A candidate learned policy must be compared with the deterministic production bo
 - win rate `>= 0.52`;
 - human preference `>= 0.60`.
 
-Human preference is intentionally required and cannot be fabricated by automation. A missing human result produces `human-preference-pending` and blocks promotion.
+Human preference is intentionally required and cannot be fabricated by automation. Missing human evidence produces `human-preference-pending` and blocks promotion.
 
 ## Reproducible commands
 
@@ -84,20 +100,50 @@ From the repository root:
 ```bash
 pnpm install --frozen-lockfile
 pnpm typecheck
-pnpm test -- packages/bots/src/highLevelPolicy.test.ts tools/balance/learning-lab/evaluate.test.ts
+pnpm test -- packages/bots/src/highLevelPolicy.test.ts tools/balance/learning-lab/evaluate.test.ts tools/balance/learning-lab/harness.test.ts
 pnpm bots:tournament
 pnpm bots:adaptive-tournament
+pnpm bots:learning-lab
 ```
 
-The canonical adaptive command is:
+Canonical adaptive cognition gate:
 
 ```bash
 pnpm bots:adaptive-tournament
 ```
 
-It runs 2,000 seeded scenarios per novice, standard, and elite tier and exits nonzero if the automated Stage 07 gate fails.
+It runs 2,000 seeded scenarios per novice, standard, and elite tier and exits nonzero if the automated Stage 07 adaptive gate fails.
 
-When comparing a future learned experiment, keep the deterministic seed and scenario set fixed so differences are attributable to the policy rather than scenario drift.
+Canonical learned-policy smoke benchmark:
+
+```bash
+pnpm bots:learning-lab
+```
+
+It trains on 2,200 seeded examples, evaluates 600 held-out episodes, prints the machine metrics/checksum, and exits nonzero if any machine-side benchmark fails. A successful machine gate still reports promotion false until human preference exists.
+
+## Verified Stage 07 smoke result
+
+On full CI run `39162193996`:
+
+- adapter: `tabular-behavior-clone-v1`
+- training examples: `2200`
+- held-out episodes: `600`
+- expert agreement: `1.0`
+- invalid proposals: `0`
+- cooperation: `1.0`
+- corner-case safety: `1.0`
+- exploit rate: `0`
+- readability: `1.0`
+- benchmark win proxy: `1.0`
+- average inference: `0.00154046 ms`
+- max inference: `0.468235 ms`
+- checksum: `c37c30c3`
+- machine gate: PASS
+- production enabled: false
+- promotion: false, `human-preference-pending`
+
+The perfect agreement is specific to the deliberately small abstract smoke environment. It proves the plumbing and benchmark discipline, not full-game learned superiority.
 
 ## Current Stage 07 state
 
@@ -105,14 +151,17 @@ Implemented now:
 
 - isolated high-level policy adapter;
 - strict proposal validation;
+- safe research feature input;
 - default-disabled learned lane;
 - reward-hack detector;
 - promotion-metric contract;
 - deterministic Stage 06 baseline;
-- Stage 07 adaptive cognition simulation gate.
+- Stage 07 adaptive cognition simulation gate;
+- executable seeded learned-policy smoke experiment;
+- named CI command and machine-side gate.
 
-**No learned policy is promoted or enabled.** This is intentional. The research lane is ready for optional future experiments while the shipping bot remains deterministic, inspectable, fair, and fully disableable.
+**No learned policy is promoted or enabled.** The research lane is ready for future experiments while the shipping bot remains deterministic, inspectable, fair, and fully disableable.
 
 ## Stage boundary
 
-Do not add TensorFlow, PyTorch, PPO, MAPPO, or other training frameworks to the browser or production server dependency graph merely to satisfy Stage 07. The learning lane is local, optional, replaceable, and disabled by default. A learned policy must outperform the deterministic baseline on the full promotion suite and clear the human preference gate before later-stage integration is considered.
+Do not add TensorFlow, PyTorch, PPO, MAPPO, or another training framework to the browser or production server dependency graph merely to make Stage 07 look more advanced. A future learned policy must obey the high-level adapter, beat the deterministic baseline on the full benchmark suite, and clear the human preference gate before later-stage production integration is considered.
