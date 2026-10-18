@@ -2,7 +2,7 @@
 
 **Stage:** 06  
 **Implementation branch:** `stage/06-tactical-bots`  
-**Implementation head before documentation:** `e4ae0f9e423be6a8b6291b817abcce0fcccc19bf`  
+**Verified implementation head before final documentation:** `4196abd546b538596230601d853abcc7fb5382e1`  
 **Status:** Engineering complete; owner visual playtest pending before merge.
 
 ## 1. Tactical architecture
@@ -135,7 +135,7 @@ The home position follows ball angle while remaining goal-connected. Fast goal-b
 
 Research basis:
 
-- Lopes et al., *Analytic method for evaluating players' decisions in team sports: Applications to the soccer goalkeeper*, PLOS ONE 13(2), 2018. It models goalkeeper position as a dynamic function of ball line, goal geometry, and coverage. https://doi.org/10.1371/journal.pone.0191431
+- Lamas et al., *Analytic method for evaluating players' decisions in team sports: Applications to the soccer goalkeeper*, PLOS ONE 13(2), 2018. It models goalkeeper position as a dynamic function of ball line, goal geometry, and coverage. https://doi.org/10.1371/journal.pone.0191431
 - Wang et al., *The Goalkeeper Strategy of RoboCup MSL Based on Dual Image Source*, RoboCup 2015. It predicts an interception point from early ball trajectory observations before selecting keeper response.
 
 ## 10. Fairness rule
@@ -176,6 +176,22 @@ The canonical Stage 06 balance entrypoint is:
 - average support distance inside 3.2–10.5 m;
 - average tactical decision time below 1 ms/team;
 - defensive max decision-time guard below 12 ms.
+
+The report exports:
+
+- role occupancy;
+- role switches;
+- pass attempts/completions and multi-pass possessions;
+- turnovers;
+- shots and goals;
+- keeper abandonments;
+- permanent-swarm count and cluster ratio;
+- idle ratio;
+- average support distance;
+- timing measurements;
+- deterministic checksum.
+
+Role occupancy is sampled from both teams' current assignments every simulated tactical step. In the canonical 3v3 benchmark, each side has one goalkeeper and two field players, so width-support and recovery-runner occupancy are structurally zero; larger-team unit scenarios cover those role branches.
 
 Wall-clock timing is measured but excluded from deterministic equality checks. Tactical outcomes use a deterministic checksum.
 
