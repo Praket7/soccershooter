@@ -31,8 +31,14 @@ jobs:
           package-manager-cache: false
       - name: Install exact pnpm
         run: npm install --global pnpm@12.9.1
-      - name: Generate lockfile
-        run: pnpm install --lockfile-only
+      - name: Generate lockfile from clean state
+        run: |
+          rm -f pnpm-lock.yaml
+          pnpm install --lockfile-only
+          test "$(grep -c '^---$' pnpm-lock.yaml)" -eq 1
+          grep -q "@playwright/test:" pnpm-lock.yaml
+          grep -q "apps/web:" pnpm-lock.yaml
+          grep -q "packages/sim:" pnpm-lock.yaml
       - name: Commit generated lockfile
         run: |
           git config user.name 'github-actions[bot]'
@@ -41,6 +47,6 @@ jobs:
           if git diff --cached --quiet; then
             echo 'pnpm-lock.yaml already matches manifests.'
           else
-            git commit -m 'build(stage02): generate pnpm lockfile'
+            git commit -m 'build(stage02): regenerate clean pnpm lockfile'
             git push origin HEAD:stage/02-foundation
           fi
