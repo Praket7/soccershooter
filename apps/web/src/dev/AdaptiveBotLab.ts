@@ -61,6 +61,9 @@ function install(): void {
   if (!modeSwitch || !viewport) return;
   document.head.append(createStyles());
 
+  const practiceButton = mustQuery<HTMLButtonElement>(document, '[data-mode-practice]');
+  const ballLabButton = mustQuery<HTMLButtonElement>(document, '[data-mode-ball-lab]');
+  const tacticalButton = document.querySelector<HTMLButtonElement>('[data-mode-tactical-bots]');
   const button = document.createElement('button');
   button.type = 'button';
   button.dataset.modeAdaptiveBots = 'true';
@@ -237,16 +240,23 @@ function install(): void {
     active = false;
     lab.hidden = true;
     button.dataset.active = 'false';
+    if (gameCanvas) gameCanvas.hidden = false;
+    for (const card of hiddenCards) card.hidden = false;
   }
 
   function activate(): void {
     active = true;
     lab.hidden = false;
     button.dataset.active = 'true';
-    gameCanvas?.setAttribute('hidden', 'true');
-    for (const card of hiddenCards) card.hidden = true;
+    if (document.pointerLockElement) document.exitPointerLock();
+    const practice = document.querySelector<HTMLElement>('[data-football-practice]');
+    const ballLab = document.querySelector<HTMLElement>('[data-ball-lab]');
     const tactical = document.querySelector<HTMLElement>('[data-bot-tactical-lab]');
+    if (practice) practice.hidden = true;
+    if (ballLab) ballLab.hidden = true;
     if (tactical) tactical.hidden = true;
+    if (gameCanvas) gameCanvas.hidden = true;
+    for (const card of hiddenCards) card.hidden = true;
     for (const other of Array.from(modeSwitch.querySelectorAll<HTMLButtonElement>('button'))) {
       if (other !== button) other.dataset.active = 'false';
     }
@@ -254,10 +264,9 @@ function install(): void {
   }
 
   button.addEventListener('click', activate);
-  modeSwitch.addEventListener('click', (event) => {
-    const target = event.target as HTMLElement;
-    if (target !== button && target.closest('button')) deactivate();
-  });
+  practiceButton.addEventListener('click', deactivate, { capture: true });
+  ballLabButton.addEventListener('click', deactivate, { capture: true });
+  tacticalButton?.addEventListener('click', deactivate, { capture: true });
 
   updateModelView();
   updateDirectorView('none');
