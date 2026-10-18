@@ -54,7 +54,6 @@ export interface ControlBreakInput {
   controlQuality: number;
 }
 
-const CONTROL_REACH = 1.32;
 const MAX_CONTROL_HEIGHT = 0.72;
 const HARD_INCOMING_SPEED = 26;
 const MIN_FRONT_DOT = Math.cos(128 * Math.PI / 180);
@@ -80,18 +79,42 @@ function targetPoint(
   };
 }
 
-function clampHorizontalCorrection(x: number, z: number, maximum: number): FootballHorizontalDirection {
-  const magnitude = Math.hypot(x, z);
-  if (magnitude <= maximum || magnitude <= 1e-9) return { x, z };
-  const scale = maximum / magnitude;
-  return { x: x * scale, z: z * scale };
+function controlReach(mode: ControlTouchMode): number {
+  if (mode === 'sprint') return 1.62;
+  if (mode === 'effort-turn') return 1.56;
+  if (mode === 'trap' || mode === 'receive-exit') return 1.50;
+  if (mode === 'precision') return 1.38;
+  return 1.48;
+}
+
+interface CorridorTuning {
+  horizon: number;
+  gain: number;
+  maxAdvance: number;
+  maxRecovery: number;
+  maxLateral: number;
+}
+
+function corridorTuning(mode: ControlTouchMode): CorridorTuning {
+  if (mode === 'precision') {
+    return { horizon: 0.14, gain: 0.86, maxAdvance: 0.42, maxRecovery: 4.0, maxLateral: 3.8 };
+  }
+  if (mode === 'sprint') {
+    return { horizon: 0.20, gain: 0.82, maxAdvance: 0.45, maxRecovery: 4.8, maxLateral: 3.3 };
+  }
+  if (mode === 'effort-turn') {
+    return { horizon: 0.12, gain: 0.96, maxAdvance: 1.1, maxRecovery: 5.2, maxLateral: 4.6 };
+  }
+  return { horizon: 0.16, gain: 0.84, maxAdvance: 0.52, maxRecovery: 4.3, maxLateral: 3.5 };
 }
 
 /**
- * A dribble touch is a bounded velocity servo around a moving control corridor,
- * not a position lock. The ball remains physically independent: lateral or
- * longitudinal error changes the requested impulse, while reach, body angle,
- * quality and impulse caps still decide whether the player can recover it.
+ * Produces a bounded velocity correction toward a moving control corridor.
+ * Forward and recovery corrections are intentionally asymmetric: a competent
+ * dribbler may gently nudge a close ball onward, but an overhit ball is slowed
+ * much more decisively so one slightly long touch does not cascade into an
+ * automatic turnover. Lateral correction is independent so the ball can be
+ * brought back onto the running line without teleporting its position.
  */
 function corridorCorrection(
   actor: Readonly<FootballActorSnapshot>,
@@ -100,45 +123,35 @@ function corridorCorrection(
   touchDistance: number,
   mode: ControlTouchMode,
 ): FootballHorizontalDirection {
+  const tuning = corridorTuning(mode);
   const relativeX = ball.position.x - actor.position.x;
   const relativeZ = ball.position.z - actor.position.z;
-  const desiredX = direction.x * touchDistance;
-  const desiredZ = direction.z * touchDistance;
-  const errorX = desiredX - relativeX;
-  const errorZ = desiredZ - relativeZ;
+  const lateral = { x: direction.z, z: -direction.x };
+  const relativeForward = relativeX * direction.x + relativeZ * direction.z;
+  const relativeLateral = relativeX * lateral.x + relativeZ * lateral.z;
 
-  let horizon = 0.22;
-  let gain = 0.9;
-  let maximum = 3.1;
-  if (mode === 'precision') {
-    horizon = 0.18;
-    gain = 0.96;
-    maximum = 3.7;
-  } else if (mode === 'sprint') {
-    horizon = 0.32;
-    gain = 0.68;
-    maximum = 2.5;
-  } else if (mode === 'effort-turn') {
-    horizon = 0.16;
-    gain = 0.95;
-    maximum = 4.2;
-  }
+  const forwardError = touchDistance - relativeForward;
+  const lateralError = -relativeLateral;
+  const rawForward = forwardError / tuning.horizon * tuning.gain;
+  const rawLateral = lateralError / tuning.horizon * tuning.gain;
+  const forwardCorrection = clampFootball(rawForward, -tuning.maxRecovery, tuning.maxAdvance);
+  const lateralCorrection = clampFootball(rawLateral, -tuning.maxLateral, tuning.maxLateral);
 
-  return clampHorizontalCorrection(
-    errorX / horizon * gain,
-    errorZ / horizon * gain,
-    maximum,
-  );
+  return {
+    x: direction.x * forwardCorrection + lateral.x * lateralCorrection,
+    z: direction.z * forwardCorrection + lateral.z * lateralCorrection,
+  };
 }
 
 /**
  * Generates one physically bounded touch. The target point is a planning aid;
  * only a velocity impulse is returned. The football is never snapped to it.
  *
- * Sharp direction changes become braking/redirecting effort touches. Receive
- * is explicit: F/no movement kills momentum; F+movement cushions into a short
- * controlled exit. Precision/RMB changes dribble touch size but never secretly
- * changes the action into a trap.
+ * Routine carry is deliberately competent: normal touches stay compact, sprint
+ * touches are longer but recoverable, and modest control errors receive a legal
+ * corrective contact before possession is declared lost. Genuine large errors,
+ * pressure, bad body orientation, excessive ball height/speed, and opponent
+ * contact still break control.
  */
 export function buildControlTouch(input: Readonly<ControlTouchInput>): ControlTouchResult {
   const direction = normalizeHorizontal(input.desiredDirection, forwardFromYaw(input.actor.facingYaw));
@@ -193,34 +206,28 @@ export function buildControlTouch(input: Readonly<ControlTouchInput>): ControlTo
   } else if (effortTurn) {
     touchMode = 'effort-turn';
     const hardTurn = ballDirectionDot < HARD_TURN_DOT;
-    touchDistance = input.precision ? 0.32 : input.sprint ? 0.66 : 0.43;
+    touchDistance = input.precision ? 0.30 : input.sprint ? 0.58 : 0.40;
     targetBallSpeed = hardTurn
-      ? input.precision ? 1.25 : input.sprint ? 3.7 : 1.9
-      : input.precision ? 2.0 : input.sprint ? 4.8 : 2.9;
+      ? input.precision ? 1.2 : input.sprint ? 3.4 : 1.8
+      : input.precision ? 1.9 : input.sprint ? 4.4 : 2.7;
   } else if (input.sprint) {
     touchMode = 'sprint';
-    touchDistance = 0.92 + clampFootball(playerSpeed - 6, 0, 3) * 0.025;
-    const freshTargetSpeed = clampFootball(playerSpeed + 0.25, 4.2, 9.0);
-    const separationError = Math.max(0, reach - touchDistance);
-    targetBallSpeed = clampFootball(
-      freshTargetSpeed - separationError * 1.9,
-      Math.max(3.6, playerSpeed - 1.2),
-      9.0,
-    );
+    touchDistance = 0.78 + clampFootball(playerSpeed - 6, 0, 3) * 0.015;
+    targetBallSpeed = clampFootball(playerSpeed + 0.08, 4.0, 8.95);
   } else if (input.precision) {
     touchMode = 'precision';
-    touchDistance = 0.34;
-    targetBallSpeed = clampFootball(playerSpeed + 0.18, 2.0, 5.25);
+    touchDistance = 0.30;
+    targetBallSpeed = clampFootball(playerSpeed + 0.05, 1.8, 5.15);
   } else {
     touchMode = 'normal';
-    touchDistance = 0.56;
-    targetBallSpeed = clampFootball(playerSpeed + 0.35, 3.2, 6.45);
+    touchDistance = 0.52;
+    targetBallSpeed = clampFootball(playerSpeed + 0.15, 3.0, 5.45);
   }
 
   const plannedPoint = targetPoint(input.actor, direction, touchDistance, Math.max(input.ball.radius, input.ball.position.y));
   const baseResult = { quality, touchMode, touchDistance, targetBallSpeed, targetPoint: plannedPoint };
 
-  if (reach > CONTROL_REACH) return { eligible: false, reason: 'out-of-reach', ...baseResult };
+  if (reach > controlReach(touchMode)) return { eligible: false, reason: 'out-of-reach', ...baseResult };
   if (ballFacingDot < MIN_FRONT_DOT) return { eligible: false, reason: 'behind-body', ...baseResult };
   if (input.ball.position.y - input.ball.radius > MAX_CONTROL_HEIGHT) return { eligible: false, reason: 'ball-too-high', ...baseResult };
   if (incomingSpeed > HARD_INCOMING_SPEED) return { eligible: false, reason: 'ball-too-fast', ...baseResult };
@@ -254,9 +261,9 @@ export function buildControlTouch(input: Readonly<ControlTouchInput>): ControlTo
     : receiveExitRequested
       ? 8.8
       : effortTurn
-        ? input.sprint ? 9.2 : 8.4
-        : input.sprint ? 6.6 : input.precision ? 5.2 : 6.2;
-  const qualityFloor = trapRequested || receiveExitRequested || effortTurn ? 0.55 : 0.35;
+        ? input.sprint ? 9.4 : 8.7
+        : input.sprint ? 7.1 : input.precision ? 5.8 : 6.8;
+  const qualityFloor = trapRequested || receiveExitRequested || effortTurn ? 0.55 : 0.4;
   const maxDeltaSpeed = baseDeltaSpeed * (qualityFloor + (1 - qualityFloor) * quality);
   const angularVelocityDelta: FootballVec3 = trapRequested
     ? {
@@ -281,7 +288,7 @@ export function buildControlTouch(input: Readonly<ControlTouchInput>): ControlTo
     desiredVelocity,
     angularVelocityDelta,
     input.ball.mass * maxDeltaSpeed,
-    `control mode=${touchMode} q=${quality.toFixed(3)} turnDot=${ballDirectionDot.toFixed(3)} corridor=(${correction.x.toFixed(2)},${correction.z.toFixed(2)}) pressure=${pressure.toFixed(3)}`,
+    `control mode=${touchMode} q=${quality.toFixed(3)} turnDot=${ballDirectionDot.toFixed(3)} corridor=(${correction.x.toFixed(2)},${correction.z.toFixed(2)}) reach=${reach.toFixed(2)}/${controlReach(touchMode).toFixed(2)} pressure=${pressure.toFixed(3)}`,
   );
 
   return {
