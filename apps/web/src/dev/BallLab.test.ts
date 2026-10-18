@@ -3,6 +3,7 @@ import { BALL_CONSTANTS } from '@soccershooter/physics/ball/BallState';
 import { STANDARD_GOAL_FRAME, simulateBall } from '@soccershooter/physics/ball/trajectory';
 import {
   BALL_LAB_PRESETS,
+  buildCompleteExportTrace,
   buildLaunchFromControls,
   traceToCsv,
   type BallLabControls,
@@ -59,5 +60,26 @@ describe('Stage 04 Ball Lab control contract', () => {
     ]);
     expect(csv.split('\n')[0]).toBe('time,x,y,z,vx,vy,vz,wx,wy,wz,speed,spin,energyJ,grounded,contactKind,contactId');
     expect(csv.split('\n')).toHaveLength(2);
+  });
+
+  test('exporting a configured Post rebound shot always yields a complete audit trace', () => {
+    const preset = BALL_LAB_PRESETS.find((candidate) => candidate.id === 'post');
+    expect(preset).toBeDefined();
+    const controls: BallLabControls = {
+      speed: 24,
+      elevationDegrees: 12,
+      azimuthDegrees: 0,
+      spinRate: 0,
+      spinAxis: 'none',
+      profileId: 'match-balanced-v1',
+      slowMotion: 1,
+      trailEnabled: true,
+      knuckleSeed: 0,
+      ...preset?.controls,
+    };
+    const trace = buildCompleteExportTrace(controls);
+    expect(trace.length).toBeGreaterThan(100);
+    expect(trace.some((sample) => sample.state.lastContact?.id === 'right-post')).toBe(true);
+    expect(trace.at(-1)?.time ?? 0).toBeGreaterThan(0.5);
   });
 });
