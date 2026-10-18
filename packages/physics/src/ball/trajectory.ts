@@ -65,7 +65,7 @@ export interface TrajectoryPrediction {
   samples: TrajectorySample[];
 }
 
-function launch(speed: number, elevationDegrees: number, spin: Vec3, seed = 0x51f15e): BallState {
+function launch(speed: number, elevationDegrees: number, spin: Vec3, seed = 0): BallState {
   const elevation = elevationDegrees * Math.PI / 180;
   return createBallState({
     position: { x: 0, y: BALL_CONSTANTS.radius, z: 0 },
@@ -144,7 +144,6 @@ export function resolveGoalFrameCollision(
   state.angularVelocity = scale(state.angularVelocity, profile.goalFrameTangentialRetention);
   state.lastContact = { kind: 'goal-frame', id: closest.id, atSeconds: state.flightSeconds };
 
-  // Numerical safety: a passive frame may dissipate energy but never inject it.
   const beforeEnergy = kineticEnergy(input);
   const afterEnergy = kineticEnergy(state);
   if (afterEnergy > beforeEnergy && afterEnergy > 1e-12) {
