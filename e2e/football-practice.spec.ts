@@ -1,10 +1,11 @@
 import { expect, test } from '@playwright/test';
 
-test('Stage 05 practice starts physical, idle, and non-magnetic', async ({ page }) => {
+test('Stage 05 practice starts physical, idle, non-magnetic, and visually grounded', async ({ page }) => {
   await page.goto('/');
 
   const practice = page.locator('[data-football-practice]');
   const probe = page.locator('[data-football-state]');
+  const playerProbe = page.locator('[data-player-state]');
   await expect(practice).toBeVisible();
   await expect(page.getByRole('button', { name: 'Football Practice', exact: true })).toHaveAttribute('data-active', 'true');
   await expect(page.locator('[data-ball-lab]')).toBeHidden();
@@ -24,6 +25,25 @@ test('Stage 05 practice starts physical, idle, and non-magnetic', async ({ page 
   expect(after.x).toBeCloseTo(before.x, 5);
   expect(after.z).toBeCloseTo(before.z, 5);
   expect(after.speed).toBeLessThan(0.05);
+  const playerY = Number(await playerProbe.getAttribute('data-y'));
+  const visualFootY = Number(await playerProbe.getAttribute('data-visual-foot-y'));
+  expect(visualFootY).toBeCloseTo(playerY, 5);
+});
+
+test('Stage 05 first LMB hold charges immediately and exposes a readable physical aim guide', async ({ page }) => {
+  await page.goto('/');
+  const probe = page.locator('[data-football-state]');
+  const canvas = page.locator('[data-game-viewport]');
+  const box = await canvas.boundingBox();
+  expect(box).not.toBeNull();
+  if (!box) return;
+
+  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
+  await page.mouse.down({ button: 'left' });
+  await expect.poll(async () => Number(await probe.getAttribute('data-shot-charge')), { timeout: 2000 })
+    .toBeGreaterThan(0.03);
+  await expect(probe).toHaveAttribute('data-aim-guide-visible', 'true');
+  await page.mouse.up({ button: 'left' });
 });
 
 test('Stage 05 pass contact moves the free ball without teleporting it', async ({ page }) => {
