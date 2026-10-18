@@ -63,7 +63,7 @@ test('Stage 05 exposes shot-style mastery and tackle commitment recovery', async
 
   await page.keyboard.press('3');
   await expect(probe).toHaveAttribute('data-shot-style', 'finesse');
-  await expect(page.locator('[data-shot-style="finesse"]')).toHaveAttribute('data-active', 'true');
+  await expect(page.getByRole('button', { name: 'finesse', exact: true })).toHaveAttribute('data-active', 'true');
 
   await page.keyboard.press('g');
   await page.waitForTimeout(60);
