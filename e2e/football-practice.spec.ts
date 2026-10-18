@@ -20,9 +20,25 @@ async function installPointerLockHarness(page: Page): Promise<void> {
       value: function exitPointerLockMock() {
         locked = null;
         document.dispatchEvent(new Event('pointerlockchange'));
-        return Promise.resolve();
       },
     });
+  });
+}
+
+async function capturePointerWithoutNativePlaywrightLock(page: Page): Promise<void> {
+  const canvas = page.locator('[data-game-viewport]');
+  // Playwright's high-level click waits for its own mouse-up bookkeeping. When
+  // our deterministic harness changes pointerLockElement synchronously during
+  // pointer-down, Chromium can leave that click waiting until the test timeout.
+  // Dispatch the capture gesture directly so this test exercises our listener
+  // contract without asking Playwright to emulate native pointer-lock behavior.
+  await canvas.dispatchEvent('pointerdown', {
+    button: 0,
+    buttons: 1,
+    pointerId: 1,
+    pointerType: 'mouse',
+    clientX: 320,
+    clientY: 220,
   });
 }
 
@@ -96,7 +112,7 @@ test('first click captures camera only, then locked LMB charges through the perm
   await expect(reticle).toBeHidden();
   expect(Number(await probe.getAttribute('data-shot-charge'))).toBe(0);
 
-  await canvas.click({ position: { x: 320, y: 220 } });
+  await capturePointerWithoutNativePlaywrightLock(page);
   await expect(playerProbe).toHaveAttribute('data-pointer-locked', 'true');
   await expect(capture).toBeHidden();
   await expect(reticle).toBeVisible();
@@ -148,7 +164,7 @@ test('RMB+E drives the ground pass and Ctrl+Q chips the through ball', async ({ 
   const probe = page.locator('[data-football-state]');
   const canvas = page.locator('[data-game-viewport]');
 
-  await canvas.click({ position: { x: 320, y: 220 } });
+  await capturePointerWithoutNativePlaywrightLock(page);
   await expect(page.locator('[data-player-state]')).toHaveAttribute('data-pointer-locked', 'true');
   const box = await canvas.boundingBox();
   expect(box).not.toBeNull();
@@ -175,7 +191,7 @@ test('RMB+LMB finesse and Ctrl+LMB chip latch at shot start through modifier rel
   await page.goto('/');
   const probe = page.locator('[data-football-state]');
   const canvas = page.locator('[data-game-viewport]');
-  await canvas.click({ position: { x: 320, y: 220 } });
+  await capturePointerWithoutNativePlaywrightLock(page);
   await expect(page.locator('[data-player-state]')).toHaveAttribute('data-pointer-locked', 'true');
 
   const box = await canvas.boundingBox();
