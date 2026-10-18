@@ -50,13 +50,19 @@ function pressed(keys: ReadonlySet<string>, ...codes: string[]): boolean {
   return codes.some((code) => keys.has(code));
 }
 
+function actionBitsForCode(code: string): number {
+  if (code === 'Space') return PlayerActionBits.Jump;
+  if (code === 'KeyC' || code === 'KeyB' || code === 'ControlLeft' || code === 'ControlRight') return PlayerActionBits.Tackle;
+  return 0;
+}
+
 export function keyboardStateToIntent(sample: Readonly<KeyboardIntentSample>): InputIntent {
   const rawX = Number(pressed(sample.keys, 'KeyD', 'ArrowRight')) - Number(pressed(sample.keys, 'KeyA', 'ArrowLeft'));
   const rawY = Number(pressed(sample.keys, 'KeyW', 'ArrowUp')) - Number(pressed(sample.keys, 'KeyS', 'ArrowDown'));
   const move = normalizeMoveAxes(rawX, rawY);
   let actionBits = 0;
   if (pressed(sample.keys, 'Space')) actionBits |= PlayerActionBits.Jump;
-  if (pressed(sample.keys, 'KeyC', 'ControlLeft', 'ControlRight')) actionBits |= PlayerActionBits.Tackle;
+  if (pressed(sample.keys, 'KeyC', 'KeyB', 'ControlLeft', 'ControlRight')) actionBits |= PlayerActionBits.Tackle;
   return {
     moveX: move.x,
     moveY: move.y,
@@ -75,12 +81,14 @@ export class ActionMap {
   #aimYaw = 0;
   #pendingYawDelta = 0;
   #pendingPitchDelta = 0;
+  #pendingActionBits = 0;
   #lastInputTimestamp: number | null = null;
   #attached = false;
 
   readonly #onKeyDown = (event: KeyboardEvent) => {
     this.#keys.add(event.code);
     this.#lastInputTimestamp = performance.now();
+    if (!event.repeat) this.#pendingActionBits |= actionBitsForCode(event.code);
     if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.code)) event.preventDefault();
   };
 
@@ -91,6 +99,7 @@ export class ActionMap {
 
   readonly #onBlur = () => {
     this.#keys.clear();
+    this.#pendingActionBits = 0;
   };
 
   readonly #onPointerMove = (event: PointerEvent) => {
@@ -137,6 +146,7 @@ export class ActionMap {
     this.#keyboardTarget.removeEventListener('pointermove', this.#onPointerMove);
     this.#pointerTarget.removeEventListener('pointerdown', this.#onPointerDown);
     this.#keys.clear();
+    this.#pendingActionBits = 0;
   }
 
   setAimYaw(yaw: number): void {
@@ -149,13 +159,16 @@ export class ActionMap {
   }
 
   consumeFrame(): ActionFrame {
+    const intent = keyboardStateToIntent({ keys: this.#keys, aimYaw: this.#aimYaw });
+    intent.actionBits = (intent.actionBits | this.#pendingActionBits) >>> 0;
     const frame: ActionFrame = {
-      intent: keyboardStateToIntent({ keys: this.#keys, aimYaw: this.#aimYaw }),
+      intent,
       look: { yawDelta: this.#pendingYawDelta, pitchDelta: this.#pendingPitchDelta },
       inputTimestamp: this.#lastInputTimestamp,
     };
     this.#pendingYawDelta = 0;
     this.#pendingPitchDelta = 0;
+    this.#pendingActionBits = 0;
     return frame;
   }
 }
