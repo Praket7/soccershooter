@@ -53,6 +53,11 @@ const EDGE_KEY_ACTION_BITS = (
   | PlayerActionBits.LoftedPass
   | PlayerActionBits.Receive
 ) >>> 0;
+const MODIFIABLE_PASS_EDGE_BITS = (
+  PlayerActionBits.Pass
+  | PlayerActionBits.ThroughPass
+  | PlayerActionBits.LoftedPass
+) >>> 0;
 
 function wrapYaw(yaw: number): number {
   const wrapped = ((yaw + Math.PI) % TAU + TAU) % TAU - Math.PI;
@@ -88,12 +93,19 @@ function pressed(keys: ReadonlySet<string>, ...codes: string[]): boolean {
 
 function actionBitsForCode(code: string): number {
   if (code === 'Space') return PlayerActionBits.Jump;
-  if (code === 'KeyC' || code === 'KeyB' || code === 'ControlLeft' || code === 'ControlRight') return PlayerActionBits.Tackle;
+  if (code === 'KeyC' || code === 'KeyB') return PlayerActionBits.Tackle;
   if (code === 'KeyE') return PlayerActionBits.Pass;
   if (code === 'KeyQ') return PlayerActionBits.ThroughPass;
   if (code === 'KeyR') return PlayerActionBits.LoftedPass;
   if (code === 'KeyF') return PlayerActionBits.Receive;
   return 0;
+}
+
+function heldTechniqueModifierBits(keys: ReadonlySet<string>, secondaryDown: boolean): number {
+  let actionBits = 0;
+  if (secondaryDown) actionBits |= PlayerActionBits.Precision;
+  if (pressed(keys, 'ControlLeft', 'ControlRight')) actionBits |= PlayerActionBits.ChipModifier;
+  return actionBits >>> 0;
 }
 
 export function pointerStateToActionBits(primaryDown: boolean, secondaryDown: boolean): number {
@@ -144,13 +156,12 @@ export function keyboardStateToIntent(sample: Readonly<KeyboardIntentSample>): I
   const move = normalizeMoveAxes(rawX, rawY);
   let actionBits = 0;
   if (pressed(sample.keys, 'Space')) actionBits |= PlayerActionBits.Jump;
-  if (pressed(sample.keys, 'KeyC', 'KeyB', 'ControlLeft', 'ControlRight')) actionBits |= PlayerActionBits.Tackle;
+  if (pressed(sample.keys, 'KeyC', 'KeyB')) actionBits |= PlayerActionBits.Tackle;
   if (pressed(sample.keys, 'KeyE')) actionBits |= PlayerActionBits.Pass;
   if (pressed(sample.keys, 'KeyQ')) actionBits |= PlayerActionBits.ThroughPass;
   if (pressed(sample.keys, 'KeyR')) actionBits |= PlayerActionBits.LoftedPass;
   if (pressed(sample.keys, 'KeyF')) actionBits |= PlayerActionBits.Receive;
-  if (pressed(sample.keys, 'KeyZ')) actionBits |= PlayerActionBits.DrivenModifier;
-  if (pressed(sample.keys, 'KeyX')) actionBits |= PlayerActionBits.ChipModifier;
+  if (pressed(sample.keys, 'ControlLeft', 'ControlRight')) actionBits |= PlayerActionBits.ChipModifier;
   return {
     moveX: move.x,
     moveY: move.y,
@@ -173,13 +184,20 @@ export class ActionMap {
   #pendingActionBits = 0;
   #primaryDown = false;
   #secondaryDown = false;
+  #shotModifierBits = 0;
   #lastInputTimestamp: number | null = null;
   #attached = false;
 
   readonly #onKeyDown = (event: KeyboardEvent) => {
     this.#keys.add(event.code);
     this.#lastInputTimestamp = performance.now();
-    if (!event.repeat) this.#pendingActionBits |= actionBitsForCode(event.code);
+    if (!event.repeat) {
+      const edgeBits = actionBitsForCode(event.code);
+      this.#pendingActionBits |= edgeBits;
+      if ((edgeBits & MODIFIABLE_PASS_EDGE_BITS) !== 0) {
+        this.#pendingActionBits |= heldTechniqueModifierBits(this.#keys, this.#secondaryDown);
+      }
+    }
     if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.code)) event.preventDefault();
   };
 
@@ -193,6 +211,7 @@ export class ActionMap {
     this.#pendingActionBits = 0;
     this.#primaryDown = false;
     this.#secondaryDown = false;
+    this.#shotModifierBits = 0;
   };
 
   readonly #onPointerMove = (event: PointerEvent) => {
@@ -228,18 +247,24 @@ export class ActionMap {
     if (result.requestPointerLock) {
       this.#primaryDown = false;
       this.#secondaryDown = false;
+      this.#shotModifierBits = 0;
       void this.#pointerTarget.requestPointerLock();
       return;
     }
 
     this.#primaryDown = result.primaryDown;
     this.#secondaryDown = result.secondaryDown;
+    if (event.button === 0) {
+      this.#shotModifierBits = heldTechniqueModifierBits(this.#keys, result.secondaryDown);
+      this.#pendingActionBits |= this.#shotModifierBits;
+    }
   };
 
   readonly #onPointerUp = (event: PointerEvent) => {
     if (event.button === 0 && this.#primaryDown) {
       this.#primaryDown = false;
-      this.#pendingActionBits |= PlayerActionBits.ShootReleased;
+      this.#pendingActionBits |= PlayerActionBits.ShootReleased | this.#shotModifierBits;
+      this.#shotModifierBits = 0;
     }
     if (event.button === 2) this.#secondaryDown = false;
     this.#lastInputTimestamp = performance.now();
@@ -288,6 +313,7 @@ export class ActionMap {
     this.#pendingZoomDelta = 0;
     this.#primaryDown = false;
     this.#secondaryDown = false;
+    this.#shotModifierBits = 0;
   }
 
   setAimYaw(yaw: number): void {
@@ -308,6 +334,7 @@ export class ActionMap {
       intent.actionBits
       | this.#pendingActionBits
       | pointerStateToActionBits(this.#primaryDown, this.#secondaryDown)
+      | (this.#primaryDown ? this.#shotModifierBits : 0)
     ) >>> 0;
     const frame: ActionFrame = {
       intent,
