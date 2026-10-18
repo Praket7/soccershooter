@@ -35,14 +35,61 @@ async function capturePointerWithoutNativePlaywrightLock(page: Page): Promise<vo
   });
 }
 
-async function sampleSeparation(page: Page): Promise<number> {
-  const ballProbe = page.locator('[data-football-state]');
-  const playerProbe = page.locator('[data-player-state]');
-  const playerX = Number(await playerProbe.getAttribute('data-x'));
-  const playerZ = Number(await playerProbe.getAttribute('data-z'));
-  const ballX = Number(await ballProbe.getAttribute('data-ball-x'));
-  const ballZ = Number(await ballProbe.getAttribute('data-ball-z'));
-  return Math.hypot(ballX - playerX, ballZ - playerZ);
+interface CarryState {
+  tick: number;
+  playerX: number;
+  playerZ: number;
+  ballX: number;
+  ballZ: number;
+  ballSpeed: number;
+  action: string;
+}
+
+async function readCarryState(page: Page): Promise<CarryState> {
+  // Read player and ball in one browser task. Separate Playwright getAttribute
+  // awaits let the live simulation advance between the player and ball reads on
+  // slow CI machines and fabricate a separation that never existed at one tick.
+  return page.evaluate(() => {
+    const player = document.querySelector<HTMLOutputElement>('[data-player-state]');
+    const ball = document.querySelector<HTMLOutputElement>('[data-football-state]');
+    if (!player || !ball) throw new Error('missing football carry probes');
+    return {
+      tick: Number(player.dataset.tick ?? 0),
+      playerX: Number(player.dataset.x ?? 0),
+      playerZ: Number(player.dataset.z ?? 0),
+      ballX: Number(ball.dataset.ballX ?? 0),
+      ballZ: Number(ball.dataset.ballZ ?? 0),
+      ballSpeed: Number(ball.dataset.ballSpeed ?? 0),
+      action: ball.dataset.action ?? '',
+    };
+  });
+}
+
+async function runCarryWindow(page: Page, sprint: boolean, durationTicks = 90): Promise<CarryState[]> {
+  await page.goto('/');
+  await page.keyboard.press('g');
+  const initial = await readCarryState(page);
+  await page.keyboard.down('w');
+  if (sprint) await page.keyboard.down('Shift');
+
+  const states: CarryState[] = [];
+  for (let sample = 0; sample < 80; sample += 1) {
+    const state = await readCarryState(page);
+    states.push(state);
+    if (state.tick - initial.tick >= durationTicks) break;
+    await page.waitForTimeout(8);
+  }
+
+  if (sprint) await page.keyboard.up('Shift');
+  await page.keyboard.up('w');
+  if ((states.at(-1)?.tick ?? initial.tick) - initial.tick < durationTicks) {
+    throw new Error(`carry window did not reach ${durationTicks} simulation ticks`);
+  }
+  return states;
+}
+
+function separation(state: CarryState): number {
+  return Math.hypot(state.ballX - state.playerX, state.ballZ - state.playerZ);
 }
 
 test('Stage 05 practice starts physical, idle, non-magnetic, and visually grounded', async ({ page }) => {
@@ -84,52 +131,25 @@ test('Stage 05 practice starts physical, idle, non-magnetic, and visually ground
 });
 
 test('ordinary multi-second dribbling keeps a competent carry compact instead of flirting with loss', async ({ page }) => {
-  await page.goto('/');
-  const ballProbe = page.locator('[data-football-state]');
-  const playerProbe = page.locator('[data-player-state]');
-
-  await page.keyboard.press('g');
-  await page.waitForTimeout(80);
-  await page.keyboard.down('w');
-
-  let maximumSeparation = 0;
-  let maximumLateralError = 0;
-  for (let sample = 0; sample < 12; sample += 1) {
-    await page.waitForTimeout(140);
-    const playerX = Number(await playerProbe.getAttribute('data-x'));
-    const ballX = Number(await ballProbe.getAttribute('data-ball-x'));
-    maximumSeparation = Math.max(maximumSeparation, await sampleSeparation(page));
-    maximumLateralError = Math.max(maximumLateralError, Math.abs(ballX - playerX));
-  }
-  await page.keyboard.up('w');
+  const states = await runCarryWindow(page, false);
+  const maximumSeparation = Math.max(...states.map(separation));
+  const maximumLateralError = Math.max(...states.map((state) => Math.abs(state.ballX - state.playerX)));
+  const final = states.at(-1)!;
 
   expect(maximumSeparation).toBeLessThan(1.12);
   expect(maximumLateralError).toBeLessThan(0.45);
-  expect(Number(await ballProbe.getAttribute('data-ball-speed'))).toBeGreaterThan(2.5);
-  await expect(probeAction(ballProbe)).not.toMatch(/FIRST TOUCH FAILED/);
+  expect(final.ballSpeed).toBeGreaterThan(2.5);
+  expect(states.some((state) => /FIRST TOUCH FAILED/.test(state.action))).toBe(false);
 });
 
 test('sprinting uses recoverable knock-ons and does not simply run away from the player', async ({ page }) => {
-  await page.goto('/');
-  const ballProbe = page.locator('[data-football-state]');
-
-  await page.keyboard.press('g');
-  await page.waitForTimeout(80);
-  await page.keyboard.down('w');
-  await page.keyboard.down('Shift');
-
-  let maximumSeparation = 0;
-  for (let sample = 0; sample < 14; sample += 1) {
-    await page.waitForTimeout(120);
-    maximumSeparation = Math.max(maximumSeparation, await sampleSeparation(page));
-  }
-
-  await page.keyboard.up('Shift');
-  await page.keyboard.up('w');
+  const states = await runCarryWindow(page, true);
+  const maximumSeparation = Math.max(...states.map(separation));
+  const final = states.at(-1)!;
 
   expect(maximumSeparation).toBeLessThan(1.38);
-  expect(Number(await ballProbe.getAttribute('data-ball-speed'))).toBeGreaterThan(3.5);
-  await expect(probeAction(ballProbe)).not.toMatch(/FIRST TOUCH FAILED/);
+  expect(final.ballSpeed).toBeGreaterThan(3.5);
+  expect(states.some((state) => /FIRST TOUCH FAILED/.test(state.action))).toBe(false);
 });
 
 async function probeAction(probe: ReturnType<Page['locator']>): Promise<string> {
