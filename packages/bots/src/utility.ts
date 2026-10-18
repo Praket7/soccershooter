@@ -54,7 +54,12 @@ export function chooseCarrierAction(
     if (receiver.id === carrierId || receiver.goalkeeper) continue;
     const lane = evaluatePassLane(world, carrierId, receiver.id);
     const base = scorePassOption(world, carrierId, receiver.id);
-    const pressureBonus = perception.pressure * lane.openness * 0.22;
+    // Under pressure, a lane where the ball still beats the first defender is
+    // especially valuable: it is an escape route, not merely an aesthetic open lane.
+    const positiveArrivalMargin = lane.interceptionMarginSeconds > 0
+      ? 0.18 + clamp01(lane.interceptionMarginSeconds / 0.5) * 0.12
+      : 0;
+    const pressureBonus = perception.pressure * (lane.openness * 0.25 + positiveArrivalMargin);
     const score = clamp01(base + pressureBonus);
     if (!bestPass || score > bestPass.score || (score === bestPass.score && receiver.id < bestPass.playerId)) {
       bestPass = { playerId: receiver.id, score };
@@ -62,7 +67,9 @@ export function chooseCarrierAction(
   }
   const forwardSpace = clamp01(1 - perception.pressure);
   const dribble = clamp01(0.36 + forwardSpace * 0.32 + expectedThreatAtPoint(world, carrier.team, carrier.position) * 0.12 - perception.pressure * 0.30);
-  const protect = clamp01(0.18 + perception.pressure * 0.58);
+  const viablePass = bestPass?.score ?? 0;
+  const protectSuppression = 1 - clamp01((viablePass - 0.32) / 0.55) * 0.58;
+  const protect = clamp01((0.18 + perception.pressure * 0.58) * protectSuppression);
   const clear = clamp01(ownDanger * (0.5 + perception.pressure * 0.35));
   const candidates: CarrierActionDecision[] = [
     { kind: 'shoot', targetPlayerId: null, score: shoot },
