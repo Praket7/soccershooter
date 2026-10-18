@@ -41,6 +41,11 @@ export function stepFootballRuntime(
   if (shootReleased && (state.shotWasHeld || shotChargeSeconds > 0)) {
     releasedShotCharge = clampFootball(shotChargeSeconds / MAX_SHOT_CHARGE_SECONDS, 0.12, 1);
     shotChargeSeconds = 0;
+  } else if (state.shotWasHeld && !shootHeld) {
+    // A missing release edge means the input source disappeared (blur,
+    // pointer-lock loss, controller disconnect) or the player cancelled the
+    // preparation. Never bank that hidden charge into the next shot.
+    shotChargeSeconds = 0;
   }
 
   return {
