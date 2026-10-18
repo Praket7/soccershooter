@@ -55,9 +55,9 @@ export function resolveDribbleIntent(
 }
 
 /**
- * For football contacts, a moving player's hips/feet are considered oriented
- * with travel rather than with the free-look camera. At very low speed we keep
- * the prior facing so standing shot/pass setup remains stable.
+ * For dribble/control contacts, a moving player's hips/feet are considered
+ * oriented with travel rather than with the free-look camera. At very low
+ * speed we keep the prior facing so standing setup remains stable.
  */
 export function resolveTravelFacingYaw(
   velocity: HorizontalDirection,
@@ -69,13 +69,14 @@ export function resolveTravelFacingYaw(
 }
 
 /**
- * Keeps shooting aim free while preserving the body setup that existed when
- * shot preparation began. Mouse/right-stick yaw may keep changing the aim
- * vector during charge, but the contact model still receives a stable body
- * orientation and can penalize ambitious off-angle strikes honestly.
+ * Tracks active shot preparation without freezing a hidden body orientation.
+ * The player mesh visibly turns toward current aim through the normal movement
+ * turn-rate limit, so contact legality must use that same visible body yaw on
+ * every frame and at release. Aim is still independent and off-angle shots are
+ * still penalized by the authoritative shooting model.
  */
 export function updateShotFacingLock(
-  previousLatchedYaw: number | null,
+  _previousLatchedYaw: number | null,
   actionBits: number,
   currentFacingYaw: number,
 ): ShotFacingLockResult {
@@ -83,14 +84,10 @@ export function updateShotFacingLock(
   const shootReleased = (actionBits & PlayerActionBits.ShootReleased) !== 0;
 
   if (shootReleased) {
-    return {
-      latchedYaw: null,
-      contactFacingYaw: previousLatchedYaw ?? currentFacingYaw,
-    };
+    return { latchedYaw: null, contactFacingYaw: currentFacingYaw };
   }
   if (shootHeld) {
-    const latchedYaw = previousLatchedYaw ?? currentFacingYaw;
-    return { latchedYaw, contactFacingYaw: latchedYaw };
+    return { latchedYaw: currentFacingYaw, contactFacingYaw: currentFacingYaw };
   }
   return { latchedYaw: null, contactFacingYaw: null };
 }
