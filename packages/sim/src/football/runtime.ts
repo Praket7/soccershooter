@@ -66,7 +66,10 @@ export function markControlTouch(
 ): FootballRuntimeState {
   return {
     ...state,
-    controlTouchCooldown: sprint ? 0.22 : 0.14,
+    // Frequent but still discrete touches: fast enough to steer a dribble,
+    // slow enough that the free ball always gets real physics time between
+    // contacts. Effort-turn/trap touches use the controlled cadence.
+    controlTouchCooldown: sprint ? 0.17 : 0.12,
     lastAction: 'touch',
   };
 }
