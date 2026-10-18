@@ -138,10 +138,17 @@ export function buildControlTouch(input: Readonly<ControlTouchInput>): ControlTo
       : input.precision ? 2.0 : input.sprint ? 4.8 : 2.9;
   } else if (input.sprint) {
     touchMode = 'sprint';
-    // Sprint remains a knock-on, but never a punt. At full speed the target is
-    // only slightly faster than the runner, leaving a recoverable one-stride gap.
+    // Sprint remains a knock-on, but never a punt. A fresh touch is allowed a
+    // small speed lead. Once the ball is already beyond the desired one-stride
+    // gap, proximity feedback removes that lead and lets the runner catch up.
     touchDistance = 0.92 + clampFootball(playerSpeed - 6, 0, 3) * 0.025;
-    targetBallSpeed = clampFootball(playerSpeed + 0.25, 4.4, 9.0);
+    const freshTargetSpeed = clampFootball(playerSpeed + 0.25, 4.2, 9.0);
+    const separationError = Math.max(0, reach - touchDistance);
+    targetBallSpeed = clampFootball(
+      freshTargetSpeed - separationError * 1.9,
+      Math.max(3.6, playerSpeed - 1.2),
+      9.0,
+    );
   } else if (input.precision) {
     touchMode = 'precision';
     touchDistance = 0.34;
