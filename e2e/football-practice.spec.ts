@@ -1,4 +1,30 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+
+async function installPointerLockHarness(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    let locked: Element | null = null;
+    Object.defineProperty(Document.prototype, 'pointerLockElement', {
+      configurable: true,
+      get: () => locked,
+    });
+    Object.defineProperty(HTMLElement.prototype, 'requestPointerLock', {
+      configurable: true,
+      value: function requestPointerLockMock() {
+        locked = this;
+        document.dispatchEvent(new Event('pointerlockchange'));
+        return Promise.resolve();
+      },
+    });
+    Object.defineProperty(Document.prototype, 'exitPointerLock', {
+      configurable: true,
+      value: function exitPointerLockMock() {
+        locked = null;
+        document.dispatchEvent(new Event('pointerlockchange'));
+        return Promise.resolve();
+      },
+    });
+  });
+}
 
 test('Stage 05 practice starts physical, idle, non-magnetic, and visually grounded', async ({ page }) => {
   await page.goto('/');
@@ -31,6 +57,7 @@ test('Stage 05 practice starts physical, idle, non-magnetic, and visually ground
 });
 
 test('first click captures camera only, then locked LMB charges through the permanent reticle', async ({ page }) => {
+  await installPointerLockHarness(page);
   await page.goto('/');
   const probe = page.locator('[data-football-state]');
   const playerProbe = page.locator('[data-player-state]');
@@ -43,7 +70,7 @@ test('first click captures camera only, then locked LMB charges through the perm
   expect(Number(await probe.getAttribute('data-shot-charge'))).toBe(0);
 
   await canvas.click({ position: { x: 320, y: 220 } });
-  await expect.poll(async () => await playerProbe.getAttribute('data-pointer-locked'), { timeout: 2000 }).toBe('true');
+  await expect(playerProbe).toHaveAttribute('data-pointer-locked', 'true');
   await expect(capture).toBeHidden();
   await expect(reticle).toBeVisible();
   expect(Number(await probe.getAttribute('data-shot-charge'))).toBe(0);
@@ -89,11 +116,12 @@ test('dedicated E pass contact moves the free ball and exposes lane intent witho
 });
 
 test('Z modifies a normal shot into finesse without a six-key shot-mode vocabulary', async ({ page }) => {
+  await installPointerLockHarness(page);
   await page.goto('/');
   const probe = page.locator('[data-football-state]');
   const canvas = page.locator('[data-game-viewport]');
   await canvas.click({ position: { x: 320, y: 220 } });
-  await expect.poll(async () => await page.locator('[data-player-state]').getAttribute('data-pointer-locked'), { timeout: 2000 }).toBe('true');
+  await expect(page.locator('[data-player-state]')).toHaveAttribute('data-pointer-locked', 'true');
 
   await page.keyboard.down('z');
   const box = await canvas.boundingBox();
