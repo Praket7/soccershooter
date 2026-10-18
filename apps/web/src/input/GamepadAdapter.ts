@@ -69,6 +69,10 @@ export function gamepadSnapshotToFrame(
   let actionBits = 0;
   if (button(snapshot, 0)) actionBits |= PlayerActionBits.Jump;
   if (button(snapshot, 1)) actionBits |= PlayerActionBits.Tackle;
+  if (button(snapshot, 2)) actionBits |= PlayerActionBits.Pass;
+  if (button(snapshot, 5)) actionBits |= PlayerActionBits.Technique;
+  if (button(snapshot, 6)) actionBits |= PlayerActionBits.Precision;
+  if (button(snapshot, 7)) actionBits |= PlayerActionBits.ShootHeld;
   const intent: InputIntent = {
     moveX: move.x,
     moveY: move.y,
@@ -82,6 +86,7 @@ export function gamepadSnapshotToFrame(
 
 export class GamepadAdapter {
   readonly #options: GamepadOptions;
+  #shootWasHeld = false;
 
   constructor(options: GamepadOptions = {}) {
     this.#options = options;
@@ -92,7 +97,7 @@ export class GamepadAdapter {
     for (const pad of pads) {
       if (!pad || !pad.connected) continue;
       if (pad.mapping !== 'standard') continue;
-      return gamepadSnapshotToFrame(
+      const frame = gamepadSnapshotToFrame(
         {
           axes: [...pad.axes],
           buttons: pad.buttons.map((entry) => ({ pressed: entry.pressed, value: entry.value })),
@@ -102,7 +107,12 @@ export class GamepadAdapter {
         deltaSeconds,
         this.#options,
       );
+      const shootHeld = (frame.intent.actionBits & PlayerActionBits.ShootHeld) !== 0;
+      if (this.#shootWasHeld && !shootHeld) frame.intent.actionBits |= PlayerActionBits.ShootReleased;
+      this.#shootWasHeld = shootHeld;
+      return frame;
     }
+    this.#shootWasHeld = false;
     return null;
   }
 }
