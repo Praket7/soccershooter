@@ -12,6 +12,11 @@ export const PlayerActionBits = Object.freeze({
   ShootReleased: 1 << 4,
   Precision: 1 << 5,
   Technique: 1 << 6,
+  ThroughPass: 1 << 7,
+  LoftedPass: 1 << 8,
+  Receive: 1 << 9,
+  DrivenModifier: 1 << 10,
+  ChipModifier: 1 << 11,
 });
 
 export type LocomotionState =
