@@ -21,6 +21,7 @@ export interface ActionFrame {
   intent: InputIntent;
   look: LookDelta;
   inputTimestamp: number | null;
+  zoomDelta: number;
 }
 
 export interface ActionMapOptions {
@@ -35,6 +36,18 @@ const TAU = Math.PI * 2;
 function wrapYaw(yaw: number): number {
   const wrapped = ((yaw + Math.PI) % TAU + TAU) % TAU - Math.PI;
   return Object.is(wrapped, -0) ? 0 : wrapped;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+export function normalizeWheelZoomDelta(deltaY: number, deltaMode: number): number {
+  if (!Number.isFinite(deltaY) || !Number.isFinite(deltaMode)) {
+    throw new TypeError('wheel zoom delta and mode must be finite');
+  }
+  const modeScale = deltaMode === 1 ? 16 : deltaMode === 2 ? 600 : 1;
+  return clamp((deltaY * modeScale) / 120, -1, 1);
 }
 
 export function normalizeMoveAxes(x: number, y: number, deadzone = 0): NormalizedAxes {
@@ -83,6 +96,7 @@ export class ActionMap {
   #aimYaw = 0;
   #pendingYawDelta = 0;
   #pendingPitchDelta = 0;
+  #pendingZoomDelta = 0;
   #pendingActionBits = 0;
   #lastInputTimestamp: number | null = null;
   #attached = false;
@@ -115,6 +129,16 @@ export class ActionMap {
     this.#lastInputTimestamp = performance.now();
   };
 
+  readonly #onWheel = (event: WheelEvent) => {
+    event.preventDefault();
+    this.#pendingZoomDelta = clamp(
+      this.#pendingZoomDelta + normalizeWheelZoomDelta(event.deltaY, event.deltaMode),
+      -2,
+      2,
+    );
+    this.#lastInputTimestamp = performance.now();
+  };
+
   readonly #onPointerDown = () => {
     if (document.pointerLockElement !== this.#pointerTarget) void this.#pointerTarget.requestPointerLock();
   };
@@ -137,6 +161,7 @@ export class ActionMap {
     this.#keyboardTarget.addEventListener('blur', this.#onBlur);
     this.#keyboardTarget.addEventListener('pointermove', this.#onPointerMove);
     this.#pointerTarget.addEventListener('pointerdown', this.#onPointerDown);
+    this.#pointerTarget.addEventListener('wheel', this.#onWheel, { passive: false });
   }
 
   detach(): void {
@@ -147,8 +172,10 @@ export class ActionMap {
     this.#keyboardTarget.removeEventListener('blur', this.#onBlur);
     this.#keyboardTarget.removeEventListener('pointermove', this.#onPointerMove);
     this.#pointerTarget.removeEventListener('pointerdown', this.#onPointerDown);
+    this.#pointerTarget.removeEventListener('wheel', this.#onWheel);
     this.#keys.clear();
     this.#pendingActionBits = 0;
+    this.#pendingZoomDelta = 0;
   }
 
   setAimYaw(yaw: number): void {
@@ -167,9 +194,11 @@ export class ActionMap {
       intent,
       look: { yawDelta: this.#pendingYawDelta, pitchDelta: this.#pendingPitchDelta },
       inputTimestamp: this.#lastInputTimestamp,
+      zoomDelta: this.#pendingZoomDelta,
     };
     this.#pendingYawDelta = 0;
     this.#pendingPitchDelta = 0;
+    this.#pendingZoomDelta = 0;
     this.#pendingActionBits = 0;
     return frame;
   }
