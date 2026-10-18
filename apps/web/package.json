@@ -9,6 +9,7 @@
     "preview": "vite preview --host 127.0.0.1 --port 4174"
   },
   "dependencies": {
+    "@soccershooter/physics": "workspace:*",
     "@soccershooter/sim": "workspace:*",
     "three": "0.186.1"
   },

@@ -44,6 +44,9 @@ jobs:
       - name: Unit and contract tests
         run: pnpm test
 
+      - name: Million-launch deterministic ball fuzz
+        run: pnpm ball:fuzz
+
       - name: Standalone headless determinism trace
         run: pnpm determinism:headless
 

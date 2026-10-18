@@ -189,6 +189,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@soccershooter/physics':
+        specifier: workspace:*
+        version: link:../../packages/physics
       '@soccershooter/sim':
         specifier: workspace:*
         version: link:../../packages/sim

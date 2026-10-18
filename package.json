@@ -14,6 +14,7 @@
     "test:determinism": "vitest run packages/sim/src/determinism.test.ts --reporter=verbose",
     "test:e2e": "playwright test",
     "determinism:headless": "tsx tools/perf/run-determinism.ts",
+    "ball:fuzz": "tsx tools/perf/ball-fuzz.ts --launches=1000000 --substeps=4 --seed=309777",
     "build:web": "node tools/security/check-private-imports.mjs && pnpm --filter @soccershooter/web build",
     "build:server": "pnpm --filter @soccershooter/server build",
     "build": "pnpm run build:server && pnpm run build:web"
