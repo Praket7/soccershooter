@@ -118,17 +118,17 @@ describe('Stage 05 football runtime cadence', () => {
     const sprint = markControlTouch(createFootballRuntimeState(), true, 'sprint');
     expect(effort.controlTouchCooldown).toBeLessThan(normal.controlTouchCooldown);
     expect(normal.controlTouchCooldown).toBeLessThan(sprint.controlTouchCooldown);
-    expect(effort.controlTouchCooldown).toBeLessThanOrEqual(0.13);
+    expect(effort.controlTouchCooldown).toBeLessThanOrEqual(0.1);
   });
 
-  test('dribble cadence uses tighter repeated touches for control and longer knock-on cadence for sprint', () => {
+  test('competent carry cadence keeps normal touches frequent and sprint knock-ons recoverable', () => {
     const sprint = markControlTouch(createFootballRuntimeState(), true, 'sprint');
     const normal = markControlTouch(createFootballRuntimeState(), false, 'normal');
     const precision = markControlTouch(createFootballRuntimeState(), false, 'precision');
 
-    expect(precision.controlTouchCooldown).toBeCloseTo(0.16, 8);
-    expect(normal.controlTouchCooldown).toBeCloseTo(0.2, 8);
-    expect(sprint.controlTouchCooldown).toBeCloseTo(0.28, 8);
+    expect(precision.controlTouchCooldown).toBeCloseTo(0.13, 8);
+    expect(normal.controlTouchCooldown).toBeCloseTo(0.16, 8);
+    expect(sprint.controlTouchCooldown).toBeCloseTo(0.20, 8);
     expect(precision.controlTouchCooldown).toBeLessThan(normal.controlTouchCooldown);
     expect(normal.controlTouchCooldown).toBeLessThan(sprint.controlTouchCooldown);
   });
