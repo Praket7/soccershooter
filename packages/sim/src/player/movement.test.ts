@@ -12,6 +12,7 @@ import {
 } from './movement';
 
 const DT = 1 / 30;
+const CONTROL_DT = 1 / 60;
 const FORWARD: InputIntent = { moveX: 0, moveY: 1, aimYaw: 0, sprint: false, actionBits: 0 };
 const SPRINT: InputIntent = { ...FORWARD, sprint: true };
 const NEUTRAL: InputIntent = { moveX: 0, moveY: 0, aimYaw: 0, sprint: false, actionBits: 0 };
@@ -26,6 +27,38 @@ describe('Stage 03 deterministic movement', () => {
     expect(Math.hypot(normalized.x, normalized.y)).toBeCloseTo(1, 10);
     expect(normalized.x).toBeCloseTo(Math.SQRT1_2, 10);
     expect(normalized.y).toBeCloseTo(Math.SQRT1_2, 10);
+  });
+
+  test('camera-relative right input moves toward screen-right at zero camera yaw', () => {
+    const world = createFlatMovementWorld();
+    const right: InputIntent = { moveX: 1, moveY: 0, aimYaw: 0, sprint: false, actionBits: 0 };
+    const after = stepPlayerMovement(createPlayerState(), right, world, CONTROL_DT);
+    expect(after.velocity.x).toBeLessThan(0);
+    expect(Math.abs(after.velocity.z)).toBeLessThan(1e-8);
+  });
+
+  test('sharp reverse input brakes and reverses without orbiting sideways', () => {
+    const world = createFlatMovementWorld();
+    const reverse: InputIntent = { moveX: 0, moveY: -1, aimYaw: 0, sprint: true, actionBits: 0 };
+    let state = createPlayerState({ velocity: { x: 0, y: 0, z: DEFAULT_MOVEMENT_CONFIG.sprintSpeed } });
+    let maxLateral = 0;
+    for (let tick = 0; tick < 30; tick += 1) {
+      state = stepPlayerMovement(state, reverse, world, CONTROL_DT);
+      maxLateral = Math.max(maxLateral, Math.abs(state.position.x));
+    }
+    expect(maxLateral).toBeLessThan(0.02);
+    expect(state.velocity.z).toBeLessThan(-1);
+  });
+
+  test('sprint is materially faster than normal running after one second', () => {
+    const world = createFlatMovementWorld();
+    let jog = createPlayerState();
+    let sprint = createPlayerState();
+    for (let tick = 0; tick < 60; tick += 1) {
+      jog = stepPlayerMovement(jog, FORWARD, world, CONTROL_DT);
+      sprint = stepPlayerMovement(sprint, SPRINT, world, CONTROL_DT);
+    }
+    expect(horizontalSpeed(sprint)).toBeGreaterThan(horizontalSpeed(jog) * 1.6);
   });
 
   test('velocity change never exceeds the configured legal acceleration', () => {
