@@ -1,7 +1,12 @@
 import { expect, test } from '@playwright/test';
 
-test('Stage 04 Ball Lab exposes deterministic presets and launches the physical ball', async ({ page }) => {
+async function openBallLab(page: import('@playwright/test').Page) {
   await page.goto('/');
+  await page.getByRole('button', { name: 'Ball Lab', exact: true }).click();
+}
+
+test('Stage 04 Ball Lab exposes deterministic presets and launches the physical ball', async ({ page }) => {
+  await openBallLab(page);
 
   await expect(page.getByText('Ball Lab', { exact: true })).toBeVisible();
   const lab = page.locator('[data-ball-lab]');
@@ -29,7 +34,7 @@ test('Stage 04 Ball Lab exposes deterministic presets and launches the physical 
 });
 
 test('Stage 04 Ball Lab supports deterministic keyboard presets and trace export', async ({ page }) => {
-  await page.goto('/');
+  await openBallLab(page);
   const lab = page.locator('[data-ball-lab]');
 
   await page.keyboard.press('7');
@@ -45,7 +50,7 @@ test('Stage 04 Ball Lab supports deterministic keyboard presets and trace export
 });
 
 test('Ball Lab visual ball is readable, turf-safe, trail advances, and idle render frames cannot rotate it', async ({ page }) => {
-  await page.goto('/');
+  await openBallLab(page);
   const lab = page.locator('[data-ball-lab]');
   const probe = page.locator('[data-ball-state]');
 
