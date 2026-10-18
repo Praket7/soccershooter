@@ -229,15 +229,19 @@ export function chooseDefensiveAction(
       .sort((a, b) => b.lane.openness - a.lane.openness || (a.receiver.id < b.receiver.id ? -1 : 1));
     const bestLane = receivers[0];
     if (bestLane && bestLane.lane.openness > 0.58) {
-      return {
-        kind: 'block-lane',
-        targetPosition: fieldClamp(world, {
-          x: opponentCarrier.position.x + (bestLane.lane.target.x - opponentCarrier.position.x) * 0.48,
-          y: 0,
-          z: opponentCarrier.position.z + (bestLane.lane.target.z - opponentCarrier.position.z) * 0.48,
-        }, 0.6),
-        score: clamp01(0.57 + bestLane.lane.openness * 0.26),
-      };
+      const blockTarget = fieldClamp(world, {
+        x: opponentCarrier.position.x + (bestLane.lane.target.x - opponentCarrier.position.x) * 0.48,
+        y: 0,
+        z: opponentCarrier.position.z + (bestLane.lane.target.z - opponentCarrier.position.z) * 0.48,
+      }, 0.6);
+      const goalSide = direction * (opponentCarrier.position.z - blockTarget.z) > 0.1;
+      if (goalSide) {
+        return {
+          kind: 'block-lane',
+          targetPosition: blockTarget,
+          score: clamp01(0.57 + bestLane.lane.openness * 0.26),
+        };
+      }
     }
   }
 
