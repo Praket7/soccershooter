@@ -16,6 +16,7 @@ export interface ShotFacingLockResult {
   contactFacingYaw: number | null;
 }
 
+export const CLOSE_CONTROL_MOVE_SCALE = 0.68;
 const EPSILON = 1e-9;
 
 function normalize(direction: HorizontalDirection, fallback: HorizontalDirection): HorizontalDirection {
@@ -24,6 +25,21 @@ function normalize(direction: HorizontalDirection, fallback: HorizontalDirection
   const fallbackLength = Math.hypot(fallback.x, fallback.z);
   if (fallbackLength > EPSILON) return { x: fallback.x / fallbackLength, z: fallback.z / fallbackLength };
   return { x: 0, z: 1 };
+}
+
+/**
+ * Close control is a locomotion tradeoff, not only a smaller ball touch.
+ * Device-agnostic Precision input reduces movement authority and suppresses
+ * sprint while preserving the player's requested direction.
+ */
+export function shapeFootballMovementIntent(intent: Readonly<InputIntent>): InputIntent {
+  if ((intent.actionBits & PlayerActionBits.Precision) === 0) return { ...intent };
+  return {
+    ...intent,
+    moveX: intent.moveX * CLOSE_CONTROL_MOVE_SCALE,
+    moveY: intent.moveY * CLOSE_CONTROL_MOVE_SCALE,
+    sprint: false,
+  };
 }
 
 /**
