@@ -1,0 +1,30 @@
+{
+  "name": "soccershooter",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.9.1",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "lint": "node tools/security/check-authoritative-random.mjs && node tools/security/check-private-imports.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --reporter=verbose",
+    "test:determinism": "vitest run packages/sim/src/determinism.test.ts --reporter=verbose",
+    "test:e2e": "playwright test",
+    "determinism:headless": "node tools/perf/run-determinism.ts",
+    "build:web": "node tools/security/check-private-imports.mjs && pnpm --filter @soccershooter/web build",
+    "build:server": "pnpm --filter @soccershooter/server build",
+    "build": "pnpm run build:server && pnpm run build:web",
+    "smoke:server": "node tools/smoke/server.mjs",
+    "smoke:web": "node tools/smoke/web.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "@types/node": "24.19.2",
+    "typescript": "7.0.2",
+    "vite": "8.3.4",
+    "vitest": "5.0.5"
+  }
+}
