@@ -13,6 +13,10 @@ export interface CameraObstacle {
 
 export interface ThirdPersonCameraSettings {
   distance: number;
+  minDistance: number;
+  maxDistance: number;
+  zoomSpeed: number;
+  zoomSettlingSeconds: number;
   targetHeight: number;
   shoulderOffset: number;
   baseFov: number;
@@ -35,6 +39,8 @@ export interface CameraSnapshot {
   pitch: number;
   fov: number;
   armLength: number;
+  userDistance: number;
+  desiredDistance: number;
   collision: {
     active: boolean;
     obstacleId: string | null;
@@ -44,6 +50,10 @@ export interface CameraSnapshot {
 
 const DEFAULT_SETTINGS: Readonly<ThirdPersonCameraSettings> = Object.freeze({
   distance: 5.6,
+  minDistance: 3.4,
+  maxDistance: 8.8,
+  zoomSpeed: 1.4,
+  zoomSettlingSeconds: 0.11,
   targetHeight: 1.38,
   shoulderOffset: 0.45,
   baseFov: 55,
@@ -126,6 +136,8 @@ export class ThirdPersonCamera {
   #yaw: number;
   #pitch: number;
   #armLength: number;
+  #desiredDistance: number;
+  #userDistance: number;
   #targetX: SpringState = { value: 0, velocity: 0 };
   #targetY: SpringState = { value: DEFAULT_SETTINGS.targetHeight, velocity: 0 };
   #targetZ: SpringState = { value: 0, velocity: 0 };
@@ -133,11 +145,33 @@ export class ThirdPersonCamera {
   #fov: number;
 
   constructor(options: Partial<ThirdPersonCameraSettings> = {}) {
-    this.settings = Object.freeze({ ...DEFAULT_SETTINGS, ...options });
+    const settings = { ...DEFAULT_SETTINGS, ...options };
+    if (![settings.distance, settings.minDistance, settings.maxDistance, settings.zoomSpeed, settings.zoomSettlingSeconds].every(Number.isFinite)) {
+      throw new RangeError('camera zoom settings must be finite');
+    }
+    if (settings.minDistance <= settings.minArmLength || settings.maxDistance <= settings.minDistance) {
+      throw new RangeError('camera distance envelope must be above minArmLength and have maxDistance > minDistance');
+    }
+    if (settings.zoomSpeed <= 0 || settings.zoomSettlingSeconds <= 0) {
+      throw new RangeError('camera zoom speed and settling time must be positive');
+    }
+    settings.distance = clamp(settings.distance, settings.minDistance, settings.maxDistance);
+    this.settings = Object.freeze(settings);
     this.#yaw = wrapYaw(this.settings.initialYaw);
     this.#pitch = clamp(this.settings.initialPitch, this.settings.minPitch, this.settings.maxPitch);
+    this.#desiredDistance = this.settings.distance;
+    this.#userDistance = this.settings.distance;
     this.#armLength = this.settings.distance;
     this.#fov = this.settings.baseFov;
+  }
+
+  adjustZoom(delta: number): void {
+    if (!Number.isFinite(delta)) throw new TypeError('camera zoom delta must be finite');
+    this.#desiredDistance = clamp(
+      this.#desiredDistance + delta * this.settings.zoomSpeed,
+      this.settings.minDistance,
+      this.settings.maxDistance,
+    );
   }
 
   update(
@@ -152,6 +186,10 @@ export class ThirdPersonCamera {
     }
     this.#yaw = wrapYaw(this.#yaw + look.yawDelta);
     this.#pitch = clamp(this.#pitch + look.pitchDelta, this.settings.minPitch, this.settings.maxPitch);
+
+    const zoomAlpha = 1 - Math.exp(-deltaSeconds / this.settings.zoomSettlingSeconds);
+    this.#userDistance += (this.#desiredDistance - this.#userDistance) * zoomAlpha;
+    this.#userDistance = clamp(this.#userDistance, this.settings.minDistance, this.settings.maxDistance);
 
     const rawTarget = {
       x: player.position.x,
@@ -169,7 +207,7 @@ export class ThirdPersonCamera {
       this.#targetZ = smoothDamp(this.#targetZ, rawTarget.z, this.settings.targetSettlingSeconds, deltaSeconds);
     }
     const target = { x: this.#targetX.value, y: this.#targetY.value, z: this.#targetZ.value };
-    const fullPosition = cameraPosition(target, this.#yaw, this.#pitch, this.settings.distance, this.settings.shoulderOffset);
+    const fullPosition = cameraPosition(target, this.#yaw, this.#pitch, this.#userDistance, this.settings.shoulderOffset);
 
     let nearestT = 1;
     let nearestId: string | null = null;
@@ -182,8 +220,8 @@ export class ThirdPersonCamera {
     }
 
     const desiredArm = nearestId === null
-      ? this.settings.distance
-      : Math.max(this.settings.minArmLength, this.settings.distance * nearestT - this.settings.collisionPadding);
+      ? this.#userDistance
+      : Math.max(this.settings.minArmLength, this.#userDistance * nearestT - this.settings.collisionPadding);
     const previousArm = this.#armLength;
     if (desiredArm < this.#armLength) {
       this.#armLength = desiredArm;
@@ -203,6 +241,8 @@ export class ThirdPersonCamera {
       pitch: this.#pitch,
       fov: this.#fov,
       armLength: this.#armLength,
+      userDistance: this.#userDistance,
+      desiredDistance: this.#desiredDistance,
       collision: {
         active: nearestId !== null,
         obstacleId: nearestId,
