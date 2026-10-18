@@ -355,7 +355,7 @@ export class FootballPractice {
     const pass = (intent.actionBits & PlayerActionBits.Pass) !== 0;
     const aim = forwardFromYaw(intent.aimYaw);
     const dribbleIntent = resolveDribbleIntent(intent, playerDirection(player));
-    const shotFacing = updateShotFacingLock(this.#shotFacingYaw, intent.actionBits, actor.facingYaw);
+    const shotFacing = updateShotFacingLock(this.#shotFacingYaw, intent.actionBits, player.facingYaw);
     this.#shotFacingYaw = shotFacing.latchedYaw;
     this.#lastAim = aim;
 
