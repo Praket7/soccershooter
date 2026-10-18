@@ -1,162 +1,186 @@
 # Stage 03 Gate Report
 
 **Stage:** 03  
-**Commit:** `1209db36267ea0051b4bccf4c51c3a00a3fb90b1`  
 **Date:** 2026-10-18  
+**Final implementation head before this documentation update:** `60d72700e5ce9d81a8f67158b7e4664353fc4c88`  
+**Verified CI run:** `39126817802`  
+**Verified CI job:** `117673577416`  
 **Agent / reviewer:** GPT-5.6 Sol, self-review in chat; no independent reviewer runtime exposed  
-**Decision:** FAIL — implementation and automated verification are complete, but required reference-hardware and blind human playtest evidence has not yet been collected.
+**Decision:** **PASS — human-owner acceptance variance recorded explicitly**
 
-## Stage objective
+## Decision basis
 
-Make running around an empty greybox field feel excellent before the ball exists, using a deterministic shared player controller, normalized keyboard/gamepad intent, a presentation-only third-person camera, movement diagnostics, trace replay, and a repeatable benchmark course.
+Stage 03 exists to make movement, camera, and input feel excellent before Stage 04 introduces the ball. The implementation is automated-test green, has been refined through repeated local owner playtests, and the human owner explicitly directed that the current result be treated as the **final Stage 03 pass** and merged to `main` after the final zoom feature and bug sweep are green.
 
-This report does **not** convert automated correctness into a subjective feel claim. Stage 03's binding exit gate requires five blind scored runs plus reference-desktop responsiveness evidence.
+The original stage plan requested at least five blind scored runs plus formal Reference Desktop latency evidence. Those data were **not** independently collected in this chat, so this report does not invent scores or pretend they exist. Instead, the owner’s explicit final-pass and merge instruction is recorded as a visible acceptance variance. This satisfies the human product-acceptance decision for this development stage without silently lowering or fabricating the original measurement target. A larger blind cohort remains useful validation for later alpha/QA work.
 
-## Automated checks
+## Human playtest history
 
-Verified workflow: GitHub Actions run `39122239166`, job `117660010750`, Ubuntu 24.04.5, Node 24.21.0, pnpm 12.9.1.
+The owner performed iterative local playtests and supplied concrete feel feedback that was converted into reproducible regressions and fixes.
 
-| Check | Command / evidence | Expected | Actual | Pass |
-|---|---|---|---|---|
-| Frozen workspace install | `pnpm install --frozen-lockfile` | exact lockfile and supply-chain policy valid | 122 lockfile entries verified | PASS |
-| Authoritative randomness guard | `pnpm lint` | no ambient `Math.random()` in authoritative source | passed | PASS |
-| Private-content guard | `pnpm lint` + negative probe | deployable code cannot import private references | clean source passed; injected forbidden import rejected | PASS |
-| Strict TypeScript | `pnpm typecheck` | zero errors | zero errors | PASS |
-| Unit / contract suite | `pnpm test` | all Stage 01–03 contracts pass | 8 files, **61/61 tests** | PASS |
-| Diagonal speed | movement unit test | radial normalization | passed | PASS |
-| Legal acceleration | movement unit test | configured maximum not exceeded | passed | PASS |
-| Stamina bounds | movement unit test | never below 0 or above max; exhaustion/recovery valid | passed | PASS |
-| Presentation-rate independence | movement unit test | 60/120/144 Hz presentation yields identical movement result | passed | PASS |
-| Collision tunneling | movement unit test | legal top speed cannot cross thin wall | passed | PASS |
-| Slopes / steps | movement unit test | legal terrain traversed; oversized step blocked | passed | PASS |
-| Speed-dependent turning | movement unit test | sprint turn arc broader than low-speed turn | passed | PASS |
-| Trace replay | movement unit test | recorded intents replay to identical state | passed | PASS |
-| Device normalization | input unit tests | keyboard/gamepad can emit equivalent intent | passed | PASS |
-| Gamepad radial deadzone | input unit test | deadzone removes drift while preserving direction | passed | PASS |
-| Camera authority separation | camera unit test | camera cannot mutate player state | passed | PASS |
-| Direct camera-look path | camera unit test | manual yaw applied in same camera update | passed | PASS |
-| Camera obstruction | camera unit tests | spring arm retracts before wall and recovers smoothly | passed | PASS |
-| Sprint FOV envelope | camera unit test | boost <= +2.5 degrees | passed | PASS |
-| Movement scheduling budget | movement tick contract | controller tick interval <= one 60 Hz frame | **60 Hz / 16.67 ms** | PASS |
-| Stage 02 determinism regression | `pnpm determinism:headless` | canonical hash unchanged | tickHz 30, 10,000 ticks, seed 1511506142, hash `d55b2d0b968372a5` | PASS |
-| Production build | `pnpm build` | server + FICTIONAL_PUBLIC web build | passed | PASS |
-| Server health | CI launch check | `status=ok`, `FICTIONAL_PUBLIC` | passed | PASS |
-| Browser runtime | `pnpm test:e2e` | WebGL lab runs, movement works, parity remains | **3/3 Chromium tests** | PASS |
-| Browser movement cadence | Playwright | runtime reports 60 Hz player controller | `data-movement-tick-hz=60` | PASS |
-| Browser latency instrumentation | Playwright | input→sim and input→render readings emitted | finite non-negative readings after movement input | PASS |
+### Playtest round 1
 
-## TDD evidence
+Reported issues:
+- A/D camera-relative left/right were inverted
+- large direction changes produced awkward U-turns
+- sprint differentiation was too subtle
+- jump/tackle hooks appeared nonfunctional
 
-Stage 03 was not implemented as a tests-after-code exercise.
+Resulting fixes:
+- corrected camera-relative right basis
+- added plant/brake/reverse behavior for near-180° changes
+- increased sprint target to 8.8 m/s while preserving 5.2 m/s jog
+- buffered discrete action hooks until the 60 Hz simulation consumes them
+- added visible jump/tackle/sprint acknowledgement and clearer control labels
 
-- Initial RED commit `d0383a09e9eb490437f12b6088a74e762787d8ee`: movement/input/camera acceptance tests existed before their production modules; workflow run `39121156953` failed on the intentionally missing implementations.
-- First complete automated GREEN after integration fixes: commit `bd58ced3571b3d1f1b2f203f697693afdc089d61`, run `39121851453`.
-- Responsiveness review found that the initial 30 Hz player-controller cadence could not satisfy a one-frame 60 Hz acknowledgement budget. A new RED contract was committed at `05a54e616d254d6805a7422f56033ff0dfce2189`; run `39122034318` failed because the 60 Hz movement contract did not yet exist.
-- The controller runtime was then moved to 60 Hz at `ec4e0d92fa04d4c69277ecf43c533e2c0bc2209c` while preserving the Stage 02 canonical 30 Hz trace.
-- Browser-level cadence and latency telemetry were added to regression coverage at `1209db36267ea0051b4bccf4c51c3a00a3fb90b1`; run `39122239166` is the verified implementation run recorded above.
+### Playtest round 2
 
-## Implemented Stage 03 systems
+Reported issues:
+- camera movement felt burdensomely slow
+- leaving ramps/raised surfaces snapped vertically to the ground
+- sprint cardinal changes produced large circular paths
 
-### Deterministic athlete controller
+Resulting fixes:
+- raised mouse/gamepad look responsiveness while keeping immediate manual look
+- reduced camera target settling to 0.07 s
+- added deterministic vertical velocity, gravity, airborne state, and landing detection
+- added persistent plant-cut behavior for large high-speed direction changes while preserving smoother small-angle sprint steering
 
-`packages/sim/src/player/PlayerState.ts` and `movement.ts` provide:
-- kinematic capsule-radius authority model
-- aim-relative normalized movement intent
-- bounded vector acceleration and stronger braking
-- low-speed agility with broader high-speed sprint turning
-- sprint stamina drain, exhaustion lockout, recovery, and bounded state
-- field bounds and continuous thin-wall collision resolution at legal speed
-- ground patches with legal slopes and step-height rules
-- jump and tackle request hooks only, with no Stage 05 mechanic implementation
-- deterministic movement trace record/replay
-- a 60 Hz player-controller tick contract for the Stage 03 browser runtime
+### Final owner acceptance
 
-### Device-neutral input
+After the second repair round, the owner reported that the result was **“perfect”** and that **“everything passes.”** The only additional requested Stage 03 feature was presentation-side trackpad zoom. The owner then explicitly instructed that, after the zoom feature, bug sweep, and green verification, this should be the **final Stage 3 pass** and be merged to `main`.
 
-`apps/web/src/input/ActionMap.ts` and `GamepadAdapter.ts` provide:
-- WASD/arrows and standard-gamepad left-stick movement
-- radial magnitude normalization
-- analog deadzone remapping
-- shared `InputIntent` output
-- mouse / right-stick look
-- sprint, jump-hook, and tackle-hook mappings
-- sensitivity and invert-Y support
-- input timestamp capture for responsiveness instrumentation
+## Final Stage 03 functionality
 
-### Presentation-only third-person camera
+### Deterministic athlete movement
 
-`ThirdPersonCamera.ts` provides:
-- centered/shoulder follow target
-- direct yaw/pitch response
-- constrained pitch
-- target smoothing without smoothing gameplay aim intent
-- swept-volume-style segment-vs-expanded-AABB obstruction testing
-- immediate inward arm correction and blended outward recovery
-- restrained sprint FOV response
-- camera collision telemetry
+- normalized camera-relative movement
+- legal acceleration and stronger braking
+- responsive low-speed control
+- differentiated sprint and stamina
+- plant/reverse handling for large reversals
+- persistent plant cuts for large high-speed cardinal changes
+- smooth smaller-angle steering with athletic sprint weight
+- deterministic wall/bounds collision
+- legal slopes and steps
+- deterministic short airborne falls from raised surfaces
+- action request hooks for later jump/tackle mechanics
+- record/replay movement traces
+- 60 Hz Stage 03 player-controller cadence
 
-The camera accepts player state as read-only input. Unit tests prove that camera updates do not alter authoritative player state.
+### Input
 
-### Greybox movement lab and diagnostics
+- keyboard/mouse and standard gamepad normalize into the same gameplay intent
+- mouse and right-stick camera look
+- Shift/L3 sprint
+- Space/gamepad A jump hook
+- C/B/Ctrl/gamepad B tackle hook
+- buffered discrete actions so short taps cannot disappear between render/simulation frames
+- fixed mixed-device integration so right-stick camera use cannot erase active keyboard movement
 
-The browser contains the Stage 03 benchmark course with:
-- straight sprint lane
-- hard-cut area
-- stop test
-- slalom cones
-- tight corridor
-- wall/camera-obstruction test
-- legal slope
-- step-height test
+### Camera
 
-The movement HUD exposes simulation tick, FPS, speed, acceleration, stamina, locomotion state, position, facing, camera arm/collision correction, input→simulation time, input→visible acknowledgement, fixed-step backlog, and trace status. `R` records/stops a movement trace, `P` replays it, `X` resets, and `F1` toggles the debug HUD.
+- direct yaw/pitch response with bounded pitch
+- responsive smoothed follow target
+- shoulder framing
+- swept-volume-style obstruction handling
+- immediate inward collision correction and smooth recovery
+- restrained sprint FOV boost
+- **trackpad pinch / wheel camera zoom**
+- default camera distance 5.6 m
+- user zoom envelope 3.4 m to 8.8 m
+- smooth ~110 ms zoom settling
+- obstruction collision always overrides requested zoom-out distance
+- zoom remains presentation-only and does not enter deterministic movement/replay state
 
-## Performance measurements
+## Final automated verification
 
-The GitHub-hosted runner is **not** the declared Reference Desktop, so it is invalid evidence for the final response-time or frame-pacing gate. No Mac measurement is fabricated here.
+Verified on implementation head `60d72700e5ce9d81a8f67158b7e4664353fc4c88` in GitHub Actions run `39126817802`, job `117673577416`.
 
-| Metric | Budget | Measured | Environment | Pass |
-|---|---:|---:|---|---|
-| Player controller scheduling interval | <= 16.67 ms | 16.67 ms by fixed 60 Hz contract | deterministic runtime contract | PASS |
-| Direct camera acknowledgement | <= 1 rendered frame at 60 FPS | instrumentation + same-update unit contract exist; reference-Mac distribution not yet captured | GitHub CI is not valid reference hardware | FAIL / evidence required |
-| Direct movement input→visible acknowledgement | <= 1 rendered frame at 60 FPS | browser emits input→sim and input→render values; reference-Mac distribution not yet captured | GitHub CI is not valid reference hardware | FAIL / evidence required |
-| Reference-desktop live FPS / 1% low | current stage should record representative behavior when measured | not measured on declared machine | user Reference Desktop required | NOT CLAIMED |
-| Initial web bundle | global initial playable transfer ceiling <20 MB | main JS 560.02 kB minified, 142.64 kB gzip; CSS 2.49 kB | CI production build | PASS ceiling; warning noted |
+| Check | Result |
+|---|---|
+| Frozen pnpm install / supply-chain policy | PASS |
+| Authoritative randomness guard | PASS |
+| Private-content guard + negative probe | PASS |
+| Strict TypeScript | PASS |
+| Unit / contract suite | **74/74 PASS across 9 files** |
+| Camera zoom direction / delta-mode normalization | PASS |
+| Smooth bounded zoom 3.4–8.8 m | PASS |
+| Zoom-out vs camera obstruction | PASS |
+| Mixed keyboard + gamepad input regression | PASS |
+| A/D camera-relative basis | PASS |
+| No-orbit reverse regression | PASS |
+| 90° sprint plant-cut regression | PASS |
+| Graceful deterministic fall regression | PASS |
+| Sprint differentiation | PASS |
+| Movement render-rate invariance | PASS |
+| Thin-wall tunneling protection | PASS |
+| Stamina bounds | PASS |
+| Camera authority separation | PASS |
+| Camera direct-look / follow responsiveness | PASS |
+| Production server + FICTIONAL_PUBLIC web build | PASS |
+| Server health | PASS |
+| Chromium E2E | **5/5 PASS** |
+| Real browser wheel/trackpad-style zoom event | PASS |
+| Stage 02 deterministic reference | **PASS, unchanged** |
 
-## Playtest checks
+Canonical Stage 02 determinism remains:
+- tick rate: 30 Hz
+- ticks: 10,000
+- seed: `1511506142`
+- hash: `d55b2d0b968372a5`
 
-No blind human sessions were run by the assistant. Automated agents cannot validly stand in for the required subjective testers.
+The Stage 03 browser player controller remains 60 Hz.
 
-| Scenario | Testers/runs | Acceptance criterion | Result | Pass |
-|---|---:|---|---|---|
-| Movement responsiveness | 0 / required >=5 | median >= 8/10 | not measured | FAIL |
-| Camera comfort | 0 / required >=5 | median >= 8/10 | not measured | FAIL |
-| Recurring feel complaints | 0 / required >=5 | no repeated `floaty`, `icy`, or `camera fights me` complaint | not measured | FAIL |
-| Slalom learnability | 0 / required >=5 | measurable improvement with practice | not measured | FAIL |
+## TDD evidence for the final pass
 
-Use `docs/gates/STAGE-03-PLAYTEST.md` for the exact local protocol and evidence table.
+The final zoom/bug-sweep change followed RED → GREEN.
 
-## Known defects / limitations
+RED head: `1fc8396bc2b03b11c993ad86a23b5cb18f891dc4`.
 
-1. **Vite chunk warning:** the first Three.js gameplay shell produces one ~560 kB minified JS chunk (~142.6 kB gzip). It is far below the global <20 MB initial-playable transfer ceiling, but code splitting should be considered as the runtime grows. This does not invalidate Stage 03 behavior.
-2. **Reference-hardware evidence absent:** actual Mac input→visible distributions, frame-time statistics, and environment metadata must be captured locally. This is an evidence blocker, not permission to use CI timings as a substitute.
-3. **Human feel evidence absent:** five blind scored runs have not occurred. This directly blocks a PASS decision.
-4. **Independent reviewer unavailable in this chat environment:** the implementation received a whole-branch self-review against the binding plan and quality bar. A fresh reviewer before merge remains recommended.
+Workflow `39126498565` failed at TypeScript because the tests intentionally referenced behavior that did not yet exist:
+- `normalizeWheelZoomDelta`
+- camera `minDistance` / `maxDistance`
+- `adjustZoom`
+- `userDistance` / `desiredDistance`
+- mixed-input `InputMerge`
 
-No known critical/important automated correctness defect is open at this commit.
+After implementation, exact-head workflow `39126817802` passed all 74 unit/contract tests and all 5 Chromium tests.
 
-## Deferred items
+## Bug sweep result
 
-The following are intentionally outside Stage 03 and were not pulled forward:
-- ball physics/aerodynamics — Stage 04
-- receive/dribble/pass/shoot/defend mechanics — Stage 05
-- tactical bots — Stage 06+
-- final character art/animation — Stage 11–13
-- multiplayer prediction/reconciliation — Stage 17
-- auth/cloud saves/competitive leaderboards — Stage 17A
+One additional correctness issue was found even though the owner had not noticed it during ordinary play: using keyboard movement while touching only the gamepad right stick could replace the active keyboard movement with zero-valued gamepad movement axes.
+
+Fix:
+- added a dedicated mixed-input merge layer
+- gamepad movement only takes movement authority when its movement stick is actually active
+- right-stick camera input can coexist with keyboard movement
+- sprint and action bits are preserved across both devices
+- regression tests cover both look-only and movement-active mixed-device cases
+
+No other critical or important Stage 03 correctness defect was identified in the final focused review.
+
+## Performance / non-blocking note
+
+The final production client bundle is about **564.57 kB minified / 144.01 kB gzip**. Vite emits its >500 kB chunk warning. This remains far below the project’s global initial-playable transfer ceiling, but later stages should code-split before the client grows substantially.
+
+## Acceptance variance
+
+The planned five-blind-run scorecard and formal Reference Desktop latency distribution were not collected as a separate data set. They are not represented here as completed measurements.
+
+The human owner instead:
+1. repeatedly playtested the local build;
+2. supplied concrete movement/camera defects;
+3. retested the repaired controller;
+4. declared the result perfect / passing;
+5. explicitly instructed that this be the final Stage 03 pass and be merged after the last zoom feature and bug sweep are green.
+
+This explicit owner acceptance is the basis for closing Stage 03 in this repository. The missing blind-cohort data should be treated as deferred product-validation evidence, not as fabricated Stage 03 evidence.
 
 ## Gate decision
 
-**FAIL.**
+**PASS.**
 
-The Stage 03 software scope is implemented and all available automated checks are green, but the binding gate is intentionally not passed. The remaining requirements are empirical: run at least five blind no-ball sessions on the local build, record the required movement/camera scores and slalom learning evidence, and capture valid Reference Desktop responsiveness measurements. If those thresholds pass, update this report with the evidence and change the decision to `PASS` before merging or beginning Stage 04.
+Stage 03 is accepted for integration to `main` under the human-owner acceptance variance above. The implementation is fully automated-test green, the known owner-reported feel defects are resolved, trackpad zoom is covered in real Chromium, and the additional mixed-device bug found during the final sweep is regression-tested.
+
+Stage 04 may begin only after this documentation-inclusive branch head is green and PR #7 is merged to `main`.
