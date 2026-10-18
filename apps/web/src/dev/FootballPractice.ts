@@ -292,10 +292,10 @@ export class FootballPractice {
         <div><span>Stage 05 repaired</span><strong>Football Practice</strong></div>
         <span class="football-practice-live"><i></i> independent physical ball</span>
       </div>
-      <p>WASD carries in the exact requested direction. RMB shortens touches. F is receive/trap: F alone kills the ball; F + WASD takes the first touch out. Aim through the center reticle.</p>
+      <p>WASD carries through a physical control corridor. RMB gives close control and the firm technique family. Ctrl is the lift modifier. F is receive/trap: F alone kills the ball; F + WASD takes the first touch out. Aim through the center reticle.</p>
       <div class="practice-actions">
         <button type="button" data-football-reset>Reset ball <kbd>G</kbd></button>
-        <span><kbd>E</kbd> ground · <kbd>Q</kbd> through · <kbd>R</kbd> lofted · <kbd>Z+E</kbd> driven · <kbd>Z+Q</kbd> chipped through · hold/release <kbd>LMB</kbd> shoot · <kbd>Z+LMB</kbd> finesse · <kbd>X+LMB</kbd> chip</span>
+        <span><kbd>E</kbd> ground · <kbd>Q</kbd> through · <kbd>R</kbd> lofted · <kbd>RMB+E</kbd> driven · <kbd>Ctrl+Q</kbd> chipped through · hold/release <kbd>LMB</kbd> shoot · <kbd>RMB+LMB</kbd> finesse · <kbd>Ctrl+LMB</kbd> chip</span>
       </div>
       <details class="practice-technique-panel">
         <summary>Practice-only specialist contacts</summary>
@@ -420,7 +420,9 @@ export class FootballPractice {
     this.#lastAim = aim;
 
     if ((intent.actionBits & PlayerActionBits.ShootHeld) !== 0) {
-      this.#shotStyle = this.#specialistShotStyle === 'normal' ? decoded.shotStyle : this.#specialistShotStyle;
+      this.#shotStyle = this.#specialistShotStyle === 'normal'
+        ? this.#runtime.shotStyleLatched ?? decoded.shotStyle
+        : this.#specialistShotStyle;
       this.#shotState = 'POWER';
       this.#recordAction('POWER', true, `${this.#shotStyle} shot charging`);
     }
@@ -475,7 +477,9 @@ export class FootballPractice {
       const shotActor: FootballActorSnapshot = shotFacing.contactFacingYaw === null
         ? actor
         : { ...actor, facingYaw: shotFacing.contactFacingYaw };
-      const releaseStyle = this.#specialistShotStyle === 'normal' ? decoded.shotStyle : this.#specialistShotStyle;
+      const releaseStyle = this.#specialistShotStyle === 'normal'
+        ? runtimeStep.releasedShotStyle ?? decoded.shotStyle
+        : this.#specialistShotStyle;
       this.#shotStyle = releaseStyle;
       const shot = buildShot({
         style: releaseStyle,
