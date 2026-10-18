@@ -7,6 +7,11 @@ export interface Vec3 {
 export const PlayerActionBits = Object.freeze({
   Jump: 1 << 0,
   Tackle: 1 << 1,
+  Pass: 1 << 2,
+  ShootHeld: 1 << 3,
+  ShootReleased: 1 << 4,
+  Precision: 1 << 5,
+  Technique: 1 << 6,
 });
 
 export type LocomotionState =
