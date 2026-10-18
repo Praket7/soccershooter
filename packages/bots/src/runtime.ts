@@ -288,7 +288,7 @@ function perceivedWorld(
       velocity: { ...world.ball.velocity },
     },
     players: world.players.map((player) => noisyPlayer(player, world, config, difficulty)),
-    ...(world.match ? { match: { ...world.match } } : {}),
+    ...(world.matchState ? { matchState: { ...world.matchState } } : {}),
   };
 }
 
