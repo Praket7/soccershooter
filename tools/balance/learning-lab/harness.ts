@@ -268,6 +268,23 @@ export function runLearningLabBenchmark(options: Readonly<LearningLabBenchmarkOp
   };
 }
 
+export function machineSideBenchmarkPass(report: Readonly<LearningLabBenchmarkReport>): boolean {
+  const metrics = report.metrics;
+  return report.invalidProposalCount === 0
+    && report.enabledInProduction === false
+    && report.expertAgreement >= 0.8
+    && metrics.cooperationScore >= 0.75
+    && metrics.cornerCaseSafety >= 0.9
+    && metrics.exploitRate <= 0.05
+    && metrics.inferenceMs <= 1
+    && metrics.readabilityScore >= 0.75
+    && metrics.winRate >= 0.52
+    && metrics.humanPreference === null
+    && report.promotion.pass === false
+    && report.promotion.failures.length === 1
+    && report.promotion.failures[0] === 'human-preference-pending';
+}
+
 function cliOptions(): LearningLabBenchmarkOptions {
   let trainingScenarios = 2200;
   let evaluationEpisodes = 600;
@@ -282,6 +299,6 @@ function cliOptions(): LearningLabBenchmarkOptions {
 
 if (process.argv[1]?.endsWith('harness.ts')) {
   const report = runLearningLabBenchmark(cliOptions());
-  process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
-  if (report.invalidProposalCount !== 0) process.exitCode = 1;
+  process.stdout.write(`${JSON.stringify({ ...report, machineGate: machineSideBenchmarkPass(report) }, null, 2)}\n`);
+  if (!machineSideBenchmarkPass(report)) process.exitCode = 1;
 }
