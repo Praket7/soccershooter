@@ -22,6 +22,17 @@ describe('Stage 05 football runtime cadence', () => {
     expect(release.state.shotChargeSeconds).toBe(0);
   });
 
+  test('a very short focus click never becomes a minimum-power accidental shot', () => {
+    let state = createFootballRuntimeState();
+    for (let index = 0; index < 2; index += 1) {
+      state = stepFootballRuntime(state, PlayerActionBits.ShootHeld, 1 / 60).state;
+    }
+    expect(state.shotChargeSeconds).toBeLessThan(0.05);
+    const release = stepFootballRuntime(state, PlayerActionBits.ShootReleased, 1 / 60);
+    expect(release.releasedShotCharge).toBeNull();
+    expect(release.state.shotChargeSeconds).toBe(0);
+  });
+
   test('losing the held-shot state without a release cancels stale charge instead of banking it', () => {
     let state = createFootballRuntimeState();
     for (let index = 0; index < 24; index += 1) {
