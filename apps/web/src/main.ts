@@ -282,11 +282,16 @@ function resize(): void {
   camera.updateProjectionMatrix();
 }
 
-function renderActionFeedback(now: number, sprintRequested: boolean): void {
-  if (player.actionHooks.tackleRequested) {
+function renderActionFeedback(
+  now: number,
+  sprintRequested: boolean,
+  jumpAcknowledged: boolean,
+  tackleAcknowledged: boolean,
+): void {
+  if (tackleAcknowledged) {
     lastActionFlash = 'tackle';
     actionFlashUntil = now + ACTION_FEEDBACK_MS;
-  } else if (player.actionHooks.jumpRequested) {
+  } else if (jumpAcknowledged) {
     lastActionFlash = 'jump';
     actionFlashUntil = now + ACTION_FEEDBACK_MS;
   }
@@ -346,6 +351,8 @@ function frame(now: number): void {
   }
 
   let stepped = false;
+  let jumpAcknowledgedThisFrame = false;
+  let tackleAcknowledgedThisFrame = false;
   while (accumulator + 1e-12 >= FIXED_DT) {
     previousPlayer = clonePlayerState(player);
     let tickIntent = intent;
@@ -363,6 +370,8 @@ function frame(now: number): void {
 
     const beforeVelocity = player.velocity;
     player = stepPlayerMovement(player, tickIntent, world, FIXED_DT);
+    jumpAcknowledgedThisFrame ||= player.actionHooks.jumpRequested;
+    tackleAcknowledgedThisFrame ||= player.actionHooks.tackleRequested;
     lastAcceleration = Math.hypot(
       player.velocity.x - beforeVelocity.x,
       player.velocity.z - beforeVelocity.z,
@@ -409,10 +418,15 @@ function frame(now: number): void {
   playerProbe.dataset.inputToRenderMs = inputToRenderMs === null ? '' : inputToRenderMs.toFixed(3);
   playerProbe.dataset.speed = speed.toFixed(3);
   playerProbe.dataset.sprinting = String(intent.sprint);
-  playerProbe.dataset.jumpHook = String(player.actionHooks.jumpRequested);
-  playerProbe.dataset.tackleHook = String(player.actionHooks.tackleRequested);
+  playerProbe.dataset.jumpHook = String(jumpAcknowledgedThisFrame);
+  playerProbe.dataset.tackleHook = String(tackleAcknowledgedThisFrame);
 
-  renderActionFeedback(now, intent.sprint && player.stamina > 0 && !player.sprintLocked);
+  renderActionFeedback(
+    now,
+    intent.sprint && player.stamina > 0 && !player.sprintLocked,
+    jumpAcknowledgedThisFrame,
+    tackleAcknowledgedThisFrame,
+  );
 
   const traceStatus = playbackIndex !== null
     ? `replay ${playbackIndex}/${lastTrace?.frames.length ?? 0}`
