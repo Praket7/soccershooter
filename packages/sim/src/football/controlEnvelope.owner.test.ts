@@ -63,7 +63,7 @@ describe('Stage 05 owner dribble feedback', () => {
     expect(Math.hypot(next.velocity.x, next.velocity.z)).toBeLessThan(1.25);
   });
 
-  test('straight sprint touches stay recoverable instead of deliberately outrunning the player', () => {
+  test('straight sprint touches stay inside the calibrated recoverable envelope', () => {
     const playerSpeed = 8.4;
     const touch = buildControlTouch({
       actor: actor({ velocity: { x: 0, y: 0, z: playerSpeed }, sprinting: true }),
@@ -77,9 +77,7 @@ describe('Stage 05 owner dribble feedback', () => {
 
     expect(touch.eligible).toBe(true);
     expect(touch.touchMode).toBe('sprint');
-    // A sprint touch should separate the ball enough to feel fast, but not
-    // continuously pull away from an 8+ m/s runner on calibrated turf.
-    expect(touch.targetBallSpeed).toBeLessThanOrEqual(playerSpeed + 0.45);
-    expect(touch.touchDistance).toBeLessThanOrEqual(1.08);
+    expect(touch.targetBallSpeed).toBeLessThanOrEqual(playerSpeed + 0.3);
+    expect(touch.touchDistance).toBeLessThanOrEqual(1.0);
   });
 });
