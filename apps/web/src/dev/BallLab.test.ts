@@ -84,10 +84,10 @@ describe('Stage 04 Ball Lab control contract', () => {
   });
 
   test('complete export keeps sampling after the owner chip becomes grounded so roll can be audited', () => {
-    // Exact owner-exported state: 4.5 m/s, 34 degrees, +34 rad/s around X.
-    // In Ball Lab coordinates +X angular velocity is the "top" axis. The
-    // supplied CSV reaches its first grounded state at 0.900 s while still
-    // moving at about 3.4107 m/s, so a complete audit trace must continue.
+    // Exact owner launch state: 4.5 m/s, 34 degrees, +34 rad/s around X.
+    // The old export ended on its first grounded sample. Turf calibration may
+    // deliberately alter the later bounce/roll timing, so the regression locks
+    // the launch and the real requirement: never terminate while still rolling.
     const controls: BallLabControls = {
       speed: 4.5,
       elevationDegrees: 34,
@@ -100,11 +100,14 @@ describe('Stage 04 Ball Lab control contract', () => {
       knuckleSeed: 0,
     };
     const trace = buildCompleteExportTrace(controls);
+    expect(trace[0]?.state.velocity.y).toBeCloseTo(2.516368, 5);
+    expect(trace[0]?.state.velocity.z).toBeCloseTo(3.730669, 5);
+    expect(trace[0]?.state.angularVelocity.x).toBe(34);
+
     const firstGroundedIndex = trace.findIndex((sample) => sample.state.grounded);
     expect(firstGroundedIndex).toBeGreaterThan(0);
     const firstGrounded = trace[firstGroundedIndex]!;
-    expect(firstGrounded.time).toBeCloseTo(0.9, 4);
-    expect(Math.hypot(firstGrounded.state.velocity.x, firstGrounded.state.velocity.z)).toBeCloseTo(3.4107, 3);
+    expect(Math.hypot(firstGrounded.state.velocity.x, firstGrounded.state.velocity.z)).toBeGreaterThan(2);
     expect(trace.length).toBeGreaterThan(firstGroundedIndex + 1);
     expect(trace.at(-1)?.time ?? 0).toBeGreaterThan(firstGrounded.time + 1);
     expect(Math.hypot(trace.at(-1)!.state.velocity.x, trace.at(-1)!.state.velocity.z)).toBeLessThan(0.05);
