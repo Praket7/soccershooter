@@ -202,12 +202,18 @@ export function validateTelemetryEvent(value: unknown): ValidationResult {
   if (!isRecord(value)) return { ok: false, errors: [...errors, '$: event must be an object'] };
 
   const eventType = value.eventType;
-  if (typeof eventType !== 'string' || !(eventType in EVENT_KEYS)) {
+  if (typeof eventType !== 'string') {
     errors.push('$.eventType: unsupported event type');
     return { ok: false, errors };
   }
 
-  checkExactKeys(value, EVENT_KEYS[eventType], '$', errors);
+  const allowedKeys = EVENT_KEYS[eventType];
+  if (!allowedKeys) {
+    errors.push('$.eventType: unsupported event type');
+    return { ok: false, errors };
+  }
+
+  checkExactKeys(value, allowedKeys, '$', errors);
 
   if (value.eventVersion !== 1) errors.push('$.eventVersion: must equal 1');
   if (!nonEmptyString(value.sessionId) || (value.sessionId as string).length > 64) {
