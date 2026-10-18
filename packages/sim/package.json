@@ -1,0 +1,11 @@
+{
+  "name": "@soccershooter/sim",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./fixedStep": "./src/fixedStep.ts",
+    "./referenceTrace": "./src/referenceTrace.ts"
+  }
+}

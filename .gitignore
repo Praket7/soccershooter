@@ -4,6 +4,8 @@ dist/
 build/
 coverage/
 .vite/
+playwright-report/
+test-results/
 
 # local env and secrets
 .env
