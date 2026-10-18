@@ -136,7 +136,6 @@ export class ActionMap {
       -2,
       2,
     );
-    this.#lastInputTimestamp = performance.now();
   };
 
   readonly #onPointerDown = () => {
