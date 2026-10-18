@@ -27,6 +27,17 @@ describe('Stage 06 headless tactical tournament', () => {
     expect(first.idleRatio).toBeLessThan(0.08);
   });
 
+  it('exports role occupancy alongside pass and clustering statistics', async () => {
+    const { runTacticalTournament } = await loadTournament();
+    const report = runTacticalTournament({ possessions: 500, seed: 0x0cc0a11 });
+    expect(report.roleOccupancy.goalkeeper).toBeGreaterThan(0);
+    expect(report.roleOccupancy['ball-carrier']).toBeGreaterThan(0);
+    expect(report.roleOccupancy['immediate-support']).toBeGreaterThan(0);
+    expect(report.roleOccupancy.presser).toBeGreaterThan(0);
+    expect(report.roleOccupancy['cover-defender']).toBeGreaterThan(0);
+    expect(Object.values(report.roleOccupancy).reduce((sum, value) => sum + value, 0)).toBeGreaterThan(0);
+  });
+
   it('produces useful passing and respects the Stage 06 tactical CPU budget', async () => {
     const { runTacticalTournament } = await loadTournament();
     const report = runTacticalTournament({ possessions: 3000, seed: 0x51a6e006 });
