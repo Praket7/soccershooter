@@ -52,7 +52,7 @@ const DEFAULT_SETTINGS: Readonly<ThirdPersonCameraSettings> = Object.freeze({
   initialPitch: 0.32,
   minPitch: -0.12,
   maxPitch: 0.68,
-  targetSettlingSeconds: 0.09,
+  targetSettlingSeconds: 0.07,
   obstructionRecoverySeconds: 0.12,
   collisionRadius: 0.22,
   collisionPadding: 0.08,
