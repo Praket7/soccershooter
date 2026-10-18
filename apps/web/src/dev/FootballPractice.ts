@@ -33,7 +33,7 @@ import {
   type FootballVec3,
 } from '@soccershooter/sim/football/types';
 import { ActionDebugHud } from '../debug/ActionDebugHud';
-import { resolveDribbleIntent, updateShotFacingLock } from '../input/FootballControl';
+import { resolveDribbleIntent, resolveTravelFacingYaw, updateShotFacingLock } from '../input/FootballControl';
 import { PLAYER_VISUAL_LAYOUT } from '../presentation/PlayerVisualLayout';
 
 export interface FootballPracticeOptions {
@@ -69,7 +69,7 @@ function actorSnapshot(player: Readonly<PlayerState>): FootballActorSnapshot {
   return {
     position: { ...player.position },
     velocity: { ...player.velocity },
-    facingYaw: player.facingYaw,
+    facingYaw: resolveTravelFacingYaw(player.velocity, player.facingYaw),
     balance: movementBalance * speedBalance,
     pressure: 0,
     sprinting: player.locomotion === 'sprint',
@@ -305,7 +305,7 @@ export class FootballPractice {
   }
 
   resetBallNear(player: Readonly<PlayerState>): void {
-    const forward = forwardFromYaw(player.facingYaw);
+    const forward = forwardFromYaw(resolveTravelFacingYaw(player.velocity, player.facingYaw));
     this.#state = createBallState({
       position: {
         x: player.position.x + forward.x * 1.05,
@@ -355,7 +355,7 @@ export class FootballPractice {
     const pass = (intent.actionBits & PlayerActionBits.Pass) !== 0;
     const aim = forwardFromYaw(intent.aimYaw);
     const dribbleIntent = resolveDribbleIntent(intent, playerDirection(player));
-    const shotFacing = updateShotFacingLock(this.#shotFacingYaw, intent.actionBits, player.facingYaw);
+    const shotFacing = updateShotFacingLock(this.#shotFacingYaw, intent.actionBits, actor.facingYaw);
     this.#shotFacingYaw = shotFacing.latchedYaw;
     this.#lastAim = aim;
 
@@ -451,8 +451,6 @@ export class FootballPractice {
       return;
     }
 
-    // Precision movement can still contain/intercept. Releasing movement while
-    // holding precision is reserved for the explicit trap/stop touch below.
     if (precision && dribbleIntent.magnitude > 0.12 && this.#runtime.kickCooldown <= 0) {
       const interception = evaluateInterception({ defender: actor, ball: snapshot, horizonSeconds: 0.18 });
       if (interception.eligible && interception.timeToWindow <= 0.11) {
