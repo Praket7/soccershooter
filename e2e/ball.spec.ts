@@ -14,10 +14,12 @@ test('Stage 04 Ball Lab launches presets, predicts landing, and exposes determin
   const predictedX = Number(await probe.getAttribute('data-predicted-x'));
   expect(predictedX).toBeGreaterThan(0.25);
 
+  const startZ = Number(await probe.getAttribute('data-z'));
   await page.getByRole('button', { name: /^launch$/i }).click();
-  await page.waitForTimeout(500);
-  const z = Number(await probe.getAttribute('data-z'));
-  expect(z).toBeGreaterThan(2);
+  await expect.poll(
+    async () => Number(await probe.getAttribute('data-z')),
+    { timeout: 2_000 },
+  ).toBeGreaterThan(startZ + 6);
 });
 
 test('Ball Lab custom controls and reset are usable without entering Stage 05 mechanics', async ({ page }) => {
