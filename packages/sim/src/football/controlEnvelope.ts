@@ -176,7 +176,7 @@ function mixHash(hash: number, value: number): number {
 }
 
 /** Integer-only hash of visible simulation state. It makes touch imperfection
- * replayable and cross-run deterministic instead of depending on Math.random(). */
+ * replayable and cross-run deterministic without a global nondeterministic source. */
 function touchStateHash(
   actor: Readonly<FootballActorSnapshot>,
   ball: Readonly<FootballBallSnapshot>,
