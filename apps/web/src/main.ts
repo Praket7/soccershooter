@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { STANDARD_GOAL_FRAME } from '@soccershooter/physics/ball/trajectory';
 import { runReferenceTrace } from '@soccershooter/sim/referenceTrace';
 import { PlayerActionBits, clonePlayerState, createPlayerState, type PlayerState } from '@soccershooter/sim/player/PlayerState';
 import {
@@ -16,6 +17,7 @@ import { ActionMap } from './input/ActionMap';
 import { GamepadAdapter } from './input/GamepadAdapter';
 import { mergeInputSources } from './input/InputMerge';
 import { ThirdPersonCamera, type CameraObstacle } from './camera/ThirdPersonCamera';
+import { buildPracticeGoalCameraObstacles, resolveBallAwareCameraFocus } from './camera/FootballPracticeCamera';
 import { MovementHud } from './debug/MovementHud';
 import { BallLab } from './dev/BallLab';
 import { FootballPractice } from './dev/FootballPractice';
@@ -224,6 +226,7 @@ playerGroup.add(facingBar);
 scene.add(playerGroup);
 
 const cameraObstacles: CameraObstacle[] = world.obstacles.map((obstacle) => ({ ...obstacle }));
+const practiceCameraObstacles = buildPracticeGoalCameraObstacles(STANDARD_GOAL_FRAME, -15.2);
 const cameraController = new ThirdPersonCamera();
 const actionMap = new ActionMap(window, renderer.domElement);
 actionMap.attach();
@@ -503,11 +506,18 @@ function frame(now: number): void {
   const speed = Math.hypot(player.velocity.x, player.velocity.z);
   const sprintFraction = Math.max(0, Math.min(1, (speed - DEFAULT_MOVEMENT_CONFIG.jogSpeed) /
     (DEFAULT_MOVEMENT_CONFIG.sprintSpeed - DEFAULT_MOVEMENT_CONFIG.jogSpeed)));
+  const cameraPlayer = clonePlayerState(displayPlayer);
+  let cameraFocusBias = 0;
+  if (practiceMode) {
+    const focus = resolveBallAwareCameraFocus(displayPlayer.position, footballPractice.state.position);
+    cameraPlayer.position = { ...focus };
+    cameraFocusBias = Math.hypot(focus.x - displayPlayer.position.x, focus.z - displayPlayer.position.z);
+  }
   const cameraState = cameraController.update(
-    displayPlayer,
+    cameraPlayer,
     look,
     Math.max(rawDelta, 1 / 240),
-    practiceMode ? [] : cameraObstacles,
+    practiceMode ? practiceCameraObstacles : cameraObstacles,
     sprintFraction,
   );
   camera.position.set(cameraState.position.x, cameraState.position.y, cameraState.position.z);
@@ -523,6 +533,7 @@ function frame(now: number): void {
   playerProbe.dataset.z = String(player.position.z);
   playerProbe.dataset.facingYaw = String(player.facingYaw);
   playerProbe.dataset.visualFootY = playerVisualFootY(displayPlayer.position.y).toFixed(6);
+  playerProbe.dataset.cameraFocusBias = cameraFocusBias.toFixed(6);
   playerProbe.dataset.tick = String(simTick);
   playerProbe.dataset.inputToSimulationMs = inputToSimulationMs === null ? '' : inputToSimulationMs.toFixed(3);
   playerProbe.dataset.inputToRenderMs = inputToRenderMs === null ? '' : inputToRenderMs.toFixed(3);
