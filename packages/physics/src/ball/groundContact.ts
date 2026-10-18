@@ -26,23 +26,36 @@ function applyTangentialImpulse(state: BallState, normalImpulse: number, profile
 }
 
 function applyRollingResistance(state: BallState, dt: number, profile: BallCoefficientProfile): void {
+  const safeDt = Math.max(0, dt);
+  const angularDamping = Math.exp(-profile.groundAngularDamping * safeDt);
   const speed = horizontalSpeed(state.velocity);
+
   if (speed <= 1e-8) {
     state.velocity.x = 0;
     state.velocity.z = 0;
+    state.angularVelocity.x *= angularDamping;
+    state.angularVelocity.y *= angularDamping;
+    state.angularVelocity.z *= angularDamping;
+    if (Math.hypot(state.angularVelocity.x, state.angularVelocity.y, state.angularVelocity.z) < 0.02) {
+      state.angularVelocity.x = 0;
+      state.angularVelocity.y = 0;
+      state.angularVelocity.z = 0;
+    }
     return;
   }
-  const nextSpeed = Math.max(0, speed - profile.rollingResistance * dt);
+
+  const nextSpeed = Math.max(0, speed - profile.rollingResistance * safeDt);
   const factor = nextSpeed / speed;
   state.velocity.x *= factor;
   state.velocity.z *= factor;
 
-  const targetOmegaX = state.velocity.z / BALL_CONSTANTS.radius;
-  const targetOmegaZ = -state.velocity.x / BALL_CONSTANTS.radius;
-  const coupling = 1 - Math.exp(-profile.groundSpinCoupling * dt);
-  state.angularVelocity.x += (targetOmegaX - state.angularVelocity.x) * coupling;
-  state.angularVelocity.z += (targetOmegaZ - state.angularVelocity.z) * coupling;
-  state.angularVelocity.y *= Math.exp(-profile.groundAngularDamping * dt);
+  // Rolling resistance removes energy from the coupled translation/rotation
+  // system. Scaling the horizontal rolling spin with the same factor preserves
+  // a no-slip state without manufacturing rotational energy. Any residual
+  // sliding is handled by the physically dissipative tangential impulse above.
+  state.angularVelocity.x *= factor;
+  state.angularVelocity.z *= factor;
+  state.angularVelocity.y *= angularDamping;
 
   if (nextSpeed < 0.045) {
     state.velocity.x = 0;
@@ -62,7 +75,7 @@ export function resolveGroundContact(
   const touching = state.position.y <= radius + 1e-7 || state.grounded;
   if (!touching) return state;
 
-  state.position.y = Math.max(radius, state.position.y);
+  state.position.y = state.grounded ? radius : Math.max(radius, state.position.y);
   let normalImpulse = 0;
   if (state.velocity.y < 0) {
     const incomingY = state.velocity.y;
