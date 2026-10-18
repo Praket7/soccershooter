@@ -1,0 +1,34 @@
+# dependencies and builds
+node_modules/
+dist/
+build/
+coverage/
+.vite/
+playwright-report/
+test-results/
+
+# local env and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# private/non-deployable reference content
+private/reference-content/**
+!private/reference-content/.gitkeep
+
+# Blender working/autosave artifacts
+*.blend1
+*.blend2
+*.blend@
+
+# local Superpowers/worktree scratch
+.superpowers/
+.worktrees/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
