@@ -6,6 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./fixedStep": "./src/fixedStep.ts",
-    "./referenceTrace": "./src/referenceTrace.ts"
+    "./referenceTrace": "./src/referenceTrace.ts",
+    "./player/PlayerState": "./src/player/PlayerState.ts",
+    "./player/movement": "./src/player/movement.ts"
   }
 }
