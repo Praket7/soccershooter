@@ -1,4 +1,4 @@
-import { STANDARD_GOAL_FRAME, type GoalFrame } from '@soccershooter/physics/ball/trajectory';
+import type { GoalFrame } from '@soccershooter/physics/ball/trajectory';
 import type { Vec3 } from '@soccershooter/sim/player/PlayerState';
 import type { CameraObstacle } from './ThirdPersonCamera';
 
@@ -6,12 +6,8 @@ const MAX_BALL_FOCUS_BIAS = 0.9;
 const BALL_FOCUS_DEADZONE = 0.9;
 const BALL_FOCUS_GAIN = 0.32;
 const GOAL_CAMERA_PADDING = 0.08;
-const OPPOSITE_GOAL_PLANE_Z = -15.2;
 
-export interface FootballPracticeCameraPresentation {
-  focusPosition: Vec3;
-  obstacles: readonly CameraObstacle[];
-}
+export const OPPOSITE_PRACTICE_GOAL_PLANE_Z = -15.2;
 
 /**
  * Keeps the player as the camera anchor while adding a capped look bias toward
@@ -73,38 +69,10 @@ function goalMembers(
 /** Camera collision geometry for both greybox goals visible in Football Practice. */
 export function buildPracticeGoalCameraObstacles(
   frame: Readonly<GoalFrame>,
-  oppositeGoalPlaneZ: number,
+  oppositeGoalPlaneZ = OPPOSITE_PRACTICE_GOAL_PLANE_Z,
 ): CameraObstacle[] {
   return [
     ...goalMembers('practice-goal', frame, frame.planeZ),
     ...goalMembers('opposite-goal', frame, oppositeGoalPlaneZ),
   ];
-}
-
-/**
- * Reads only presentation telemetry that FootballPractice already exposes to
- * the browser. This keeps camera help outside authoritative simulation while
- * allowing the reusable ThirdPersonCamera to recognize practice mode even
- * though the existing caller intentionally supplies no benchmark obstacles.
- */
-export function readFootballPracticeCameraPresentation(
-  playerPosition: Readonly<Vec3>,
-): FootballPracticeCameraPresentation | null {
-  if (typeof document === 'undefined') return null;
-  const practice = document.querySelector<HTMLElement>('[data-football-practice]');
-  if (!practice || practice.hidden) return null;
-  const probe = document.querySelector<HTMLOutputElement>('[data-football-state]');
-  if (!probe) return null;
-
-  const ballPosition: Vec3 = {
-    x: Number(probe.dataset.ballX),
-    y: Number(probe.dataset.ballY),
-    z: Number(probe.dataset.ballZ),
-  };
-  if (![ballPosition.x, ballPosition.y, ballPosition.z].every(Number.isFinite)) return null;
-
-  return {
-    focusPosition: resolveBallAwareCameraFocus(playerPosition, ballPosition),
-    obstacles: buildPracticeGoalCameraObstacles(STANDARD_GOAL_FRAME, OPPOSITE_GOAL_PLANE_Z),
-  };
 }
