@@ -29,6 +29,11 @@ export interface ActionMapOptions {
   invertY?: boolean;
 }
 
+export interface PointerButtonState {
+  primaryDown: boolean;
+  secondaryDown: boolean;
+}
+
 export const DEFAULT_MOUSE_SENSITIVITY = 0.00325;
 
 const TAU = Math.PI * 2;
@@ -77,6 +82,22 @@ export function pointerStateToActionBits(primaryDown: boolean, secondaryDown: bo
   if (primaryDown) actionBits |= PlayerActionBits.ShootHeld;
   if (secondaryDown) actionBits |= PlayerActionBits.Precision;
   return actionBits >>> 0;
+}
+
+/**
+ * Applies mouse-button state independently of pointer-lock acquisition. The
+ * same first LMB press that captures the mouse therefore also begins charging
+ * a shot instead of being swallowed by the camera-control transition.
+ */
+export function applyPointerButtonDown(
+  primaryDown: boolean,
+  secondaryDown: boolean,
+  button: number,
+): PointerButtonState {
+  return {
+    primaryDown: primaryDown || button === 0,
+    secondaryDown: secondaryDown || button === 2,
+  };
 }
 
 export function keyboardStateToIntent(sample: Readonly<KeyboardIntentSample>): InputIntent {
@@ -152,16 +173,15 @@ export class ActionMap {
   };
 
   readonly #onPointerDown = (event: PointerEvent) => {
+    const next = applyPointerButtonDown(this.#primaryDown, this.#secondaryDown, event.button);
+    this.#primaryDown = next.primaryDown;
+    this.#secondaryDown = next.secondaryDown;
+    if (event.button === 2) event.preventDefault();
+    this.#lastInputTimestamp = performance.now();
+
     if (document.pointerLockElement !== this.#pointerTarget) {
       void this.#pointerTarget.requestPointerLock();
-      return;
     }
-    if (event.button === 0) this.#primaryDown = true;
-    if (event.button === 2) {
-      this.#secondaryDown = true;
-      event.preventDefault();
-    }
-    this.#lastInputTimestamp = performance.now();
   };
 
   readonly #onPointerUp = (event: PointerEvent) => {
