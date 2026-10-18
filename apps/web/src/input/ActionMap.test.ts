@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { PlayerActionBits } from '@soccershooter/sim/player/PlayerState';
-import { keyboardStateToIntent, normalizeMoveAxes } from './ActionMap';
-import { gamepadSnapshotToFrame } from './GamepadAdapter';
+import { DEFAULT_MOUSE_SENSITIVITY, keyboardStateToIntent, normalizeMoveAxes } from './ActionMap';
+import { DEFAULT_GAMEPAD_YAW_RATE, gamepadSnapshotToFrame } from './GamepadAdapter';
 
 describe('Stage 03 normalized input contract', () => {
   test('keyboard diagonal input is normalized rather than faster', () => {
@@ -14,6 +14,25 @@ describe('Stage 03 normalized input contract', () => {
     const value = normalizeMoveAxes(0.6, 0.8, 0.15);
     expect(Math.hypot(value.x, value.y)).toBeCloseTo(value.magnitude, 10);
     expect(value.magnitude).toBeCloseTo(1, 10);
+  });
+
+  test('default camera input is faster than the first playtest build without becoming twitchy', () => {
+    expect(DEFAULT_MOUSE_SENSITIVITY).toBeGreaterThanOrEqual(0.003);
+    expect(DEFAULT_MOUSE_SENSITIVITY).toBeLessThanOrEqual(0.0036);
+    expect(DEFAULT_GAMEPAD_YAW_RATE).toBeGreaterThanOrEqual(3.3);
+    expect(DEFAULT_GAMEPAD_YAW_RATE).toBeLessThanOrEqual(3.8);
+
+    const frame = gamepadSnapshotToFrame(
+      {
+        axes: [0, 0, 1, 0],
+        buttons: Array.from({ length: 16 }, () => ({ pressed: false, value: 0 })),
+        mapping: 'standard',
+      },
+      0,
+      1 / 60,
+    );
+    expect(frame.look.yawDelta).toBeGreaterThan(0.055);
+    expect(frame.look.yawDelta).toBeLessThan(0.065);
   });
 
   test('keyboard and standard gamepad can generate equivalent gameplay intent', () => {
