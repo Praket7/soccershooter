@@ -116,9 +116,6 @@ export function buildControlTouch(input: Readonly<ControlTouchInput>): ControlTo
     && ballDirectionDot < EFFORT_TURN_DOT;
 
   const frontFactor = clampFootball((ballFacingDot - MIN_FRONT_DOT) / (1 - MIN_FRONT_DOT), 0, 1);
-  // A requested hard cut may briefly disagree with the old body heading. Keep
-  // body setup meaningful without collapsing control quality to zero before the
-  // player has had time to plant and rotate.
   const rawDirectionFactor = clampFootball((desiredFacingDot + 0.35) / 1.35, 0, 1);
   const directionFactor = effortTurn ? Math.max(0.34, rawDirectionFactor) : rawDirectionFactor;
   const pressureFactor = 1 - 0.58 * pressure;
@@ -141,10 +138,10 @@ export function buildControlTouch(input: Readonly<ControlTouchInput>): ControlTo
       : input.precision ? 2.0 : input.sprint ? 4.8 : 2.9;
   } else if (input.sprint) {
     touchMode = 'sprint';
-    // Keep a sprint touch ahead of the runner without intentionally making the
-    // ball faster than the runner can recover. This is separation, not a punt.
-    touchDistance = 1.08 + clampFootball(playerSpeed - 6, 0, 3) * 0.045;
-    targetBallSpeed = clampFootball(playerSpeed + 0.85, 7.2, 9.45);
+    // Sprint remains a knock-on, but never a punt. At full speed the target is
+    // only slightly faster than the runner, leaving a recoverable one-stride gap.
+    touchDistance = 0.92 + clampFootball(playerSpeed - 6, 0, 3) * 0.025;
+    targetBallSpeed = clampFootball(playerSpeed + 0.25, 4.4, 9.0);
   } else if (input.precision) {
     touchMode = 'precision';
     touchDistance = 0.34;
@@ -158,18 +155,10 @@ export function buildControlTouch(input: Readonly<ControlTouchInput>): ControlTo
   const plannedPoint = targetPoint(input.actor, direction, touchDistance, Math.max(input.ball.radius, input.ball.position.y));
   const baseResult = { quality, touchMode, touchDistance, targetBallSpeed, targetPoint: plannedPoint };
 
-  if (reach > CONTROL_REACH) {
-    return { eligible: false, reason: 'out-of-reach', ...baseResult };
-  }
-  if (ballFacingDot < MIN_FRONT_DOT) {
-    return { eligible: false, reason: 'behind-body', ...baseResult };
-  }
-  if (input.ball.position.y - input.ball.radius > MAX_CONTROL_HEIGHT) {
-    return { eligible: false, reason: 'ball-too-high', ...baseResult };
-  }
-  if (incomingSpeed > HARD_INCOMING_SPEED) {
-    return { eligible: false, reason: 'ball-too-fast', ...baseResult };
-  }
+  if (reach > CONTROL_REACH) return { eligible: false, reason: 'out-of-reach', ...baseResult };
+  if (ballFacingDot < MIN_FRONT_DOT) return { eligible: false, reason: 'behind-body', ...baseResult };
+  if (input.ball.position.y - input.ball.radius > MAX_CONTROL_HEIGHT) return { eligible: false, reason: 'ball-too-high', ...baseResult };
+  if (incomingSpeed > HARD_INCOMING_SPEED) return { eligible: false, reason: 'ball-too-fast', ...baseResult };
   if (!trapRequested && playerSpeed < IDLE_PLAYER_SPEED && incomingSpeed < IDLE_BALL_SPEED) {
     return { eligible: false, reason: 'idle-no-touch', ...baseResult };
   }
