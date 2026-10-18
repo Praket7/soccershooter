@@ -38,6 +38,26 @@ test('Stage 03 action hooks visibly acknowledge keyboard requests', async ({ pag
   await expect(feedback).toContainText(/jump/i);
 });
 
+test('trackpad or wheel zoom changes third-person field of view distance smoothly', async ({ page }) => {
+  await page.goto('/');
+  const canvas = page.locator('canvas[data-game-viewport]');
+  const probe = page.locator('[data-player-state]');
+  await canvas.hover();
+
+  const initial = Number(await probe.getAttribute('data-camera-distance'));
+  expect(initial).toBeGreaterThan(5);
+
+  await page.mouse.wheel(0, 420);
+  await page.waitForTimeout(350);
+  const zoomedOut = Number(await probe.getAttribute('data-camera-distance'));
+  expect(zoomedOut).toBeGreaterThan(initial + 0.35);
+
+  await page.mouse.wheel(0, -420);
+  await page.waitForTimeout(350);
+  const zoomedIn = Number(await probe.getAttribute('data-camera-distance'));
+  expect(zoomedIn).toBeLessThan(zoomedOut - 0.35);
+});
+
 test('Stage 02 deterministic browser parity evidence remains exposed', async ({ page }) => {
   await page.goto('/');
   const result = page.locator('[data-determinism-hash]');
