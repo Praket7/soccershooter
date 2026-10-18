@@ -146,7 +146,12 @@ export function evaluateInterception(input: Readonly<InterceptionInput>): Interc
     y: input.ball.position.y + input.ball.velocity.y * timeToWindow,
     z: input.ball.position.z + input.ball.velocity.z * timeToWindow,
   };
-  const closestDistance = horizontalDistance(input.defender.position, predictedPoint);
+  const predictedDefenderPoint: FootballVec3 = {
+    x: input.defender.position.x + input.defender.velocity.x * timeToWindow,
+    y: input.defender.position.y + input.defender.velocity.y * timeToWindow,
+    z: input.defender.position.z + input.defender.velocity.z * timeToWindow,
+  };
+  const closestDistance = horizontalDistance(predictedDefenderPoint, predictedPoint);
   const ballHeight = predictedPoint.y - input.ball.radius;
   const movingToward = rawTime > 0;
   const reachable = closestDistance <= 0.92 + Math.min(0.4, Math.hypot(input.defender.velocity.x, input.defender.velocity.z) * 0.05);
