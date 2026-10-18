@@ -17,7 +17,6 @@ export interface BallCoefficientProfile {
   groundRestitution: number;
   turfFriction: number;
   rollingResistance: number;
-  groundSpinCoupling: number;
   groundAngularDamping: number;
   goalFrameRestitution: number;
   goalFrameTangentialRetention: number;
@@ -58,7 +57,6 @@ export const MATCH_BALL_PROFILE: BallCoefficientProfile = Object.freeze({
   groundRestitution: 0.56,
   turfFriction: 0.72,
   rollingResistance: 0.34,
-  groundSpinCoupling: 10,
   groundAngularDamping: 0.24,
   goalFrameRestitution: 0.62,
   goalFrameTangentialRetention: 0.94,
@@ -97,6 +95,20 @@ export function spinParameter(state: Readonly<BallState>): number {
   const parallel = scale(direction, dot(state.angularVelocity, direction));
   const perpendicularSpin = magnitude(subtract(state.angularVelocity, parallel));
   return BALL_CONSTANTS.radius * perpendicularSpin / speed;
+}
+
+function dynamicAccelerationForSpeed(speed: number, profile: BallCoefficientProfile): number {
+  return 0.5 * profile.airDensity * BALL_CONSTANTS.crossSectionArea * speed * speed / BALL_CONSTANTS.mass;
+}
+
+export function dragAcceleration(
+  state: Readonly<BallState>,
+  profile: BallCoefficientProfile = MATCH_BALL_PROFILE,
+): Vec3 {
+  const speed = magnitude(state.velocity);
+  if (speed < 1e-6) return { x: 0, y: 0, z: 0 };
+  const direction = scale(state.velocity, 1 / speed);
+  return scale(direction, -dynamicAccelerationForSpeed(speed, profile) * dragCoefficientForSpeed(speed, profile));
 }
 
 function seedUnit(seed: number, salt: number): number {
@@ -141,18 +153,15 @@ export function knuckleAcceleration(state: Readonly<BallState>, profile: BallCoe
   const waveB = Math.sin(phaseB + frequencyB * t) + 0.28 * Math.sin(phaseA + 0.61 * frequencyB * t);
   const lateralDirection = normalize(add(scale(basisA, waveA), scale(basisB, waveB)), basisA);
 
-  const dynamicAcceleration = 0.5 * profile.airDensity * BALL_CONSTANTS.crossSectionArea * speed * speed / BALL_CONSTANTS.mass;
-  return scale(lateralDirection, dynamicAcceleration * profile.knuckleMaxCoefficient * envelope);
+  return scale(lateralDirection, dynamicAccelerationForSpeed(speed, profile) * profile.knuckleMaxCoefficient * envelope);
 }
 
 export function aerodynamicAcceleration(state: Readonly<BallState>, profile: BallCoefficientProfile = MATCH_BALL_PROFILE): Vec3 {
   const speed = magnitude(state.velocity);
   if (speed < 1e-6) return { x: 0, y: 0, z: 0 };
 
-  const direction = scale(state.velocity, 1 / speed);
-  const dynamicAcceleration = 0.5 * profile.airDensity * BALL_CONSTANTS.crossSectionArea * speed * speed / BALL_CONSTANTS.mass;
-  const drag = scale(direction, -dynamicAcceleration * dragCoefficientForSpeed(speed, profile));
-
+  const drag = dragAcceleration(state, profile);
+  const dynamicAcceleration = dynamicAccelerationForSpeed(speed, profile);
   const omegaCrossVelocity = cross(state.angularVelocity, state.velocity);
   const crossLength = magnitude(omegaCrossVelocity);
   let magnus: Vec3 = { x: 0, y: 0, z: 0 };
