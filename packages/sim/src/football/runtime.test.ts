@@ -48,10 +48,12 @@ describe('Stage 05 football runtime cadence', () => {
     expect(state.kickCooldown).toBeGreaterThan(0.1);
   });
 
-  test('sprint dribble cadence stays frequent enough to recover the separated ball', () => {
-    const state = markControlTouch(createFootballRuntimeState(), true);
-    expect(state.controlTouchCooldown).toBeGreaterThan(0.14);
-    expect(state.controlTouchCooldown).toBeLessThanOrEqual(0.19);
+  test('dribble cadence matches the owner-calibrated recovery envelope', () => {
+    const sprint = markControlTouch(createFootballRuntimeState(), true);
+    const controlled = markControlTouch(createFootballRuntimeState(), false);
+    expect(sprint.controlTouchCooldown).toBeCloseTo(0.14, 8);
+    expect(controlled.controlTouchCooldown).toBeCloseTo(0.12, 8);
+    expect(sprint.controlTouchCooldown).toBeGreaterThan(controlled.controlTouchCooldown);
   });
 
   test('runtime stepping is exactly repeatable for the same bit trace', () => {
