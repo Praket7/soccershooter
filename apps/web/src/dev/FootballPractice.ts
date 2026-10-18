@@ -43,7 +43,11 @@ export interface FootballPracticeOptions {
   host: HTMLElement;
 }
 
-const PRACTICE_BALL_START = Object.freeze({ x: 0, y: BALL_CONSTANTS.radius, z: -11.7 });
+const CONTROLLED_BALL_POCKET = 0.68;
+// The practice player spawns at z=-13 facing +z. Start the free ball in the
+// same compact pocket used by G/reset so the first input is a dribble, not an
+// emergency recovery from an already stretched 1.3 m separation.
+const PRACTICE_BALL_START = Object.freeze({ x: 0, y: BALL_CONSTANTS.radius, z: -13 + CONTROLLED_BALL_POCKET });
 const KEEPER_Z = STANDARD_GOAL_FRAME.planeZ - 0.72;
 const KEEPER_MAX_SPEED = 4.8;
 const KEEPER_HALF_REACH = 0.68;
@@ -366,9 +370,9 @@ export class FootballPractice {
     const forward = forwardFromYaw(resolveTravelFacingYaw(player.velocity, player.facingYaw));
     this.#state = createBallState({
       position: {
-        x: player.position.x + forward.x * 1.05,
+        x: player.position.x + forward.x * CONTROLLED_BALL_POCKET,
         y: BALL_CONSTANTS.radius,
-        z: player.position.z + forward.z * 1.05,
+        z: player.position.z + forward.z * CONTROLLED_BALL_POCKET,
       },
       grounded: true,
     });
@@ -383,7 +387,7 @@ export class FootballPractice {
     this.#selectedReceiver = false;
     this.#shotState = 'READY';
     this.ballVisual.quaternion.identity();
-    this.#recordAction('READY', true, 'ball-reset-in-front');
+    this.#recordAction('READY', true, 'ball-reset-in-control-pocket');
     this.#syncVisuals();
     this.#updateHud();
   }
