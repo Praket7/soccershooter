@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - 'stage/02-foundation'
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  foundation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+
+      - name: Install exact pnpm
+        run: npm install --global pnpm@12.9.1
+
+      - name: Environment
+        run: |
+          node --version
+          pnpm --version
+
+      - name: Frozen workspace install
+        run: pnpm install --frozen-lockfile
+
+      - name: Authoritative source and private-content guards
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Unit and contract tests
+        run: pnpm test
+
+      - name: Standalone headless determinism trace
+        run: pnpm determinism:headless
+
+      - name: Prove private reference imports fail production validation
+        run: |
+          probe='apps/web/src/__private_import_probe.ts'
+          printf "import '../../../private/reference-content/probe.js';\nexport {};\n" > "$probe"
+          set +e
+          node tools/security/check-private-imports.mjs > /tmp/private-guard.log 2>&1
+          status=$?
+          set -e
+          cat /tmp/private-guard.log
+          rm -f "$probe"
+          if [ "$status" -eq 0 ]; then
+            echo 'Private reference guard unexpectedly accepted a forbidden production import.' >&2
+            exit 1
+          fi
+          node tools/security/check-private-imports.mjs
+
+      - name: Build server and FICTIONAL_PUBLIC web shell
+        run: pnpm build
+
+      - name: Launch server shell and verify health endpoint
+        run: |
+          PORT=3011 node apps/server/dist/index.js > /tmp/soccershooter-server.log 2>&1 &
+          pid=$!
+          cleanup() { kill "$pid" 2>/dev/null || true; }
+          trap cleanup EXIT
+          success=0
+          for attempt in $(seq 1 40); do
+            if curl --fail --silent http://127.0.0.1:3011/health > /tmp/health.json; then
+              success=1
+              break
+            fi
+            sleep 0.25
+          done
+          cat /tmp/soccershooter-server.log
+          test "$success" -eq 1
+          cat /tmp/health.json
+          grep -q '"status":"ok"' /tmp/health.json
+          grep -q '"contentMode":"FICTIONAL_PUBLIC"' /tmp/health.json
+          cleanup
+          trap - EXIT
+
+      - name: Install Chromium for browser parity test
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Browser and Node determinism parity
+        run: pnpm test:e2e
