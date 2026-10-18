@@ -3,7 +3,8 @@ name: CI
 on:
   push:
     branches:
-      - 'stage/02-foundation'
+      - 'main'
+      - 'stage/**'
   pull_request:
 
 permissions:
