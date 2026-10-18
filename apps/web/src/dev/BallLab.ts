@@ -143,15 +143,15 @@ function createGoalFrame(scene: THREE.Scene): THREE.Group {
 
   const netMaterial = new THREE.LineBasicMaterial({ color: 0xb7c1c7, transparent: true, opacity: 0.22 });
   const netPoints: THREE.Vector3[] = [];
-  for (let xIndex = 0; xIndex <= 8; xIndex += 1) {
-    const x = -STANDARD_GOAL_FRAME.halfWidth + (STANDARD_GOAL_FRAME.halfWidth * 2 * xIndex) / 8;
+  for (let index = 0; index <= 8; index += 1) {
+    const x = -STANDARD_GOAL_FRAME.halfWidth + (STANDARD_GOAL_FRAME.halfWidth * 2 * index) / 8;
     netPoints.push(
       new THREE.Vector3(x, 0, STANDARD_GOAL_FRAME.planeZ + 0.03),
       new THREE.Vector3(x, STANDARD_GOAL_FRAME.height, STANDARD_GOAL_FRAME.planeZ + 0.03),
     );
   }
-  for (let yIndex = 0; yIndex <= 5; yIndex += 1) {
-    const y = (STANDARD_GOAL_FRAME.height * yIndex) / 5;
+  for (let index = 0; index <= 5; index += 1) {
+    const y = (STANDARD_GOAL_FRAME.height * index) / 5;
     netPoints.push(
       new THREE.Vector3(-STANDARD_GOAL_FRAME.halfWidth, y, STANDARD_GOAL_FRAME.planeZ + 0.03),
       new THREE.Vector3(STANDARD_GOAL_FRAME.halfWidth, y, STANDARD_GOAL_FRAME.planeZ + 0.03),
@@ -272,10 +272,10 @@ export class BallLab {
         ${BALL_LAB_PRESETS.map((preset, index) => `<button type="button" data-ball-preset="${preset.id}" title="${preset.description}"><kbd>${index + 1}</kbd>${preset.label}</button>`).join('')}
       </div>
       <div class="ball-lab-grid">
-        <label>Launch speed <output data-speed-value>${this.#controls.speed.toFixed(1)} m/s</output><input aria-label="Launch speed" data-ball-speed type="range" min="4" max="40" step="0.5" value="${this.#controls.speed}"></label>
-        <label>Elevation <output data-elevation-value>${this.#controls.elevationDegrees.toFixed(0)}°</output><input aria-label="Elevation" data-ball-elevation type="range" min="0" max="45" step="1" value="${this.#controls.elevationDegrees}"></label>
-        <label>Aim offset <output data-azimuth-value>${this.#controls.azimuthDegrees.toFixed(1)}°</output><input aria-label="Aim offset" data-ball-azimuth type="range" min="-15" max="15" step="0.5" value="${this.#controls.azimuthDegrees}"></label>
-        <label>Spin rate <output data-spin-value>${this.#controls.spinRate.toFixed(0)} rad/s</output><input aria-label="Spin rate" data-ball-spin type="range" min="0" max="120" step="1" value="${this.#controls.spinRate}"></label>
+        <label>Launch speed <span class="ball-lab-value" data-speed-value>${this.#controls.speed.toFixed(1)} m/s</span><input aria-label="Launch speed" data-ball-speed type="range" min="4" max="40" step="0.5" value="${this.#controls.speed}"></label>
+        <label>Elevation <span class="ball-lab-value" data-elevation-value>${this.#controls.elevationDegrees.toFixed(0)}°</span><input aria-label="Elevation" data-ball-elevation type="range" min="0" max="45" step="1" value="${this.#controls.elevationDegrees}"></label>
+        <label>Aim offset <span class="ball-lab-value" data-azimuth-value>${this.#controls.azimuthDegrees.toFixed(1)}°</span><input aria-label="Aim offset" data-ball-azimuth type="range" min="-15" max="15" step="0.5" value="${this.#controls.azimuthDegrees}"></label>
+        <label>Spin rate <span class="ball-lab-value" data-spin-value>${this.#controls.spinRate.toFixed(0)} rad/s</span><input aria-label="Spin rate" data-ball-spin type="range" min="0" max="120" step="1" value="${this.#controls.spinRate}"></label>
         <label>Spin axis<select aria-label="Spin axis" data-ball-spin-axis><option value="none">None</option><option value="side">Sidespin</option><option value="top">Topspin</option><option value="back">Backspin</option></select></label>
         <label>Coefficient profile<select aria-label="Coefficient profile" data-ball-profile><option value="${MATCH_BALL_PROFILE.id}">Match balanced v1</option></select></label>
         <label>Slow motion<select aria-label="Slow motion" data-ball-slow><option value="1">1× realtime</option><option value="0.5">0.5×</option><option value="0.25">0.25×</option></select></label>
@@ -307,7 +307,7 @@ export class BallLab {
 
     const onControlChange = () => {
       this.#readControls();
-      this.#updateControlOutputs();
+      this.#updateControlValues();
       this.#refreshPrediction();
     };
     for (const input of [this.#speedInput, this.#elevationInput, this.#azimuthInput, this.#spinInput, this.#seedInput]) {
@@ -404,8 +404,7 @@ export class BallLab {
   }
 
   exportCsv(): void {
-    const csv = traceToCsv(this.#actualSamples);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const blob = new Blob([traceToCsv(this.#actualSamples)], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
@@ -443,19 +442,23 @@ export class BallLab {
     this.#trailInput.checked = this.#controls.trailEnabled;
     this.#seedInput.value = String(this.#controls.knuckleSeed >>> 0);
     this.#readControls();
-    this.#updateControlOutputs();
+    this.#updateControlValues();
   }
 
-  #updateControlOutputs(): void {
-    requireChild<HTMLOutputElement>(this.root, '[data-speed-value]').value = `${this.#controls.speed.toFixed(1)} m/s`;
-    requireChild<HTMLOutputElement>(this.root, '[data-elevation-value]').value = `${this.#controls.elevationDegrees.toFixed(0)}°`;
-    requireChild<HTMLOutputElement>(this.root, '[data-azimuth-value]').value = `${this.#controls.azimuthDegrees.toFixed(1)}°`;
-    requireChild<HTMLOutputElement>(this.root, '[data-spin-value]').value = `${this.#controls.spinRate.toFixed(0)} rad/s`;
+  #updateControlValues(): void {
+    requireChild<HTMLElement>(this.root, '[data-speed-value]').textContent = `${this.#controls.speed.toFixed(1)} m/s`;
+    requireChild<HTMLElement>(this.root, '[data-elevation-value]').textContent = `${this.#controls.elevationDegrees.toFixed(0)}°`;
+    requireChild<HTMLElement>(this.root, '[data-azimuth-value]').textContent = `${this.#controls.azimuthDegrees.toFixed(1)}°`;
+    requireChild<HTMLElement>(this.root, '[data-spin-value]').textContent = `${this.#controls.spinRate.toFixed(0)} rad/s`;
   }
 
   #refreshPrediction(): void {
     const launch = buildLaunchFromControls(this.#controls);
-    const prediction = predictTrajectory(launch, { profile: this.#profile, goalFrame: STANDARD_GOAL_FRAME, maxSeconds: 8 });
+    const prediction = predictTrajectory(launch, {
+      profile: this.#profile,
+      goalFrame: STANDARD_GOAL_FRAME,
+      maxSeconds: 8,
+    });
     setLinePoints(this.#predictionTrail, prediction.samples, 3);
     this.#landingMarker.position.set(prediction.landing.position.x, 0.012, prediction.landing.position.z);
     this.#probe.dataset.predictedX = prediction.landing.position.x.toFixed(6);
@@ -470,7 +473,11 @@ export class BallLab {
 
   #syncVisuals(): void {
     this.ballVisual.position.set(this.#state.position.x, this.#state.position.y, this.#state.position.z);
-    const angularSpeed = Math.hypot(this.#state.angularVelocity.x, this.#state.angularVelocity.y, this.#state.angularVelocity.z);
+    const angularSpeed = Math.hypot(
+      this.#state.angularVelocity.x,
+      this.#state.angularVelocity.y,
+      this.#state.angularVelocity.z,
+    );
     if (angularSpeed > 1e-6) {
       const axis = new THREE.Vector3(
         this.#state.angularVelocity.x,
