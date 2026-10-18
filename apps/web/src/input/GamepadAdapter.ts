@@ -87,6 +87,7 @@ export function gamepadSnapshotToFrame(
 export class GamepadAdapter {
   readonly #options: GamepadOptions;
   #shootWasHeld = false;
+  #passWasHeld = false;
 
   constructor(options: GamepadOptions = {}) {
     this.#options = options;
@@ -110,9 +111,14 @@ export class GamepadAdapter {
       const shootHeld = (frame.intent.actionBits & PlayerActionBits.ShootHeld) !== 0;
       if (this.#shootWasHeld && !shootHeld) frame.intent.actionBits |= PlayerActionBits.ShootReleased;
       this.#shootWasHeld = shootHeld;
+
+      const passHeld = (frame.intent.actionBits & PlayerActionBits.Pass) !== 0;
+      if (passHeld && this.#passWasHeld) frame.intent.actionBits &= ~PlayerActionBits.Pass;
+      this.#passWasHeld = passHeld;
       return frame;
     }
     this.#shootWasHeld = false;
+    this.#passWasHeld = false;
     return null;
   }
 }
