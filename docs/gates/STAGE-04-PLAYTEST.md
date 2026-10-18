@@ -2,122 +2,90 @@
 
 ## Purpose
 
-This is the final human-feel check for Stage 04. Automated correctness is already enforced by the golden trajectory suite, deterministic stress/fuzzing, browser E2E, and the canonical simulation trace. This playtest answers the remaining subjective exit criterion from the Stage 04 plan:
+This document records the Stage 04 owner-feel check and the evidence-driven repair pass that followed it. Stage 04 evaluates the standalone football physics instrument only. Stage 05 player-ball mechanics are intentionally excluded.
 
-> **Ball Lab alone must feel satisfying to use.**
+## Owner evidence supplied
 
-Do not evaluate Stage 05 mechanics here. The player does not yet dribble, pass, shoot, trap, or tackle the ball. `Launch` is a Stage 04 instrumentation control, not the final gameplay kick input.
+The owner locally tested Ball Lab and supplied:
+- a screen recording of the Stage 04 Ball Lab session;
+- the exported CSV trace from the `Post rebound` preset;
+- direct feedback that the football looked too small relative to the greybox environment;
+- explicit instruction to analyze the artifacts, repair the issues, scour Stage 04 for related bugs, mark Stage 04 complete once green, and merge it to `main`.
 
-## Setup
+The owner did not provide numeric 1–10 category scores, so none are invented.
 
-Run the Stage 04 branch locally and open the URL printed by Vite, normally `http://127.0.0.1:4173`.
+## Findings from the supplied evidence
 
-Keep **Trajectory + predictor** enabled for the first pass. Use normal speed first, then repeat selected launches at `0.5×` or `0.25×`.
+### Post rebound
 
-## Required checks
+The old preset did not perform the benchmark its name promised. The CSV showed the ball reaching the goal plane at approximately `x = 4.142 m`, outside the right post centered at `x = 3.66 m`, and already at turf height. The screen recording was consistent with the ball leaving the useful frame rather than visibly rebounding from the post.
 
-### 1. Straight 20m — preset 2
+Result: **FAIL in supplied playtest → REPAIRED**.
 
-Press `2`, then `L`.
+The preset is now a true in-flight right-post strike and has an automated regression requiring `goal-frame / right-post` contact above turf.
 
-Expected:
-- the ball stays essentially in one vertical plane;
-- no unexplained lateral wobble appears;
-- flight decelerates naturally rather than moving like a vacuum projectile;
-- bounce and roll settle rather than gaining energy.
+### Bounce / roll credibility
 
-### 2. Curl 20m — preset 3
+The supplied CSV exposed non-physical grounded behavior. During continuous turf motion, total kinetic energy rose instead of dissipating because rotational velocity was being steered toward a no-slip target without charging that energy against translation.
 
-Press `3`, then `L`.
+A RED regression reproduced the defect before the fix. Grounded fast motion also bypassed aerodynamic drag, contributing to excessive carry.
 
-Expected:
-- curve develops smoothly rather than snapping sideways;
-- bend direction is consistent and readable;
-- the predictor communicates the same family of curve as the live flight;
-- curve feels intentional enough that a future player could learn it.
+Result: **FAIL in supplied playtest data → REPAIRED**.
 
-### 3. Power 25m — preset 4
+The ground model now uses dissipative contact coupling, rolling resistance, residual-spin damping, and horizontal aerodynamic drag. Magnus and knuckle remain flight-only while grounded.
 
-Press `4`, then `L`.
+### Ball readability / scale
 
-Expected:
-- the strike feels materially faster than the straight/curl reference;
-- no high-speed jitter, tunneling, or numerical explosion appears;
-- the trajectory remains readable at full speed.
+The screen recording showed the regulation-sized mesh reading too small against the stylized greybox player/environment.
 
-### 4. Loft and Chip — presets 5 and 6
+Result: **FAIL in supplied playtest → REPAIRED**.
 
-Launch both.
+Authoritative radius remains `0.11 m`; only presentation is scaled to `1.35×`. The rendered center is offset upward by the scale delta so the larger mesh rests on turf without changing collision geometry.
 
-Expected:
-- they are visually and physically distinct;
-- backspin produces believable carry/float;
-- the chip has a higher, softer flight than the lofted reference;
-- landing, bounce, and roll remain stable.
+## Code-sweep findings beyond the reported issues
 
-### 5. Knuckle — preset 7
+The post-playtest sweep also found and repaired:
+- a live actual-trail refresh condition that could leave the green trail stale at common render/physics cadence ratios;
+- football mesh rotation that depended on render FPS rather than 120 Hz physics steps;
+- visual rotation continuing to advance while authoritative simulation was idle;
+- already-grounded states retaining an elevated Y position;
+- horizontally stationary residual spin failing to damp toward rest;
+- CSV export lacking the speed/spin/energy/ground/contact diagnostics needed to audit future reports.
 
-Press `7`, then `L`. Reset and launch the same preset several times without changing the seed.
+## Automated evidence after repairs
 
-Expected:
-- every launch with the same seed repeats the same path;
-- the path has bounded low-spin movement rather than random frame-to-frame noise;
-- the deviation is noticeable but not chaotic or impossible to read.
+Final implementation head before gate documentation:
+- `19188f7ef0efbc48233b9bed7f874f5266759342`
 
-Then change **Knuckle seed** and relaunch.
+CI run `39133129985`, job `117692188354`:
+- frozen install / security guards: PASS
+- strict TypeScript: PASS
+- **100 / 100 unit and contract tests PASS**
+- **16 / 16 test files PASS**
+- one-million-launch deterministic fuzz: PASS
+- `4,000,000` authoritative states checked
+- fuzz failures: `0`
+- fuzz checksum: `508142ab`
+- canonical Stage 02 hash remains `d55b2d0b968372a5`
+- FICTIONAL_PUBLIC production build: PASS
+- server health: PASS
+- **10 / 10 Chromium E2E tests PASS**
 
-Expected:
-- the pattern changes reproducibly with the seed;
-- it still stays bounded and physically plausible.
+New browser coverage specifically verifies:
+- the `1.35×` presentation ball scale;
+- enlarged ball turf clearance;
+- live trajectory-trail advancement;
+- authoritative-step-driven visual rotation;
+- no visual rotation drift while idle/reset.
 
-### 6. Post rebound — preset 8
+## Owner acceptance interpretation
 
-Press `8`, then `L`. Repeat at `0.25×` slow motion.
+The owner explicitly authorized marking Stage 04 complete and merging once the supplied playtest/CSV defects were analyzed, repaired, the code was swept for bugs, and verification returned green.
 
-Expected:
-- the frame impact is crisp;
-- the ball does not pass through the post/crossbar;
-- rebound never accelerates the ball beyond its incoming energy;
-- no sticking, buzzing, or repeated explosive contacts occur.
+The final repaired build was not separately re-playtested by the owner before this gate record was written; this document does not claim otherwise. The merge authorization was conditional on the repair-and-verification process described above, and that condition was satisfied on the implementation head.
 
-### 7. Ball Lab controls
+## Result
 
-Try changing:
-- **Launch speed**
-- **Elevation**
-- **Aim offset**
-- **Spin rate**
-- **Spin axis**
-- **Coefficient profile**
-- **Slow motion**
-- **Knuckle seed**
-- **Trajectory + predictor**
+**Ball Lab satisfaction gate: PASS under explicit owner acceptance after evidence-driven repair and green verification.**
 
-Expected:
-- controls are clear and responsive;
-- the predictor updates when launch parameters change;
-- `0` resets the ball;
-- `E` exports a CSV trace;
-- presets `1` through `8` are easy to compare.
-
-### 8. Stage 03 regression
-
-Move the player around while Ball Lab is present.
-
-Expected:
-- WASD movement, sprint, camera, zoom, action hooks, trace/replay, and player reset still behave as accepted in Stage 03;
-- Ball Lab does not steal movement input except while directly editing one of its form controls.
-
-## Owner result
-
-After the checks, record:
-
-- **Ball Lab satisfaction:** `PASS` or `FAIL`
-- **Overall feel:** `1–10`
-- **Curve readability:** `1–10`
-- **Bounce/roll credibility:** `1–10`
-- **Knuckle learnability:** `1–10`
-- **Post/crossbar rebound quality:** `1–10`
-- **Any concrete issue:** what you launched, what you expected, and what happened
-
-Stage 04 should be marked fully complete only after the owner says the Ball Lab itself is satisfying. No score or owner acceptance should be invented from automated evidence.
+See `docs/gates/STAGE-04-GATE.md` for the full gate record and `docs/handoffs/STAGE-04-HANDOFF.md` for implementation handoff details.
