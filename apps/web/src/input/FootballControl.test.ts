@@ -27,18 +27,19 @@ describe('Stage 05 owner control feedback', () => {
     expect(idle).toBeCloseTo(0.7, 8);
   });
 
-  test('shot preparation keeps the body-facing reference while mouse aim remains free to move', () => {
+  test('shot contact follows the visible current body as the player turns toward mouse aim', () => {
     const begin = updateShotFacingLock(null, PlayerActionBits.ShootHeld, 0.15);
-    expect(begin.latchedYaw).toBeCloseTo(0.15, 8);
     expect(begin.contactFacingYaw).toBeCloseTo(0.15, 8);
 
+    // While charging, locomotion visibly rotates the player toward the current
+    // camera/aim direction. Contact legality must follow that visible body,
+    // not a hidden yaw frozen at the first frame of the charge.
     const continued = updateShotFacingLock(begin.latchedYaw, PlayerActionBits.ShootHeld, 1.05);
-    expect(continued.latchedYaw).toBeCloseTo(0.15, 8);
-    expect(continued.contactFacingYaw).toBeCloseTo(0.15, 8);
+    expect(continued.contactFacingYaw).toBeCloseTo(1.05, 8);
 
     const released = updateShotFacingLock(continued.latchedYaw, PlayerActionBits.ShootReleased, 1.05);
     expect(released.latchedYaw).toBeNull();
-    expect(released.contactFacingYaw).toBeCloseTo(0.15, 8);
+    expect(released.contactFacingYaw).toBeCloseTo(1.05, 8);
   });
 
   test('the first primary pointer-down becomes a shot hold even when that click also captures the mouse', () => {
