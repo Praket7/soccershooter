@@ -54,9 +54,12 @@ export const MATCH_BALL_PROFILE: BallCoefficientProfile = Object.freeze({
   spinDecayPerSecond: 0.11,
   knuckleMaxCoefficient: 0.085,
   knuckleSpinParameterLimit: 0.09,
-  groundRestitution: 0.56,
+  // Calibrated against FIFA-style professional-turf probes in Stage 04:
+  // a 2 m underside drop rebounds about 0.70 m, and a 1 m ramp-equivalent
+  // no-slip roll travels about 6.65 m before settling.
+  groundRestitution: 0.62,
   turfFriction: 0.72,
-  rollingResistance: 0.34,
+  rollingResistance: 0.80,
   groundAngularDamping: 0.24,
   goalFrameRestitution: 0.62,
   goalFrameTangentialRetention: 0.94,
