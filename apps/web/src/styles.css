@@ -65,10 +65,8 @@ h1 { margin: 0; font-size: clamp(24px, 2.4vw, 36px); line-height: 1.05; letter-s
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .3), 0 18px 55px rgba(0, 0, 0, .3);
 }
 .game-viewport canvas { width: 100%; height: 100%; display: block; outline: none; cursor: crosshair; }
-.control-card, .course-card {
+.control-card, .course-card, .action-feedback {
   position: absolute;
-  right: 28px;
-  width: min(240px, calc(100vw - 56px));
   display: grid;
   gap: 4px;
   padding: 11px 13px;
@@ -81,9 +79,44 @@ h1 { margin: 0; font-size: clamp(24px, 2.4vw, 36px); line-height: 1.05; letter-s
   pointer-events: none;
   backdrop-filter: blur(8px);
 }
+.control-card, .course-card {
+  right: 28px;
+  width: min(260px, calc(100vw - 56px));
+}
 .control-card { top: 28px; }
 .course-card { bottom: 28px; }
-.control-card strong, .course-card strong { margin-bottom: 3px; color: #f3f6f8; font-size: 11px; text-transform: uppercase; letter-spacing: .09em; }
+.control-card strong, .course-card strong, .action-feedback strong {
+  margin-bottom: 3px;
+  color: #f3f6f8;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .09em;
+}
+.action-feedback {
+  left: 28px;
+  bottom: 28px;
+  min-width: 220px;
+  max-width: min(330px, calc(100vw - 56px));
+  border-color: rgba(217, 243, 91, .18);
+  background: rgba(8, 14, 18, .84);
+  box-shadow: 0 12px 30px rgba(0,0,0,.22);
+  transition: border-color 120ms ease, background 120ms ease, transform 120ms ease;
+}
+.action-feedback[data-action="sprint"] {
+  border-color: rgba(217, 243, 91, .48);
+  background: rgba(25, 34, 13, .88);
+  transform: translateY(-1px);
+}
+.action-feedback[data-action="jump"] {
+  border-color: rgba(103, 214, 255, .55);
+  background: rgba(10, 37, 49, .9);
+  transform: translateY(-2px);
+}
+.action-feedback[data-action="tackle"] {
+  border-color: rgba(255, 169, 87, .6);
+  background: rgba(51, 28, 9, .9);
+  transform: translateY(-2px);
+}
 .lab-footer {
   min-height: 42px;
   display: flex;
@@ -100,7 +133,8 @@ h1 { margin: 0; font-size: clamp(24px, 2.4vw, 36px); line-height: 1.05; letter-s
   .lab-header { align-items: flex-start; padding: 14px 16px; }
   .subtitle, .status-pill, .course-card { display: none; }
   .viewport-wrap { padding: 8px; }
-  .control-card { top: 18px; right: 18px; }
+  .control-card { top: 18px; right: 18px; width: min(250px, calc(100vw - 36px)); }
+  .action-feedback { left: 18px; bottom: 18px; max-width: calc(100vw - 36px); }
   .lab-footer { padding: 0 16px; }
   .lab-footer span:last-child { display: none; }
 }
