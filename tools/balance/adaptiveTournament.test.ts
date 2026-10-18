@@ -6,9 +6,11 @@ async function loadTournament() {
   return module as NonNullable<typeof module>;
 }
 
-function deterministicPart(report: Record<string, unknown>) {
-  const { averageDecisionMs: _average, maxDecisionMs: _max, ...rest } = report;
-  return rest;
+function deterministicPart(report: unknown): Record<string, unknown> {
+  const copy = JSON.parse(JSON.stringify(report)) as Record<string, unknown>;
+  delete copy.averageDecisionMs;
+  delete copy.maxDecisionMs;
+  return copy;
 }
 
 describe('Stage 07 adaptive bot simulation', () => {
