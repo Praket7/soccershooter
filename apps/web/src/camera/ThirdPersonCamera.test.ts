@@ -1,6 +1,10 @@
-import { describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test } from 'vitest';
 import { createPlayerState } from '@soccershooter/sim/player/PlayerState';
 import { ThirdPersonCamera, type CameraObstacle } from './ThirdPersonCamera';
+
+afterEach(() => {
+  Reflect.deleteProperty(globalThis, 'document');
+});
 
 describe('Stage 03 third-person camera contract', () => {
   test('camera observes authoritative state without mutating it', () => {
@@ -9,6 +13,28 @@ describe('Stage 03 third-person camera contract', () => {
     const camera = new ThirdPersonCamera();
     camera.update(player, { yawDelta: 0.2, pitchDelta: -0.1 }, 1 / 60, []);
     expect(player).toEqual(before);
+  });
+
+  test('generic camera never reads Football Practice DOM state when the caller supplies no obstacles', () => {
+    const fakeDocument = {
+      querySelector(selector: string) {
+        if (selector === '[data-football-practice]') return { hidden: false };
+        if (selector === '[data-football-state]') {
+          return { dataset: { ballX: '5', ballY: '0.11', ballZ: '0' } };
+        }
+        return null;
+      },
+    };
+    Object.defineProperty(globalThis, 'document', { configurable: true, value: fakeDocument });
+
+    const camera = new ThirdPersonCamera({ initialYaw: 0 });
+    const snapshot = camera.update(
+      createPlayerState({ position: { x: 0, y: 0, z: 0 } }),
+      { yawDelta: 0, pitchDelta: 0 },
+      1 / 60,
+      [],
+    );
+    expect(snapshot.target.x).toBeCloseTo(0, 8);
   });
 
   test('manual look yaw responds in the same rendered update rather than being delayed by smoothing', () => {
