@@ -59,6 +59,7 @@ const DEFAULT_CONTROLS: BallLabControls = Object.freeze({
 // greybox athlete/environment reads larger than real scale, so presentation
 // gets a modest readability multiplier without altering collision geometry.
 export const BALL_VISUAL_SCALE = 1.35;
+const BALL_VISUAL_CENTER_OFFSET = BALL_CONSTANTS.radius * (BALL_VISUAL_SCALE - 1);
 
 export const BALL_LAB_PRESETS: readonly BallLabPreset[] = Object.freeze([
   { id: 'driven', label: 'Driven 10m', description: 'Low, fast service benchmark', controls: { speed: 14, elevationDegrees: 5, spinRate: 8, spinAxis: 'back', azimuthDegrees: 0, knuckleSeed: 0 } },
@@ -522,10 +523,12 @@ export class BallLab {
   }
 
   #syncVisuals(): void {
-    this.ballVisual.position.set(this.#state.position.x, this.#state.position.y, this.#state.position.z);
+    const visualY = this.#state.position.y + BALL_VISUAL_CENTER_OFFSET;
+    this.ballVisual.position.set(this.#state.position.x, visualY, this.#state.position.z);
     this.root.dataset.flightSeconds = this.#state.flightSeconds.toFixed(3);
     this.root.dataset.ballX = this.#state.position.x.toFixed(4);
     this.root.dataset.ballZ = this.#state.position.z.toFixed(4);
+    this.root.dataset.ballVisualY = visualY.toFixed(6);
     this.root.dataset.playing = String(this.#playing);
     this.root.dataset.actualTrailPoints = String(this.#actualTrail.geometry.getAttribute('position')?.count ?? 0);
     this.root.dataset.ballVisualQuaternion = [
