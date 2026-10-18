@@ -59,6 +59,7 @@ function install(): void {
   const modeSwitch = document.querySelector<HTMLElement>('.mode-switch');
   const viewport = document.querySelector<HTMLElement>('#game-viewport');
   if (!modeSwitch || !viewport) return;
+  const modeSwitchElement = modeSwitch;
   document.head.append(createStyles());
 
   const practiceButton = mustQuery<HTMLButtonElement>(document, '[data-mode-practice]');
@@ -69,7 +70,7 @@ function install(): void {
   button.dataset.modeAdaptiveBots = 'true';
   button.dataset.active = 'false';
   button.textContent = 'Adaptive Bot Lab';
-  modeSwitch.append(button);
+  modeSwitchElement.append(button);
 
   const lab = document.createElement('section');
   lab.className = 'adaptive-bot-lab';
@@ -257,7 +258,7 @@ function install(): void {
     if (tactical) tactical.hidden = true;
     if (gameCanvas) gameCanvas.hidden = true;
     for (const card of hiddenCards) card.hidden = true;
-    for (const other of Array.from(modeSwitch.querySelectorAll<HTMLButtonElement>('button'))) {
+    for (const other of Array.from(modeSwitchElement.querySelectorAll<HTMLButtonElement>('button'))) {
       if (other !== button) other.dataset.active = 'false';
     }
     renderTiers();
