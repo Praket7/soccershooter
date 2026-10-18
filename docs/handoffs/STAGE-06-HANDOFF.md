@@ -4,8 +4,9 @@ Stage 06 tactical-bot engineering is ready for owner playtest on:
 
 - branch: `stage/06-tactical-bots`
 - draft PR: `#15`
-- verified implementation head before documentation: `e4ae0f9e423be6a8b6291b817abcce0fcccc19bf`
-- verified CI run: `39157652203`
+- verified implementation head before documentation: `4196abd546b538596230601d853abcc7fb5382e1`
+- verified CI run: `39158217835`
+- verified CI job: `117765780488`
 
 **Do not merge yet.**
 
@@ -30,7 +31,7 @@ Watch for:
 
 - the ball carrier making a mix of pass/dribble/protect/shoot decisions instead of repeating one action;
 - one teammate finding a useful diagonal support lane rather than standing directly behind or on top of the carrier;
-- the other teammate preserving width or making an appropriate far-side/advanced movement;
+- the other teammate preserving useful team shape when the scenario contains that role capacity;
 - the two field players avoiding permanent clustering around the ball;
 - a turnover causing an immediate defensive response;
 - the closest defender pressing when appropriate while the other recovers or covers goal-side;
@@ -56,7 +57,7 @@ pnpm test:e2e
 
 The verified implementation head produced:
 
-- `177 / 177` unit/contract tests PASS;
+- `178 / 178` unit/contract tests PASS across 35 files;
 - `26 / 26` Chromium tests PASS;
 - `5000 / 5000` tournament possessions completed;
 - `0` simulation failures;
@@ -65,8 +66,12 @@ The verified implementation head produced:
 - `68.4%` completed-pass rate;
 - `91.46%` multi-pass possessions;
 - `4.5287 m` average support distance;
-- `0.00820 ms/team` average tactical decision time;
-- deterministic tournament checksum `f8ba9988`.
+- `0.00833 ms/team` average tactical decision time;
+- `2.0720 ms/team` max measured tactical decision time;
+- deterministic tournament checksum `f8ba9988`;
+- role occupancy exported for goalkeeper, carrier, support, presser, and cover roles in the 3v3 benchmark.
+
+The benchmark uses one goalkeeper plus two field players per side, so `width-support` and `recovery-runner` occupancy are zero there by construction. Dedicated larger-team unit scenarios exercise those roles separately.
 
 ## Feedback to send back
 
