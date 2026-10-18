@@ -8,15 +8,31 @@ export interface FootballActionIntent {
   shotStyle: ShotStyle;
 }
 
+/**
+ * Decodes high-level football intent from device-agnostic action bits.
+ *
+ * Precision is the firm/controlled technique family: on a ground pass it
+ * becomes driven, and on a shot it becomes finesse. ChipModifier is the lift
+ * family: on a through ball it becomes chipped-through, and on a shot it
+ * becomes a chip. DrivenModifier remains a compatibility alias for existing
+ * gamepad traces while keyboard/mouse no longer exposes the old Z chord.
+ */
 export function decodeFootballActionIntent(actionBits: number): FootballActionIntent {
-  const driven = (actionBits & PlayerActionBits.DrivenModifier) !== 0;
+  const precision = (actionBits & PlayerActionBits.Precision) !== 0;
+  const legacyDriven = (actionBits & PlayerActionBits.DrivenModifier) !== 0;
   const chip = (actionBits & PlayerActionBits.ChipModifier) !== 0;
-  let passType: PassType | null = null;
-  if ((actionBits & PlayerActionBits.LoftedPass) !== 0) passType = 'lofted';
-  else if ((actionBits & PlayerActionBits.ThroughPass) !== 0) passType = driven ? 'chipped-through' : 'through';
-  else if ((actionBits & PlayerActionBits.Pass) !== 0) passType = driven ? 'driven' : 'ground';
+  const firmTechnique = precision || legacyDriven;
 
-  const shotStyle: ShotStyle = chip ? 'chip' : driven ? 'finesse' : 'normal';
+  let passType: PassType | null = null;
+  if ((actionBits & PlayerActionBits.LoftedPass) !== 0) {
+    passType = 'lofted';
+  } else if ((actionBits & PlayerActionBits.ThroughPass) !== 0) {
+    passType = chip || legacyDriven ? 'chipped-through' : 'through';
+  } else if ((actionBits & PlayerActionBits.Pass) !== 0) {
+    passType = firmTechnique ? 'driven' : 'ground';
+  }
+
+  const shotStyle: ShotStyle = chip ? 'chip' : firmTechnique ? 'finesse' : 'normal';
   return {
     passType,
     receiveRequested: (actionBits & PlayerActionBits.Receive) !== 0,
