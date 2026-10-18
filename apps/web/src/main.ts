@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { runReferenceTrace } from '@soccershooter/sim/referenceTrace';
-import { clonePlayerState, createPlayerState, type PlayerState } from '@soccershooter/sim/player/PlayerState';
+import { PlayerActionBits, clonePlayerState, createPlayerState, type PlayerState } from '@soccershooter/sim/player/PlayerState';
 import {
   BENCHMARK_COURSE,
   DEFAULT_MOVEMENT_CONFIG,
@@ -9,13 +9,16 @@ import {
   recordMovementTrace,
   stepPlayerMovement,
   type MovementTrace,
+  type MovementWorld,
 } from '@soccershooter/sim/player/movement';
+import type { ShotStyle } from '@soccershooter/sim/football/shooting';
 import { ActionMap } from './input/ActionMap';
 import { GamepadAdapter } from './input/GamepadAdapter';
 import { mergeInputSources } from './input/InputMerge';
 import { ThirdPersonCamera, type CameraObstacle } from './camera/ThirdPersonCamera';
 import { MovementHud } from './debug/MovementHud';
 import { BallLab } from './dev/BallLab';
+import { FootballPractice } from './dev/FootballPractice';
 import './styles.css';
 
 function requireElement<T extends Element>(selector: string): T {
@@ -31,50 +34,59 @@ app.innerHTML = `
   <div class="movement-lab-shell">
     <header class="lab-header">
       <div>
-        <p class="eyebrow">Stage 04 · premium football physics + Stage 03 movement</p>
+        <p class="eyebrow">Stage 05 · core football interactions</p>
         <h1>SoccerShooter Movement Lab</h1>
-        <p class="subtitle">An independent deterministic football now shares the greybox with the responsive athlete. Tune flight, spin, bounce, roll, and frame rebounds in Ball Lab.</p>
+        <p class="subtitle">Physical first touch, dribbling, passing, six shot contacts, defending, aerials, and a greybox keeper now run on the Stage 04 ball model.</p>
       </div>
-      <div class="status-pill"><span></span> FICTIONAL_PUBLIC</div>
+      <div class="header-actions">
+        <div class="mode-switch" role="group" aria-label="Practice mode">
+          <button type="button" data-mode-practice data-active="true">Football Practice</button>
+          <button type="button" data-mode-ball-lab data-active="false">Ball Lab</button>
+        </div>
+        <div class="status-pill"><span></span> FICTIONAL_PUBLIC</div>
+      </div>
     </header>
-    <section class="viewport-wrap" aria-label="Stage 04 football physics and movement benchmark">
+    <section class="viewport-wrap" aria-label="Stage 05 football practice and movement benchmark">
       <div id="game-viewport" class="game-viewport"></div>
       <aside class="control-card">
-        <strong>Movement controls</strong>
-        <span>W / S · forward / back</span>
-        <span>A / D · screen-left / screen-right</span>
-        <span>Mouse / right stick · camera</span>
-        <span>Trackpad pinch / scroll · camera zoom</span>
+        <strong>Football controls</strong>
+        <span>WASD · move / shape body</span>
+        <span>Mouse / right stick · camera + aim</span>
         <span>Shift / L3 · sprint</span>
-        <span>Space / gamepad A · jump input hook</span>
-        <span>C or B / gamepad B · tackle input hook</span>
-        <span>Click field · pointer lock</span>
+        <span>LMB / RT · hold power, release shot</span>
+        <span>RMB / LT · precision touch / through pass</span>
+        <span>E / X · pass · Q / RB technique modifier</span>
+        <span>Space / A · aerial contest / header</span>
+        <span>C / B · challenge · sprint + C commits</span>
+        <span>1–6 · practice shot contact · G reset ball</span>
       </aside>
       <aside class="action-feedback" data-action-feedback data-action="idle" aria-live="polite">
-        <strong>RUN READY</strong>
-        <span>Shift engages sprint</span>
+        <strong>PLAY READY</strong>
+        <span>Move into the ball and let each physical touch breathe</span>
       </aside>
       <aside class="course-card">
-        <strong>Movement benchmark</strong>
-        <span>01 straight sprint</span><span>02 hard cut</span><span>03 stop marker</span>
-        <span>04 slalom</span><span>05 tight corridor</span><span>06 camera wall</span>
-        <span>07 legal slope</span><span>08 step test</span>
+        <strong>Stage 05 focus</strong>
+        <span>first touch</span><span>close dribble</span><span>sprint touch</span>
+        <span>ground / lead pass</span><span>six shot contacts</span><span>keeper read</span>
+        <span>challenge timing</span><span>aerial window</span>
       </aside>
     </section>
     <footer class="lab-footer">
-      <span>Ball: 1–8 presets · L launch · 0 reset · E CSV</span>
-      <span>Movement: R trace · P replay · X reset · F1 HUD · ${PLAYER_MOVEMENT_TICK_HZ} Hz</span>
+      <span>Practice: LMB shoot · RMB precision · E pass · Q modifier · G reset</span>
+      <span>Tools: mode switch · R trace · P replay · X player reset · F1 HUD · ${PLAYER_MOVEMENT_TICK_HZ} Hz</span>
     </footer>
     <output data-determinism-hash="${reference.hash}" data-determinism-ticks="${reference.ticks}" hidden>${reference.hash}</output>
     <output data-player-state data-x="0" data-z="${BENCHMARK_COURSE.spawn.z}" data-movement-tick-hz="${PLAYER_MOVEMENT_TICK_HZ}" hidden></output>
   </div>
 `;
 
-document.title = 'SoccerShooter Ball + Movement Lab';
+document.title = 'SoccerShooter Core Football Practice';
 
 const viewport = requireElement<HTMLElement>('#game-viewport');
 const playerProbe = requireElement<HTMLOutputElement>('[data-player-state]');
 const actionFeedback = requireElement<HTMLElement>('[data-action-feedback]');
+const practiceModeButton = requireElement<HTMLButtonElement>('[data-mode-practice]');
+const ballLabModeButton = requireElement<HTMLButtonElement>('[data-mode-ball-lab]');
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0b1118);
@@ -86,7 +98,7 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.domElement.dataset.gameViewport = 'true';
-renderer.domElement.setAttribute('aria-label', 'Interactive SoccerShooter movement and ball physics lab');
+renderer.domElement.setAttribute('aria-label', 'Interactive SoccerShooter core football practice');
 viewport.append(renderer.domElement);
 
 scene.add(new THREE.HemisphereLight(0xbdd8ff, 0x29321f, 1.65));
@@ -101,6 +113,8 @@ sun.shadow.camera.bottom = -22;
 scene.add(sun);
 
 const world = createMovementBenchmarkWorld();
+const practiceWorld: MovementWorld = { bounds: world.bounds, obstacles: [], ground: [] };
+const courseVisuals: THREE.Object3D[] = [];
 
 function addBox(
   size: { x: number; y: number; z: number },
@@ -132,6 +146,7 @@ for (const zone of BENCHMARK_COURSE.zones) {
   marker.rotation.x = -Math.PI / 2;
   marker.position.set(zone.center.x, 0.012, zone.center.z);
   scene.add(marker);
+  courseVisuals.push(marker);
 }
 
 const obstacleMaterial = new THREE.MeshStandardMaterial({ color: 0x66717b, roughness: 0.9 });
@@ -142,13 +157,14 @@ for (const obstacle of world.obstacles) {
     cone.position.set((obstacle.minX + obstacle.maxX) / 2, 0.51, (obstacle.minZ + obstacle.maxZ) / 2);
     cone.castShadow = true;
     scene.add(cone);
+    courseVisuals.push(cone);
     continue;
   }
-  addBox(
+  courseVisuals.push(addBox(
     { x: obstacle.maxX - obstacle.minX, y: obstacle.maxY - obstacle.minY, z: obstacle.maxZ - obstacle.minZ },
     { x: (obstacle.minX + obstacle.maxX) / 2, y: (obstacle.minY + obstacle.maxY) / 2, z: (obstacle.minZ + obstacle.maxZ) / 2 },
     obstacleMaterial,
-  );
+  ));
 }
 
 const groundFeatureMaterial = new THREE.MeshStandardMaterial({ color: 0x485965, roughness: 0.88 });
@@ -166,19 +182,21 @@ for (const patch of world.ground) {
     );
     ramp.rotation.z = Math.atan(patch.slopeX);
     ramp.rotation.x = -Math.atan(patch.slopeZ);
+    courseVisuals.push(ramp);
   } else {
-    addBox(
+    courseVisuals.push(addBox(
       { x: width, y: Math.max(0.04, patch.baseHeight), z: depth },
       { x: (patch.minX + patch.maxX) / 2, y: patch.baseHeight / 2, z: (patch.minZ + patch.maxZ) / 2 },
       groundFeatureMaterial,
-    );
+    ));
   }
 }
 
 const stopLineMaterial = new THREE.MeshBasicMaterial({ color: 0xf2ce6b });
-addBox({ x: 4.2, y: 0.025, z: 0.08 }, { x: 4, y: 0.018, z: -5 }, stopLineMaterial);
+courseVisuals.push(addBox({ x: 4.2, y: 0.025, z: 0.08 }, { x: 4, y: 0.018, z: -5 }, stopLineMaterial));
 const cutLine = addBox({ x: 0.08, y: 0.025, z: 3 }, { x: -4, y: 0.018, z: -5 }, stopLineMaterial);
 cutLine.rotation.y = Math.PI / 4;
+courseVisuals.push(cutLine);
 
 const playerGroup = new THREE.Group();
 const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0xd9f35b, roughness: 0.62, metalness: 0.02 });
@@ -203,9 +221,12 @@ actionMap.attach();
 const gamepad = new GamepadAdapter();
 const hud = new MovementHud(document.body);
 const ballLab = new BallLab({ scene, host: viewport });
+const footballPractice = new FootballPractice({ scene, host: viewport });
 
 const FIXED_DT = 1 / PLAYER_MOVEMENT_TICK_HZ;
 const ACTION_FEEDBACK_MS = 480;
+const EDGE_ACTION_BITS = PlayerActionBits.Jump | PlayerActionBits.Tackle | PlayerActionBits.Pass | PlayerActionBits.ShootReleased;
+const HELD_ACTION_BITS = PlayerActionBits.ShootHeld | PlayerActionBits.Precision | PlayerActionBits.Technique;
 let player = createPlayerState({ position: BENCHMARK_COURSE.spawn, stamina: DEFAULT_MOVEMENT_CONFIG.staminaMax });
 let previousPlayer = clonePlayerState(player);
 let accumulator = 0;
@@ -225,6 +246,31 @@ let recordedIntents: Array<ReturnType<ActionMap['consumeFrame']>['intent']> = []
 let recordingInitial = clonePlayerState(player);
 let lastTrace: MovementTrace | null = null;
 let playbackIndex: number | null = null;
+let practiceMode = true;
+
+function setBallLabTrails(enabled: boolean): void {
+  const input = ballLab.root.querySelector<HTMLInputElement>('[data-ball-trail]');
+  if (!input || input.checked === enabled) return;
+  input.checked = enabled;
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function setMode(mode: 'practice' | 'ball-lab'): void {
+  practiceMode = mode === 'practice';
+  footballPractice.setVisible(practiceMode);
+  ballLab.root.hidden = practiceMode;
+  ballLab.ballVisual.visible = !practiceMode;
+  ballLab.goalVisual.visible = true;
+  setBallLabTrails(!practiceMode);
+  for (const visual of courseVisuals) visual.visible = !practiceMode;
+  practiceModeButton.dataset.active = String(practiceMode);
+  ballLabModeButton.dataset.active = String(!practiceMode);
+  playerProbe.dataset.mode = mode;
+}
+
+practiceModeButton.addEventListener('click', () => setMode('practice'));
+ballLabModeButton.addEventListener('click', () => setMode('ball-lab'));
+setMode('practice');
 
 function resetPlayer(): void {
   player = createPlayerState({ position: BENCHMARK_COURSE.spawn, stamina: DEFAULT_MOVEMENT_CONFIG.staminaMax });
@@ -237,7 +283,35 @@ function resetPlayer(): void {
   playbackIndex = null;
   recording = false;
   recordedIntents = [];
+  if (practiceMode) footballPractice.resetBallNear(player);
 }
+
+const practiceStyles: readonly ShotStyle[] = ['normal', 'driven', 'finesse', 'chip', 'knuckle', 'outside-foot'];
+document.addEventListener('keydown', (event) => {
+  if (!practiceMode || event.repeat) return;
+  if (event.code === 'KeyE') {
+    bufferedActionBits |= PlayerActionBits.Pass;
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
+  const digit = Number(event.key);
+  if (Number.isInteger(digit) && digit >= 1 && digit <= practiceStyles.length) {
+    footballPractice.setShotStyle(practiceStyles[digit - 1]!);
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
+  if (event.code === 'KeyG') {
+    footballPractice.resetBallNear(player);
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
+  if (event.code === 'KeyL' || event.code === 'Digit0') {
+    event.stopPropagation();
+  }
+}, true);
 
 window.addEventListener('keydown', (event) => {
   if (event.repeat) return;
@@ -309,19 +383,19 @@ function renderActionFeedback(
   if (actionFeedback.dataset.action === mode) return;
   actionFeedback.dataset.action = mode;
   if (mode === 'jump') {
-    actionFeedback.innerHTML = '<strong>JUMP INPUT</strong><span>Hook acknowledged · full jump arrives in a later stage</span>';
+    actionFeedback.innerHTML = '<strong>AERIAL INPUT</strong><span>Header / contest window checked against the physical ball</span>';
     bodyMaterial.emissive.setHex(0x16475a);
     bodyMaterial.emissiveIntensity = 0.7;
   } else if (mode === 'tackle') {
-    actionFeedback.innerHTML = '<strong>TACKLE INPUT</strong><span>Hook acknowledged · full tackle arrives in a later stage</span>';
+    actionFeedback.innerHTML = '<strong>DEFENSIVE INPUT</strong><span>Standing challenge · sprint commits with recovery cost</span>';
     bodyMaterial.emissive.setHex(0x6b3100);
     bodyMaterial.emissiveIntensity = 0.65;
   } else if (mode === 'sprint') {
-    actionFeedback.innerHTML = `<strong>SPRINT ENGAGED</strong><span>Target ${Math.round(DEFAULT_MOVEMENT_CONFIG.sprintSpeed * 3.6)} km/h · stamina active</span>`;
+    actionFeedback.innerHTML = `<strong>SPRINT ENGAGED</strong><span>Longer, harder touches · target ${Math.round(DEFAULT_MOVEMENT_CONFIG.sprintSpeed * 3.6)} km/h</span>`;
     bodyMaterial.emissive.setHex(0x233000);
     bodyMaterial.emissiveIntensity = 0.35;
   } else {
-    actionFeedback.innerHTML = '<strong>RUN READY</strong><span>Shift engages sprint</span>';
+    actionFeedback.innerHTML = '<strong>PLAY READY</strong><span>Move into the ball · precision and body angle shape every touch</span>';
     bodyMaterial.emissive.setHex(0x000000);
     bodyMaterial.emissiveIntensity = 0;
   }
@@ -340,9 +414,9 @@ function frame(now: number): void {
   accumulator += rawDelta;
 
   const keyboardFrame = actionMap.consumeFrame();
-  bufferedActionBits |= keyboardFrame.intent.actionBits;
+  bufferedActionBits |= keyboardFrame.intent.actionBits & EDGE_ACTION_BITS;
   const gamepadFrame = gamepad.read(actionMap.aimYaw, rawDelta);
-  if (gamepadFrame) bufferedActionBits |= gamepadFrame.intent.actionBits;
+  if (gamepadFrame) bufferedActionBits |= gamepadFrame.intent.actionBits & EDGE_ACTION_BITS;
   const mergedFrame = mergeInputSources(keyboardFrame, gamepadFrame, bufferedActionBits);
   let intent = mergedFrame.intent;
   const look = mergedFrame.look;
@@ -350,6 +424,16 @@ function frame(now: number): void {
     actionMap.setAimYaw(gamepadFrame.intent.aimYaw);
   }
   cameraController.adjustZoom(mergedFrame.zoomDelta);
+
+  if (practiceMode && footballPractice.movementAuthority < 1) {
+    const authority = footballPractice.movementAuthority;
+    intent = {
+      ...intent,
+      moveX: intent.moveX * authority,
+      moveY: intent.moveY * authority,
+      sprint: false,
+    };
+  }
 
   let stepped = false;
   let jumpAcknowledgedThisFrame = false;
@@ -370,7 +454,8 @@ function frame(now: number): void {
     if (recording && playbackIndex === null) recordedIntents.push(copyIntent(tickIntent));
 
     const beforeVelocity = player.velocity;
-    player = stepPlayerMovement(player, tickIntent, world, FIXED_DT);
+    player = stepPlayerMovement(player, tickIntent, practiceMode ? practiceWorld : world, FIXED_DT);
+    if (practiceMode && !playingBack) footballPractice.processIntent(player, tickIntent, FIXED_DT);
     jumpAcknowledgedThisFrame ||= player.actionHooks.jumpRequested;
     tackleAcknowledgedThisFrame ||= player.actionHooks.tackleRequested;
     lastAcceleration = Math.hypot(
@@ -382,8 +467,11 @@ function frame(now: number): void {
     stepped = true;
 
     if (!playingBack) {
-      bufferedActionBits &= ~tickIntent.actionBits;
-      intent = { ...intent, actionBits: bufferedActionBits >>> 0 };
+      bufferedActionBits &= ~(tickIntent.actionBits & EDGE_ACTION_BITS);
+      intent = {
+        ...intent,
+        actionBits: ((intent.actionBits & HELD_ACTION_BITS) | bufferedActionBits) >>> 0,
+      };
     }
 
     if (keyboardFrame.inputTimestamp !== null && keyboardFrame.inputTimestamp > lastAppliedInputTimestamp) {
@@ -406,16 +494,25 @@ function frame(now: number): void {
   const speed = Math.hypot(player.velocity.x, player.velocity.z);
   const sprintFraction = Math.max(0, Math.min(1, (speed - DEFAULT_MOVEMENT_CONFIG.jogSpeed) /
     (DEFAULT_MOVEMENT_CONFIG.sprintSpeed - DEFAULT_MOVEMENT_CONFIG.jogSpeed)));
-  const cameraState = cameraController.update(displayPlayer, look, Math.max(rawDelta, 1 / 240), cameraObstacles, sprintFraction);
+  const cameraState = cameraController.update(
+    displayPlayer,
+    look,
+    Math.max(rawDelta, 1 / 240),
+    practiceMode ? [] : cameraObstacles,
+    sprintFraction,
+  );
   camera.position.set(cameraState.position.x, cameraState.position.y, cameraState.position.z);
   camera.fov = cameraState.fov;
   camera.lookAt(cameraState.target.x, cameraState.target.y, cameraState.target.z);
   camera.updateProjectionMatrix();
 
-  ballLab.update(rawDelta);
+  if (practiceMode) footballPractice.update(rawDelta);
+  else ballLab.update(rawDelta);
 
   playerProbe.dataset.x = String(player.position.x);
+  playerProbe.dataset.y = String(player.position.y);
   playerProbe.dataset.z = String(player.position.z);
+  playerProbe.dataset.facingYaw = String(player.facingYaw);
   playerProbe.dataset.tick = String(simTick);
   playerProbe.dataset.inputToSimulationMs = inputToSimulationMs === null ? '' : inputToSimulationMs.toFixed(3);
   playerProbe.dataset.inputToRenderMs = inputToRenderMs === null ? '' : inputToRenderMs.toFixed(3);
