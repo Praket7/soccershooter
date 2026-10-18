@@ -138,7 +138,6 @@ function install(): void {
   const personalitySelect = mustQuery<HTMLSelectElement>(lab, '[data-physical-personality]');
   const pauseButton = mustQuery<HTMLButtonElement>(lab, '[data-physical-pause]');
   const resetButton = mustQuery<HTMLButtonElement>(lab, '[data-physical-reset]');
-  const hiddenCards = Array.from(document.querySelectorAll<HTMLElement>('.control-card,.action-feedback,.course-card,.football-practice-panel'));
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x081119);
@@ -261,7 +260,6 @@ function install(): void {
     active = next;
     lab.hidden = !next;
     button.dataset.active = String(next);
-    for (const card of hiddenCards) card.hidden = next;
     if (next) {
       if (document.pointerLockElement) void document.exitPointerLock();
       if (tacticalLab) tacticalLab.hidden = true;
