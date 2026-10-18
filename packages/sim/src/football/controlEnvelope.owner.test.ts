@@ -45,6 +45,52 @@ describe('Stage 05 owner dribble feedback', () => {
     expect(next.position).toEqual(source.position);
   });
 
+  test('ordinary jogging actively recenters a laterally drifting ball into the forward control corridor', () => {
+    const source = ball({
+      position: { x: 0.42, y: 0.11, z: 0.68 },
+      velocity: { x: 0.9, y: 0, z: 4.8 },
+    });
+    const playerSpeed = 5.2;
+    const touch = buildControlTouch({
+      actor: actor({ velocity: { x: 0, y: 0, z: playerSpeed } }),
+      ball: source,
+      desiredDirection: { x: 0, z: 1 },
+      precision: false,
+      sprint: false,
+      pressure: 0,
+      moveIntentMagnitude: 1,
+    });
+
+    expect(touch.eligible).toBe(true);
+    expect(touch.touchMode).toBe('normal');
+    expect(touch.targetBallSpeed).toBeGreaterThan(playerSpeed);
+    const next = applyBallContact(source, touch.command!);
+    expect(next.velocity.x).toBeLessThan(-0.15);
+    expect(next.position).toEqual(source.position);
+  });
+
+  test('a correctly positioned normal dribble touch cannot be slower than the jogging carrier', () => {
+    const playerSpeed = 5.2;
+    const source = ball({
+      position: { x: 0.02, y: 0.11, z: 0.56 },
+      velocity: { x: 0, y: 0, z: 4.7 },
+    });
+    const touch = buildControlTouch({
+      actor: actor({ velocity: { x: 0, y: 0, z: playerSpeed } }),
+      ball: source,
+      desiredDirection: { x: 0, z: 1 },
+      precision: false,
+      sprint: false,
+      pressure: 0,
+      moveIntentMagnitude: 1,
+    });
+
+    expect(touch.eligible).toBe(true);
+    expect(touch.targetBallSpeed).toBeGreaterThan(playerSpeed);
+    const next = applyBallContact(source, touch.command!);
+    expect(next.velocity.z).toBeGreaterThan(playerSpeed);
+  });
+
   test('explicit receive with no movement intent physically traps a moving ball', () => {
     const source = ball({ velocity: { x: 0.2, y: 0, z: 5.2 } });
     const touch = buildControlTouch({
