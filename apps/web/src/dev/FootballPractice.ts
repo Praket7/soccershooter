@@ -1,12 +1,7 @@
 import * as THREE from 'three';
 import { BALL_CONSTANTS, cloneBallState, createBallState, type BallState } from '@soccershooter/physics/ball/BallState';
 import { MATCH_BALL_PROFILE } from '@soccershooter/physics/ball/aerodynamics';
-import {
-  BALL_SUBSTEP_DT,
-  STANDARD_GOAL_FRAME,
-  crossedGoalPlane,
-  stepBall,
-} from '@soccershooter/physics/ball/trajectory';
+import { BALL_SUBSTEP_DT, STANDARD_GOAL_FRAME, crossedGoalPlane, stepBall } from '@soccershooter/physics/ball/trajectory';
 import type { InputIntent } from '@soccershooter/sim';
 import { PlayerActionBits, type PlayerState } from '@soccershooter/sim/player/PlayerState';
 import { buildControlTouch } from '@soccershooter/sim/football/controlEnvelope';
@@ -48,7 +43,7 @@ const PRACTICE_BALL_START = Object.freeze({ x: 0, y: BALL_CONSTANTS.radius, z: -
 const KEEPER_Z = STANDARD_GOAL_FRAME.planeZ - 0.72;
 const KEEPER_MAX_SPEED = 4.8;
 const KEEPER_HALF_REACH = 0.68;
-const PRACTICE_VISUAL_SCALE = 1.35;
+const VISUAL_SCALE = 1.35;
 const SHOT_STYLES: readonly ShotStyle[] = Object.freeze([
   'normal', 'driven', 'finesse', 'chip', 'knuckle', 'outside-foot',
 ]);
@@ -57,77 +52,11 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
-function createBallVisual(scene: THREE.Scene): THREE.Group {
-  const group = new THREE.Group();
-  group.name = 'stage05-practice-ball';
-  const radius = BALL_CONSTANTS.radius * PRACTICE_VISUAL_SCALE;
-  const shell = new THREE.Mesh(
-    new THREE.SphereGeometry(radius, 28, 20),
-    new THREE.MeshStandardMaterial({ color: 0xf5f4ee, roughness: 0.68, metalness: 0.01 }),
-  );
-  shell.castShadow = true;
-  shell.receiveShadow = true;
-  const panels = new THREE.Mesh(
-    new THREE.IcosahedronGeometry(radius * 1.012, 2),
-    new THREE.MeshBasicMaterial({ color: 0x101820, wireframe: true, transparent: true, opacity: 0.62 }),
-  );
-  group.add(shell, panels);
-  scene.add(group);
-  return group;
-}
-
-function createKeeperVisual(scene: THREE.Scene): THREE.Group {
-  const keeper = new THREE.Group();
-  keeper.name = 'stage05-greybox-keeper';
-  const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0x52a8ff, roughness: 0.62 });
-  const accent = new THREE.MeshStandardMaterial({ color: 0x152331, roughness: 0.75 });
-  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.72, 1.18, 0.34), bodyMaterial);
-  torso.position.y = 0.95;
-  torso.castShadow = true;
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.23, 16, 12), bodyMaterial);
-  head.position.y = 1.73;
-  head.castShadow = true;
-  const arms = new THREE.Mesh(new THREE.BoxGeometry(1.42, 0.14, 0.16), accent);
-  arms.position.y = 1.25;
-  keeper.add(torso, head, arms);
-  keeper.position.set(0, 0, KEEPER_Z);
-  scene.add(keeper);
-  return keeper;
-}
-
-function createReceiverVisual(scene: THREE.Scene): THREE.Group {
-  const receiver = new THREE.Group();
-  receiver.name = 'stage05-pass-receiver';
-  const material = new THREE.MeshStandardMaterial({ color: 0xf4c95d, roughness: 0.7 });
-  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.32, 1.04, 16), material);
-  torso.position.y = 0.77;
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 14, 10), material);
-  head.position.y = 1.48;
-  receiver.add(torso, head);
-  scene.add(receiver);
-  return receiver;
-}
-
-function createOppositePracticeGoal(scene: THREE.Scene): THREE.Group {
-  const group = new THREE.Group();
-  group.name = 'stage05-opposite-practice-goal';
-  const material = new THREE.MeshStandardMaterial({ color: 0xdfe7eb, roughness: 0.48 });
-  const radius = STANDARD_GOAL_FRAME.postRadius;
-  const height = STANDARD_GOAL_FRAME.height;
-  const halfWidth = STANDARD_GOAL_FRAME.halfWidth;
-  const z = -15.2;
-  const postGeometry = new THREE.CylinderGeometry(radius, radius, height, 14);
-  for (const x of [-halfWidth, halfWidth]) {
-    const post = new THREE.Mesh(postGeometry, material);
-    post.position.set(x, height / 2, z);
-    group.add(post);
-  }
-  const crossbar = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, halfWidth * 2, 14), material);
-  crossbar.rotation.z = Math.PI / 2;
-  crossbar.position.set(0, height, z);
-  group.add(crossbar);
-  scene.add(group);
-  return group;
+function playerDirection(player: Readonly<PlayerState>): { x: number; z: number } {
+  const speed = Math.hypot(player.velocity.x, player.velocity.z);
+  return speed > 0.35
+    ? normalizeHorizontal({ x: player.velocity.x, z: player.velocity.z })
+    : forwardFromYaw(player.facingYaw);
 }
 
 function actorSnapshot(player: Readonly<PlayerState>): FootballActorSnapshot {
@@ -156,10 +85,70 @@ function ballSnapshot(state: Readonly<BallState>): FootballBallSnapshot {
   };
 }
 
-function playerTravelDirection(player: Readonly<PlayerState>): { x: number; z: number } {
-  const speed = Math.hypot(player.velocity.x, player.velocity.z);
-  if (speed > 0.35) return normalizeHorizontal({ x: player.velocity.x, z: player.velocity.z });
-  return forwardFromYaw(player.facingYaw);
+function createBall(scene: THREE.Scene): THREE.Group {
+  const group = new THREE.Group();
+  group.name = 'stage05-practice-ball';
+  const radius = BALL_CONSTANTS.radius * VISUAL_SCALE;
+  const shell = new THREE.Mesh(
+    new THREE.SphereGeometry(radius, 28, 20),
+    new THREE.MeshStandardMaterial({ color: 0xf5f4ee, roughness: 0.68, metalness: 0.01 }),
+  );
+  shell.castShadow = true;
+  shell.receiveShadow = true;
+  const panels = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(radius * 1.012, 2),
+    new THREE.MeshBasicMaterial({ color: 0x101820, wireframe: true, transparent: true, opacity: 0.62 }),
+  );
+  group.add(shell, panels);
+  scene.add(group);
+  return group;
+}
+
+function createAthleteMarker(scene: THREE.Scene, color: number, name: string): THREE.Group {
+  const group = new THREE.Group();
+  group.name = name;
+  const material = new THREE.MeshStandardMaterial({ color, roughness: 0.68 });
+  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.33, 1.04, 16), material);
+  torso.position.y = 0.78;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 14, 10), material);
+  head.position.y = 1.48;
+  group.add(torso, head);
+  scene.add(group);
+  return group;
+}
+
+function createKeeper(scene: THREE.Scene): THREE.Group {
+  const group = createAthleteMarker(scene, 0x52a8ff, 'stage05-greybox-keeper');
+  const arms = new THREE.Mesh(
+    new THREE.BoxGeometry(1.42, 0.14, 0.16),
+    new THREE.MeshStandardMaterial({ color: 0x152331, roughness: 0.75 }),
+  );
+  arms.position.y = 1.25;
+  group.add(arms);
+  group.position.set(0, 0, KEEPER_Z);
+  return group;
+}
+
+function createOppositeGoal(scene: THREE.Scene): THREE.Group {
+  const group = new THREE.Group();
+  group.name = 'stage05-opposite-practice-goal';
+  const material = new THREE.MeshStandardMaterial({ color: 0xdfe7eb, roughness: 0.48 });
+  const radius = STANDARD_GOAL_FRAME.postRadius;
+  const height = STANDARD_GOAL_FRAME.height;
+  const halfWidth = STANDARD_GOAL_FRAME.halfWidth;
+  const z = -15.2;
+  const postGeometry = new THREE.CylinderGeometry(radius, radius, height, 14);
+  for (const x of [-halfWidth, halfWidth]) {
+    const post = new THREE.Mesh(postGeometry, material);
+    post.position.set(x, height / 2, z);
+    group.add(post);
+  }
+  const bar = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, halfWidth * 2, 14), material);
+  bar.rotation.z = Math.PI / 2;
+  bar.position.set(0, height, z);
+  group.add(bar);
+  scene.add(group);
+  return group;
 }
 
 export class FootballPractice {
@@ -170,8 +159,8 @@ export class FootballPractice {
   readonly oppositeGoalVisual: THREE.Group;
   readonly debugHud: ActionDebugHud;
 
-  #state: BallState = createBallState({ position: PRACTICE_BALL_START, grounded: true });
-  #previousState: BallState = cloneBallState(this.#state);
+  #state = createBallState({ position: PRACTICE_BALL_START, grounded: true });
+  #previousState = cloneBallState(this.#state);
   #runtime: FootballRuntimeState = createFootballRuntimeState();
   #defenderState: DefenderActionState = createDefenderActionState();
   #accumulator = 0;
@@ -192,10 +181,10 @@ export class FootballPractice {
   #probe: HTMLOutputElement;
 
   constructor(options: FootballPracticeOptions) {
-    this.ballVisual = createBallVisual(options.scene);
-    this.keeperVisual = createKeeperVisual(options.scene);
-    this.receiverVisual = createReceiverVisual(options.scene);
-    this.oppositeGoalVisual = createOppositePracticeGoal(options.scene);
+    this.ballVisual = createBall(options.scene);
+    this.keeperVisual = createKeeper(options.scene);
+    this.receiverVisual = createAthleteMarker(options.scene, 0xf4c95d, 'stage05-pass-receiver');
+    this.oppositeGoalVisual = createOppositeGoal(options.scene);
     this.debugHud = new ActionDebugHud(options.host);
 
     this.root = document.createElement('section');
@@ -228,27 +217,15 @@ export class FootballPractice {
     this.#updateHud();
   }
 
-  get state(): Readonly<BallState> {
-    return this.#state;
-  }
-
-  get tackleRecoverySeconds(): number {
-    return this.#defenderState.recoverySeconds;
-  }
+  get state(): Readonly<BallState> { return this.#state; }
+  get tackleRecoverySeconds(): number { return this.#defenderState.recoverySeconds; }
+  get shotStyle(): ShotStyle { return this.#shotStyle; }
+  get visible(): boolean { return this.#visible; }
 
   get movementAuthority(): number {
-    const recovery = this.#defenderState.recoverySeconds;
-    if (recovery >= 0.7) return 0.28;
-    if (recovery > 0) return 0.58;
+    if (this.#defenderState.recoverySeconds >= 0.7) return 0.28;
+    if (this.#defenderState.recoverySeconds > 0) return 0.58;
     return 1;
-  }
-
-  get shotStyle(): ShotStyle {
-    return this.#shotStyle;
-  }
-
-  get visible(): boolean {
-    return this.#visible;
   }
 
   setVisible(visible: boolean): void {
@@ -268,9 +245,7 @@ export class FootballPractice {
     for (const button of this.root.querySelectorAll<HTMLButtonElement>('[data-shot-style]')) {
       button.dataset.active = String(button.dataset.shotStyle === style);
     }
-    this.#lastAction = 'style';
-    this.#lastReason = style;
-    this.#lastSuccess = true;
+    this.#recordAction('style', true, style);
     this.#updateHud();
   }
 
@@ -289,9 +264,8 @@ export class FootballPractice {
     this.#accumulator = 0;
     this.#goalLatched = false;
     this.#resetCountdown = 0;
-    this.#lastAction = 'reset';
-    this.#lastReason = 'ball-reset-in-front';
-    this.#lastSuccess = true;
+    this.ballVisual.quaternion.identity();
+    this.#recordAction('reset', true, 'ball-reset-in-front');
     this.#syncVisuals();
     this.#updateHud();
   }
@@ -301,17 +275,19 @@ export class FootballPractice {
     else {
       this.#state = createBallState({ position: PRACTICE_BALL_START, grounded: true });
       this.#previousState = cloneBallState(this.#state);
+      this.ballVisual.quaternion.identity();
       this.#syncVisuals();
     }
   }
 
   processIntent(player: Readonly<PlayerState>, intent: Readonly<InputIntent>, dt: number): void {
     if (!this.#visible) return;
-    this.#lastPlayer = { ...player, position: { ...player.position }, velocity: { ...player.velocity }, actionHooks: { ...player.actionHooks } };
+    this.#lastPlayer = clonePlayer(player);
     this.#elapsed += Math.max(0, dt);
     const runtimeStep = stepFootballRuntime(this.#runtime, intent.actionBits, dt);
     this.#runtime = runtimeStep.state;
     this.#defenderState = stepDefenderActionState(this.#defenderState, dt);
+
     const actor = actorSnapshot(player);
     const snapshot = ballSnapshot(this.#state);
     const precision = (intent.actionBits & PlayerActionBits.Precision) !== 0;
@@ -344,13 +320,10 @@ export class FootballPractice {
     if (jump && this.#runtime.kickCooldown <= 0) {
       const aerial = evaluateAerialContact({ kind: 'header', actor, ball: snapshot, jumpRequested: true });
       if (aerial.eligible) {
-        const targetVelocity = {
-          x: aim.x * 13.5,
-          y: 1.1 + Math.max(0, player.velocity.y) * 0.2,
-          z: aim.z * 13.5,
-        };
         this.#applyCommand(commandTowardVelocity(
-          'header', snapshot, targetVelocity, { x: -3, y: 0, z: 0 }, 8.2,
+          'header', snapshot,
+          { x: aim.x * 13.5, y: 1.1 + Math.max(0, player.velocity.y) * 0.2, z: aim.z * 13.5 },
+          { x: -3, y: 0, z: 0 }, 8.2,
           `header timing=${aerial.timingScore.toFixed(2)}`,
         ));
         this.#runtime = markKick(this.#runtime, 'shot');
@@ -393,12 +366,11 @@ export class FootballPractice {
 
     if (pass && this.#runtime.kickCooldown <= 0) {
       this.#passType = technique && precision ? 'lofted' : technique ? 'driven' : precision ? 'through' : 'ground';
-      const receiver = this.#receiverSnapshot();
       const solution = solvePass({
         type: this.#passType,
         passer: actor,
         ball: snapshot,
-        receiver,
+        receiver: this.#receiverSnapshot(),
         userAim: aim,
         assist: 0.58,
         pressure: actor.pressure,
@@ -416,7 +388,7 @@ export class FootballPractice {
     if (precision && this.#runtime.kickCooldown <= 0) {
       const interception = evaluateInterception({ defender: actor, ball: snapshot, horizonSeconds: 0.18 });
       if (interception.eligible && interception.timeToWindow <= 0.11) {
-        const desired = playerTravelDirection(player);
+        const desired = playerDirection(player);
         this.#applyCommand(commandTowardVelocity(
           'interception', snapshot,
           { x: desired.x * 3.6, y: 0, z: desired.z * 3.6 },
@@ -434,7 +406,7 @@ export class FootballPractice {
       const touch = buildControlTouch({
         actor,
         ball: snapshot,
-        desiredDirection: playerTravelDirection(player),
+        desiredDirection: playerDirection(player),
         precision,
         sprint: intent.sprint,
         pressure: actor.pressure,
@@ -444,7 +416,7 @@ export class FootballPractice {
         this.#applyCommand(touch.command);
         this.#runtime = markControlTouch(this.#runtime, intent.sprint);
         this.#recordAction(intent.sprint ? 'sprint touch' : precision ? 'precision touch' : 'control touch', true, touch.reason);
-      } else if (touch.reason !== 'out-of-reach') {
+      } else if (touch.reason !== 'out-of-reach' && touch.reason !== 'idle-no-touch') {
         this.#recordAction('first touch', false, touch.reason);
       }
     }
@@ -474,6 +446,7 @@ export class FootballPractice {
         this.#recordAction('goal', true, 'whole-ball-crossed-line');
       }
       this.#state = next;
+      this.#advanceVisualRotation(BALL_SUBSTEP_DT);
       this.#accumulator -= BALL_SUBSTEP_DT;
       steps += 1;
     }
@@ -486,11 +459,11 @@ export class FootballPractice {
   }
 
   #receiverSnapshot(): { position: FootballVec3; velocity: FootballVec3 } {
-    const angularRate = 0.62;
-    const phase = this.#elapsed * angularRate;
+    const rate = 0.62;
+    const phase = this.#elapsed * rate;
     return {
       position: { x: Math.sin(phase) * 4.2, y: 0, z: -2.2 + Math.cos(phase * 0.45) * 0.65 },
-      velocity: { x: Math.cos(phase) * 4.2 * angularRate, y: 0, z: -Math.sin(phase * 0.45) * 0.65 * angularRate * 0.45 },
+      velocity: { x: Math.cos(phase) * 4.2 * rate, y: 0, z: -Math.sin(phase * 0.45) * 0.65 * rate * 0.45 },
     };
   }
 
@@ -505,21 +478,17 @@ export class FootballPractice {
   }
 
   #keeperSaveIfEligible(previous: Readonly<BallState>, next: Readonly<BallState>): BallState | null {
-    if (previous.velocity.z <= 0) return null;
-    if (!(previous.position.z < KEEPER_Z && next.position.z >= KEEPER_Z)) return null;
-    const height = next.position.y;
-    const horizontalReach = Math.abs(next.position.x - this.#keeperX);
-    const verticalReach = height <= 2.18;
-    if (horizontalReach > KEEPER_HALF_REACH || !verticalReach) return null;
-
+    if (previous.velocity.z <= 0 || !(previous.position.z < KEEPER_Z && next.position.z >= KEEPER_Z)) return null;
+    if (Math.abs(next.position.x - this.#keeperX) > KEEPER_HALF_REACH || next.position.y > 2.18) return null;
     const away = normalizeHorizontal({ x: next.position.x - this.#keeperX, z: -1 });
-    const targetVelocity = {
-      x: away.x * Math.max(2.2, Math.abs(next.velocity.x) * 0.45),
-      y: Math.max(2.4, Math.abs(next.velocity.y) * 0.45),
-      z: -Math.max(5.5, Math.abs(next.velocity.z) * 0.52),
-    };
     const result = this.#applyCommandToState(next, commandTowardVelocity(
-      'interception', ballSnapshot(next), targetVelocity, { x: 3, y: 2, z: 0 }, 10.5,
+      'interception', ballSnapshot(next),
+      {
+        x: away.x * Math.max(2.2, Math.abs(next.velocity.x) * 0.45),
+        y: Math.max(2.4, Math.abs(next.velocity.y) * 0.45),
+        z: -Math.max(5.5, Math.abs(next.velocity.z) * 0.52),
+      },
+      { x: 3, y: 2, z: 0 }, 10.5,
       'keeper parry',
     ));
     this.#saves += 1;
@@ -541,6 +510,21 @@ export class FootballPractice {
     return next;
   }
 
+  #advanceVisualRotation(dt: number): void {
+    const speed = Math.hypot(
+      this.#state.angularVelocity.x,
+      this.#state.angularVelocity.y,
+      this.#state.angularVelocity.z,
+    );
+    if (speed <= 1e-6) return;
+    const axis = new THREE.Vector3(
+      this.#state.angularVelocity.x,
+      this.#state.angularVelocity.y,
+      this.#state.angularVelocity.z,
+    ).normalize();
+    this.ballVisual.rotateOnWorldAxis(axis, speed * dt);
+  }
+
   #recordAction(action: string, success: boolean, reason: string): void {
     this.#lastAction = action;
     this.#lastSuccess = success;
@@ -548,21 +532,8 @@ export class FootballPractice {
   }
 
   #syncVisuals(): void {
-    const visualOffset = BALL_CONSTANTS.radius * (PRACTICE_VISUAL_SCALE - 1);
+    const visualOffset = BALL_CONSTANTS.radius * (VISUAL_SCALE - 1);
     this.ballVisual.position.set(this.#state.position.x, this.#state.position.y + visualOffset, this.#state.position.z);
-    const angularSpeed = Math.hypot(
-      this.#state.angularVelocity.x,
-      this.#state.angularVelocity.y,
-      this.#state.angularVelocity.z,
-    );
-    if (angularSpeed > 1e-6) {
-      const axis = new THREE.Vector3(
-        this.#state.angularVelocity.x,
-        this.#state.angularVelocity.y,
-        this.#state.angularVelocity.z,
-      ).normalize();
-      this.ballVisual.rotateOnWorldAxis(axis, angularSpeed * Math.min(BALL_SUBSTEP_DT, 1 / 60));
-    }
     this.keeperVisual.position.x = this.#keeperX;
     const receiver = this.#receiverSnapshot();
     this.receiverVisual.position.set(receiver.position.x, 0, receiver.position.z);
@@ -577,6 +548,12 @@ export class FootballPractice {
     this.#probe.dataset.shotCharge = (this.#runtime.shotChargeSeconds / 0.85).toFixed(6);
     this.#probe.dataset.action = this.#lastAction;
     this.#probe.dataset.reason = this.#lastReason;
+    this.#probe.dataset.ballVisualQuaternion = [
+      this.ballVisual.quaternion.x,
+      this.ballVisual.quaternion.y,
+      this.ballVisual.quaternion.z,
+      this.ballVisual.quaternion.w,
+    ].map((value) => value.toFixed(6)).join(',');
     this.root.dataset.action = this.#lastAction;
     this.root.dataset.reason = this.#lastReason;
     this.root.dataset.goals = String(this.#goals);
@@ -597,4 +574,13 @@ export class FootballPractice {
       passType: this.#passType,
     });
   }
+}
+
+function clonePlayer(player: Readonly<PlayerState>): PlayerState {
+  return {
+    ...player,
+    position: { ...player.position },
+    velocity: { ...player.velocity },
+    actionHooks: { ...player.actionHooks },
+  };
 }
