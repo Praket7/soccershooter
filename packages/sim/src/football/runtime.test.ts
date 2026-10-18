@@ -22,6 +22,20 @@ describe('Stage 05 football runtime cadence', () => {
     expect(release.state.shotChargeSeconds).toBe(0);
   });
 
+  test('losing the held-shot state without a release cancels stale charge instead of banking it', () => {
+    let state = createFootballRuntimeState();
+    for (let index = 0; index < 24; index += 1) {
+      state = stepFootballRuntime(state, PlayerActionBits.ShootHeld, 1 / 60).state;
+    }
+    expect(state.shotChargeSeconds).toBeGreaterThan(0.35);
+    expect(state.shotWasHeld).toBe(true);
+
+    const cancelled = stepFootballRuntime(state, 0, 1 / 60);
+    expect(cancelled.releasedShotCharge).toBeNull();
+    expect(cancelled.state.shotChargeSeconds).toBe(0);
+    expect(cancelled.state.shotWasHeld).toBe(false);
+  });
+
   test('touch and kick cooldowns prevent 60 Hz magnetic re-contact spam', () => {
     let state = markControlTouch(createFootballRuntimeState(), false);
     expect(state.controlTouchCooldown).toBeGreaterThan(0.1);
