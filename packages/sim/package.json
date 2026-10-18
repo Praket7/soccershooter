@@ -8,6 +8,12 @@
     "./fixedStep": "./src/fixedStep.ts",
     "./referenceTrace": "./src/referenceTrace.ts",
     "./player/PlayerState": "./src/player/PlayerState.ts",
-    "./player/movement": "./src/player/movement.ts"
+    "./player/movement": "./src/player/movement.ts",
+    "./football/types": "./src/football/types.ts",
+    "./football/controlEnvelope": "./src/football/controlEnvelope.ts",
+    "./football/passing": "./src/football/passing.ts",
+    "./football/shooting": "./src/football/shooting.ts",
+    "./football/defending": "./src/football/defending.ts",
+    "./football/aerial": "./src/football/aerial.ts"
   }
 }
