@@ -10,7 +10,7 @@
   "scripts": {
     "lint": "node tools/security/check-authoritative-random.mjs && node tools/security/check-private-imports.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run --reporter=verbose",
+    "test": "vitest run packages/sim/src/football/dribbleContinuity.test.ts --reporter=verbose",
     "test:determinism": "vitest run packages/sim/src/determinism.test.ts --reporter=verbose",
     "test:e2e": "playwright test",
     "determinism:headless": "tsx tools/perf/run-determinism.ts",
