@@ -92,7 +92,7 @@ function separation(state: CarryState): number {
   return Math.hypot(state.ballX - state.playerX, state.ballZ - state.playerZ);
 }
 
-test('Stage 05 practice starts physical, idle, non-magnetic, and visually grounded', async ({ page }) => {
+test('Stage 05 practice starts physical, idle, non-magnetic, visually grounded, and explains shooting clearly', async ({ page }) => {
   await page.goto('/');
 
   const practice = page.locator('[data-football-practice]');
@@ -109,6 +109,15 @@ test('Stage 05 practice starts physical, idle, non-magnetic, and visually ground
   await expect(controls).toContainText('Ctrl+LMB');
   await expect(controls).not.toContainText('Z+');
   await expect(controls).not.toContainText('X chip');
+
+  const shootingGuide = page.locator('[data-shot-controls-guide]');
+  await expect(shootingGuide).toBeVisible();
+  await expect(shootingGuide).toContainText('SHOOTING');
+  await expect(shootingGuide).toContainText('Aim with the center reticle');
+  await expect(shootingGuide).toContainText('LMB only = NORMAL');
+  await expect(shootingGuide).toContainText('RMB anytime while charging = FINESSE');
+  await expect(shootingGuide).toContainText('Ctrl anytime while charging = CHIP');
+  await expect(shootingGuide).toContainText('Release LMB to strike');
 
   const before = {
     x: Number(await probe.getAttribute('data-ball-x')),
@@ -243,7 +252,7 @@ test('RMB+E drives the ground pass and Ctrl+Q chips the through ball', async ({ 
   await expect(probe).toHaveAttribute('data-reason', /chipped-through:/);
 });
 
-test('RMB+LMB finesse and Ctrl+LMB chip latch at shot start through modifier release', async ({ page }) => {
+test('finesse and chip can be selected before or during LMB charge and remain latched through release', async ({ page }) => {
   await installPointerLockHarness(page);
   await page.goto('/');
   const probe = page.locator('[data-football-state]');
@@ -256,6 +265,7 @@ test('RMB+LMB finesse and Ctrl+LMB chip latch at shot start through modifier rel
   if (!box) return;
   await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
 
+  // Modifier-first remains valid.
   await page.keyboard.press('g');
   await page.waitForTimeout(80);
   await page.mouse.down({ button: 'right' });
@@ -266,10 +276,24 @@ test('RMB+LMB finesse and Ctrl+LMB chip latch at shot start through modifier rel
   await expect(probe).toHaveAttribute('data-shot-style', 'finesse');
   await page.mouse.up({ button: 'left' });
 
+  // Beginner-friendly order: start charging, then add RMB.
   await page.keyboard.press('g');
   await page.waitForTimeout(80);
-  await page.keyboard.down('Control');
   await page.mouse.down({ button: 'left' });
+  await expect(probe).toHaveAttribute('data-shot-style', 'normal');
+  await page.mouse.down({ button: 'right' });
+  await expect(probe).toHaveAttribute('data-shot-style', 'finesse');
+  await page.mouse.up({ button: 'right' });
+  await page.waitForTimeout(50);
+  await expect(probe).toHaveAttribute('data-shot-style', 'finesse');
+  await page.mouse.up({ button: 'left' });
+
+  // Ctrl can upgrade an already-started charge all the way to chip.
+  await page.keyboard.press('g');
+  await page.waitForTimeout(80);
+  await page.mouse.down({ button: 'left' });
+  await expect(probe).toHaveAttribute('data-shot-style', 'normal');
+  await page.keyboard.down('Control');
   await expect(probe).toHaveAttribute('data-shot-style', 'chip');
   await page.keyboard.up('Control');
   await page.waitForTimeout(50);
