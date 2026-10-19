@@ -37,7 +37,7 @@ describe('Stage 03 deterministic movement', () => {
     expect(Math.abs(after.velocity.z)).toBeLessThan(1e-8);
   });
 
-  test('sharp reverse input brakes and reverses without orbiting sideways', () => {
+  test('sharp reverse input shows a braking phase before re-accelerating backward', () => {
     const world = createFlatMovementWorld();
     const reverse: InputIntent = { moveX: 0, moveY: -1, aimYaw: 0, sprint: true, actionBits: 0 };
     let state = createPlayerState({ velocity: { x: 0, y: 0, z: DEFAULT_MOVEMENT_CONFIG.sprintSpeed } });
@@ -47,10 +47,18 @@ describe('Stage 03 deterministic movement', () => {
       maxLateral = Math.max(maxLateral, Math.abs(state.position.x));
     }
     expect(maxLateral).toBeLessThan(0.02);
-    expect(state.velocity.z).toBeLessThan(-1);
+    expect(state.velocity.z).toBeGreaterThan(0.5);
+    expect(state.velocity.z).toBeLessThan(DEFAULT_MOVEMENT_CONFIG.sprintSpeed * 0.4);
+
+    for (let tick = 0; tick < 30; tick += 1) {
+      state = stepPlayerMovement(state, reverse, world, CONTROL_DT);
+      maxLateral = Math.max(maxLateral, Math.abs(state.position.x));
+    }
+    expect(maxLateral).toBeLessThan(0.02);
+    expect(state.velocity.z).toBeLessThan(-2.5);
   });
 
-  test('a 90-degree sprint direction change plants instead of drawing a wide circle', () => {
+  test('a 90-degree sprint direction change plants with visible forward momentum before exit acceleration', () => {
     const world = createFlatMovementWorld();
     const right: InputIntent = { moveX: 1, moveY: 0, aimYaw: 0, sprint: true, actionBits: 0 };
     let state = createPlayerState({ velocity: { x: 0, y: 0, z: DEFAULT_MOVEMENT_CONFIG.sprintSpeed } });
@@ -59,9 +67,10 @@ describe('Stage 03 deterministic movement', () => {
       state = stepPlayerMovement(state, right, world, CONTROL_DT);
       maxForwardDrift = Math.max(maxForwardDrift, state.position.z);
     }
-    expect(maxForwardDrift).toBeLessThan(2.35);
-    expect(state.velocity.x).toBeLessThan(-7);
-    expect(Math.abs(state.velocity.z)).toBeLessThan(2.2);
+    expect(maxForwardDrift).toBeGreaterThan(2.5);
+    expect(maxForwardDrift).toBeLessThan(3.8);
+    expect(state.velocity.x).toBeLessThan(-3.2);
+    expect(Math.abs(state.velocity.z)).toBeLessThan(2.8);
   });
 
   test('stepping off raised ground becomes a short deterministic fall instead of a vertical teleport', () => {
