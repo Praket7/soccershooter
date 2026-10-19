@@ -15,18 +15,19 @@ export function applyShotBuildModifier(
   const speed = Math.hypot(scaledVelocity.x, scaledVelocity.y, scaledVelocity.z);
   const velocityScale = speed > MAX_LEGAL_SHOT_SPEED ? MAX_LEGAL_SHOT_SPEED / speed : 1;
   const command = shot.command;
+  const launchVelocity = {
+    x: scaledVelocity.x * velocityScale,
+    y: scaledVelocity.y * velocityScale,
+    z: scaledVelocity.z * velocityScale,
+  };
   return {
-    launchVelocity: {
-      x: scaledVelocity.x * velocityScale,
-      y: scaledVelocity.y * velocityScale,
-      z: scaledVelocity.z * velocityScale,
-    },
+    launchVelocity,
     command: command ? {
       ...command,
       deltaVelocity: {
-        x: command.deltaVelocity.x * scale,
-        y: command.deltaVelocity.y * scale,
-        z: command.deltaVelocity.z * scale,
+        x: launchVelocity.x - (shot.launchVelocity.x - command.deltaVelocity.x),
+        y: launchVelocity.y - (shot.launchVelocity.y - command.deltaVelocity.y),
+        z: launchVelocity.z - (shot.launchVelocity.z - command.deltaVelocity.z),
       },
       maxImpulse: Math.min(command.maxImpulse * scale, MAX_LEGAL_SHOT_IMPULSE),
       diagnostic: `${command.diagnostic} build-power=${scale.toFixed(2)}`,
