@@ -67,6 +67,12 @@ const CLOSE_STRIDE_END = 1.02;
 const IDLE_PLAYER_SPEED = 0.35;
 const IDLE_BALL_SPEED = 0.8;
 const EFFORT_TURN_ANGLE = 36 * Math.PI / 180;
+// The rendered boot front is ~0.25 m ahead of the player root and a regulation
+// ball radius is ~0.11 m. Keeping deliberate close-control targets at or beyond
+// 0.36 m prevents the ball center from being commanded inside the visible boot.
+// This changes only target geometry; contacts remain bounded impulses and never
+// teleport the ball.
+const CLOSE_CONTROL_CONTACT_DISTANCE = 0.36;
 
 function actorSpeed(actor: Readonly<FootballActorSnapshot>): number {
   return horizontalMagnitude(actor.velocity);
@@ -145,7 +151,7 @@ function corridorCorrection(
 
   return {
     x: direction.x * forwardCorrection + lateral.x * lateralCorrection,
-    z: direction.z * forwardCorrection + lateral.z * lateralCorrection,
+    z: direction.z * forwardCorrection + lateral.x * 0 + lateral.z * lateralCorrection,
   };
 }
 
@@ -205,7 +211,7 @@ function straightTouchDistance(
   sprint: boolean,
   playerSpeed: number,
 ): number {
-  if (precision) return 0.30;
+  if (precision) return CLOSE_CONTROL_CONTACT_DISTANCE;
   if (sprint) return 0.78 + clampFootball(playerSpeed - 6, 0, 3) * 0.015;
   return 0.52;
 }
@@ -366,16 +372,16 @@ export function buildControlTouch(input: Readonly<ControlTouchInput>): ControlTo
   let targetBallSpeed: number;
   if (trapRequested) {
     touchMode = 'trap';
-    touchDistance = 0.28;
+    touchDistance = CLOSE_CONTROL_CONTACT_DISTANCE;
     targetBallSpeed = Math.min(1.1, playerSpeed * 0.22);
   } else if (receiveExitRequested) {
     touchMode = 'receive-exit';
-    touchDistance = input.precision ? 0.3 : 0.4;
+    touchDistance = input.precision ? CLOSE_CONTROL_CONTACT_DISTANCE : 0.4;
     targetBallSpeed = input.precision ? 1.8 : 2.6;
   } else if (effortTurn) {
     touchMode = 'effort-turn';
     const baseDistance = straightTouchDistance(input.precision, input.sprint, playerSpeed);
-    const minimumDistance = input.precision ? 0.27 : input.sprint ? 0.42 : 0.36;
+    const minimumDistance = input.precision ? CLOSE_CONTROL_CONTACT_DISTANCE : input.sprint ? 0.42 : 0.36;
     touchDistance = baseDistance
       + (minimumDistance - baseDistance) * Math.pow(turnSeverity, 0.65);
 
