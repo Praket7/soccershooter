@@ -469,6 +469,7 @@ export function stepPlayerMovement(
     sprintSpeed: config.sprintSpeed,
     acceleration: config.acceleration,
     braking: config.braking,
+    strikePreparation: (intent.actionBits & PlayerActionBits.ShootHeld) !== 0,
   });
   state.actionHooks = {
     jumpRequested: (intent.actionBits & PlayerActionBits.Jump) !== 0,
