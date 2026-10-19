@@ -118,6 +118,44 @@ function applyPlannerBall(ball: Readonly<BallState>, result: ReturnType<typeof s
 }
 
 describe('Stage 05R sprint dribbling and effort-turn integration', () => {
+  test('a sharp jog cut keeps the free ball recoverably close through the exit touch', () => {
+    let player = createPlayerState({ position: { x: 0, y: 0, z: 0 }, facingYaw: 0 });
+    let ball = createBallState({ position: { x: 0, y: BALL_CONSTANTS.radius, z: 0.68 }, grounded: true });
+    let planner = createPlannedDribbleState();
+    let looseTicks = 0;
+
+    for (let tick = 0; tick < 180; tick += 1) {
+      const turning = tick >= 48;
+      const aimYaw = turning ? Math.PI / 2 : 0;
+      player = stepPlayerMovement(player, {
+        moveX: 0,
+        moveY: 1,
+        aimYaw,
+        sprint: false,
+        actionBits: 0,
+      }, WORLD, DT, DEFAULT_MOVEMENT_CONFIG);
+      const result = stepPlannedDribble({
+        tick,
+        state: planner,
+        actor: actor(player, 0, player.locomotion === 'sharp-cut' ? 0.68 : 1),
+        motion: player.athleticMotion,
+        ball: snapshot(ball),
+        desiredDirection: { x: Math.sin(aimYaw), z: Math.cos(aimYaw) },
+        precision: false,
+        sprint: false,
+        pressure: 0,
+        moveIntentMagnitude: 1,
+        receiveMode: null,
+      });
+      planner = result.state;
+      ball = applyPlannerBall(ball, result);
+      if (planner.looseBall) looseTicks += 1;
+      ball = stepBall(stepBall(ball, BALL_SUBSTEP_DT, MATCH_BALL_PROFILE, null), BALL_SUBSTEP_DT, MATCH_BALL_PROFILE, null);
+    }
+
+    expect(looseTicks / 180).toBeLessThanOrEqual(0.2);
+  });
+
   test('sprint creates fewer longer contacts than precision over the same elapsed time', () => {
     const precision = runStraightCarry('precision');
     const sprint = runStraightCarry('sprint');

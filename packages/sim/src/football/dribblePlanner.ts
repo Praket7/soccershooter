@@ -380,10 +380,16 @@ export function stepPlannedDribble(input: Readonly<PlannedDribbleInput>): Planne
   }
 
   let plan = state.activePlan;
-  if (plan && input.tick < plan.prepareTick) {
-    // Re-target the *foot intercept* while preparation is still open. The ball
-    // itself receives no correction. Once prepareTick is reached the contact is
-    // committed so late input cannot turn into a remote or magnetic touch.
+  const requestedDirection = normalizeHorizontal(input.desiredDirection);
+  const plannedDirection = plan ? normalizeHorizontal(plan.targetBallVelocity) : null;
+  const lateJogBranchDoesNotRequireFullReversal = !input.sprint && !input.precision && plannedDirection !== null
+    && requestedDirection.x * plannedDirection.x + requestedDirection.z * plannedDirection.z >= -0.5;
+  if (plan && input.tick < plan.contactTick && (input.tick < plan.prepareTick || lateJogBranchDoesNotRequireFullReversal)) {
+    // Re-target the *foot intercept* while preparation is open. On the final
+    // contact beat, permit forward/lateral/hard-angle cuts that remain
+    // physically viable, but keep a full reversal committed so one late input
+    // cannot instantly snap the ball backwards. The ball receives no position
+    // correction and the contact still revalidates its position, timing, and reach.
     plan = planContact(input, plan.contactTick, plan.foot);
     state.activePlan = plan;
   }
