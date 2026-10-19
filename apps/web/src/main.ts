@@ -275,6 +275,7 @@ let inputToSimulationMs: number | null = null;
 let inputToRenderMs: number | null = null;
 let pendingRenderAckTimestamp: number | null = null;
 let inputRenderAckFrame = 0;
+let renderedFrameId = 0;
 let bufferedActionBits = 0;
 let lastActionFlash: 'jump' | 'tackle' | null = null;
 let actionFlashUntil = 0;
@@ -672,6 +673,8 @@ function frame(now: number): void {
     fixedStepBacklogMs: accumulator * 1000,
   });
 
+  renderedFrameId += 1;
+  playerProbe.dataset.renderFrameId = String(renderedFrameId);
   renderer.render(scene, camera);
   if (renderAckTimestamp !== null) {
     requestAnimationFrame((acknowledgedAt) => {
@@ -679,6 +682,7 @@ function frame(now: number): void {
       // frame boundary, giving the browser a chance to present the response.
       inputToRenderMs = Math.max(0, acknowledgedAt - renderAckTimestamp);
       inputRenderAckFrame += 1;
+      playerProbe.dataset.inputAckRenderFrame = String(renderedFrameId);
       playerProbe.dataset.inputToRenderMs = inputToRenderMs.toFixed(3);
       playerProbe.dataset.inputRenderAckFrame = String(inputRenderAckFrame);
     });
