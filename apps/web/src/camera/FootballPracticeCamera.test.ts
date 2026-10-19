@@ -6,10 +6,21 @@ import {
 } from './FootballPracticeCamera';
 
 describe('Stage 05 owner camera feedback', () => {
-  test('ball-aware focus keeps the player primary while biasing toward a loose lateral ball', () => {
+  test('manual reticle aim keeps the player as the exact camera anchor even when the ball is loose', () => {
+    const player = { x: 1.2, y: 0, z: -3.4 };
+    const focus = resolveBallAwareCameraFocus(
+      player,
+      { x: 6, y: 0.11, z: 1.5 },
+      true,
+    );
+    expect(focus).toEqual(player);
+  });
+
+  test('passive ball-aware framing keeps the player primary while biasing toward a loose lateral ball', () => {
     const focus = resolveBallAwareCameraFocus(
       { x: 0, y: 0, z: 0 },
       { x: 4, y: 0.11, z: 0.5 },
+      false,
     );
     expect(focus.x).toBeGreaterThan(0.45);
     expect(focus.x).toBeLessThanOrEqual(0.9);
@@ -17,10 +28,11 @@ describe('Stage 05 owner camera feedback', () => {
     expect(focus.y).toBe(0);
   });
 
-  test('camera focus bias is capped even when the ball has escaped far away', () => {
+  test('passive camera focus bias is capped even when the ball has escaped far away', () => {
     const focus = resolveBallAwareCameraFocus(
       { x: 2, y: 0, z: -4 },
       { x: 20, y: 0.11, z: 12 },
+      false,
     );
     expect(Math.hypot(focus.x - 2, focus.z + 4)).toBeLessThanOrEqual(0.900001);
   });
