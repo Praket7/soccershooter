@@ -31,14 +31,17 @@ export function runTechniqueTournament(seed = 0x8a11ce, trialsPerTechnique = 512
         speed,
         pressure,
         ballDistance: ((trial * 7 + seed) % 76) / 100,
-        grounded: technique.family !== 'aerial' || trial % 2 === 0,
+        grounded: technique.family !== 'aerial',
         stamina: 100,
         actionBits: 1 << 6,
       });
       if (!result.contact) continue;
       eligible += 1;
       const counterTax = technique.counter.vulnerable ? 1 / (1 + technique.counter.windowTicks / 12) : 1;
-      contribution += result.contact.impulseScale * result.contact.maxImpulse * counterTax
+      const physicalContact = result.contact.targetSpeed * Math.min(1, result.contact.maxImpulse / 15.5);
+      const spinUtility = 1 + Math.min(1, result.contact.spinRate / 80) * 0.08;
+      const elevationUtility = 1 + Math.min(0.06, Math.abs(result.contact.launchElevationDegrees) / 900);
+      contribution += physicalContact * spinUtility * elevationUtility * counterTax
         * (technique.movement.preserveSteering ? 1 : 0.8)
         / (1 + technique.cost.stamina / 12 + technique.cost.cooldownTicks / 96);
     }

@@ -20,7 +20,7 @@ import { evaluateAerialContact } from '@soccershooter/sim/football/aerial';
 import type { FootballContactPlan } from '../../../../packages/sim/src/football/contactPlan';
 import { createStrikeContactPlan, stepStrikeContact } from '@soccershooter/sim/football/strikePlanner';
 import { TECHNIQUES, TECHNIQUE_BY_ID } from '@soccershooter/content/techniques/catalog';
-import { createTechniqueState, executeTechnique, interruptTechnique, type TechniqueContactIntent, type TechniqueState } from '@soccershooter/sim/techniques/executeTechnique';
+import { createTechniqueState, executeTechnique, interruptTechnique, resolveTechniqueContactKinematics, type TechniqueContactIntent, type TechniqueState } from '@soccershooter/sim/techniques/executeTechnique';
 import {
   consumeReceiveIntent,
   createFootballRuntimeState,
@@ -69,6 +69,7 @@ interface PendingTechnique {
   plan: Readonly<FootballContactPlan>;
   contact: TechniqueContactIntent;
   targetVelocity: FootballVec3;
+  angularVelocity: FootballVec3;
 }
 
 const CONTROLLED_BALL_POCKET = 0.68;
@@ -668,12 +669,11 @@ export class FootballPractice {
           : pending.definition.family === 'pass-shot'
             ? 'shot'
             : 'control-touch';
-        const spin = { x: 0, y: pending.contact.spinScale * (pending.contact.surface === 'outside' ? 30 : 5), z: 0 };
         const command = commandTowardVelocity(
           kind,
           snapshot,
           pending.targetVelocity,
-          spin,
+          pending.angularVelocity,
           pending.contact.maxImpulse,
           `technique=${pending.contact.techniqueId} surface=${pending.contact.surface} mechanic=${pending.contact.mechanic}`,
         );
@@ -723,12 +723,9 @@ export class FootballPractice {
         this.#updateHud();
         return;
       }
-      const targetSpeed = definition.family === 'dribble' ? 3.4 : definition.family === 'aerial' ? 15 : 17;
-      const targetVelocity: FootballVec3 = {
-        x: aim.x * targetSpeed * result.contact.impulseScale,
-        y: definition.family === 'aerial' ? 5.2 * result.contact.impulseScale : 0,
-        z: aim.z * targetSpeed * result.contact.impulseScale,
-      };
+      const kinematics = resolveTechniqueContactKinematics(result.contact, aim);
+      const targetVelocity: FootballVec3 = { ...kinematics.targetVelocity };
+      const angularVelocity: FootballVec3 = { ...kinematics.angularVelocity };
       const plan = createStrikeContactPlan({
         kind: definition.family === 'pass-shot' ? 'shot' : 'pass',
         sourceId: `technique-${definition.id}-${contactTick}`,
@@ -756,7 +753,7 @@ export class FootballPractice {
         this.#updateHud();
         return;
       }
-      this.#pendingTechnique = { definition, plan, contact: result.contact, targetVelocity };
+      this.#pendingTechnique = { definition, plan, contact: result.contact, targetVelocity, angularVelocity };
       this.#resetPlannedDribble(false);
       this.techniqueDebugHud.update({
         technique: definition,

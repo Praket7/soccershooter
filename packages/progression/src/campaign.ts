@@ -138,15 +138,21 @@ const OPPONENT_PERSONALITIES: Readonly<Record<string, Readonly<Record<string, Bo
 });
 
 /**
- * The three player builds deliberately use different tactical policies while
- * sharing the exact same movement, stamina capacity, colliders and ball laws.
- * This lets the headless campaign prove that "technical / pace / power" is a
- * real playstyle choice rather than a label or hidden physics advantage.
+ * Benchmark policies make the three builds exercise different football routes
+ * without turning the campaign test into a scripted finishing drill. In
+ * particular, the global `poacher` profile is intentionally not used as the
+ * Power carrier here: from the authored challenge spawns it immediately shoots
+ * on tick one, so the old benchmark could clear every encounter with one ball
+ * contact and never exercise carrying, pressure, or recovery. Technical also
+ * uses a neutral carrier here instead of the global playmaker profile because
+ * rare pass/turnover loops could exhaust the encounter cap without testing the
+ * player's build at all. The live poacher and playmaker profiles stay unchanged;
+ * this mapping exists only to make build viability a stable physical stress test.
  */
 const PLAYER_BUILD_PERSONALITIES: Readonly<Record<PlayerArchetype, Readonly<Record<string, BotPersonalityId>>>> = Object.freeze({
-  technical: Object.freeze({ 'h-1': 'playmaker', 'h-2': 'poacher', 'h-gk': 'calm-keeper' }),
+  technical: Object.freeze({ 'h-1': 'balanced', 'h-2': 'playmaker', 'h-gk': 'calm-keeper' }),
   pace: Object.freeze({ 'h-1': 'winger', 'h-2': 'aggressive-presser', 'h-gk': 'calm-keeper' }),
-  power: Object.freeze({ 'h-1': 'poacher', 'h-2': 'anchor', 'h-gk': 'calm-keeper' }),
+  power: Object.freeze({ 'h-1': 'aggressive-presser', 'h-2': 'anchor', 'h-gk': 'calm-keeper' }),
 });
 
 function createEmptyPlaystyle(): CampaignPlaystyleMetrics {

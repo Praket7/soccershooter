@@ -90,6 +90,32 @@ describe('Road to Legend progression', () => {
     expect(new Set(runs.map((run) => run.checksum)).size).toBe(3);
   });
 
+  it('keeps every build beatable across a deterministic adversarial seed sweep', () => {
+    const archetypes = ['technical', 'pace', 'power'] as const;
+    const encounterCount = CAMPAIGN_ACTS.reduce((total, act) => total + act.encounters.length, 0);
+    for (let index = 0; index < 32; index += 1) {
+      const seed = (0x51000000 + Math.imul(index + 1, 2654435761)) >>> 0;
+      for (const archetype of archetypes) {
+        const run = simulateSkilledCampaign(archetype, seed);
+        expect(run.profile.campaignComplete, `${archetype} seed ${seed}`).toBe(true);
+        expect(run.wins, `${archetype} seed ${seed}`).toBe(encounterCount);
+      }
+    }
+  });
+
+  it('does not let a build prove viability through a one-contact scripted scoring shortcut', () => {
+    const runs = (['technical', 'pace', 'power'] as const).map((archetype) => simulateSkilledCampaign(archetype, 0x9a17));
+    const encounterCount = CAMPAIGN_ACTS.reduce((total, act) => total + act.encounters.length, 0);
+
+    for (const run of runs) {
+      expect(run.profile.campaignComplete).toBe(true);
+      expect(run.physicalContacts).toBeGreaterThanOrEqual(encounterCount * 3);
+    }
+
+    const tickCounts = runs.map((run) => run.simulatedTicks);
+    expect(Math.max(...tickCounts) / Math.min(...tickCounts)).toBeLessThan(2);
+  });
+
   it('runs authored acts against their distinct tactical opponent archetypes', () => {
     const campaign = simulateSkilledCampaign('technical', 1234);
     expect(campaign.opponentArchetypes).toEqual(CAMPAIGN_ACTS.flatMap((act) => act.encounters.map(() => act.opponentArchetype)));
