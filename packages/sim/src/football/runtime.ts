@@ -4,6 +4,20 @@ import { consumeReceive, createReceiveState, requestReceive, stepReceiveState, t
 import type { ShotStyle } from './shooting';
 import { clampFootball } from './types';
 
+export {
+  createFootballContactPlan,
+  executePlannedFootballContact,
+} from './contactPlan';
+export type {
+  ExecutePlannedFootballContactInput,
+  FootballContactPlan,
+  FootballContactPlanSeed,
+  FootballContactSurface,
+  FootballPlannedContactKind,
+  PlannedContactExecutionReason,
+  PlannedFootballContactExecution,
+} from './contactPlan';
+
 export interface FootballRuntimeState {
   controlTouchCooldown: number;
   kickCooldown: number;
@@ -113,11 +127,8 @@ export function markControlTouch(
   sprint: boolean,
   mode: 'normal' | 'precision' | 'sprint' | 'effort-turn' | 'trap' | 'receive-exit' = sprint ? 'sprint' : 'normal',
 ): FootballRuntimeState {
-  // These are control-contact opportunities, not literal animation beats. They
-  // are deliberately quicker than the older free-ball-lab values so a routine
-  // dribble can make several small corrective contacts before a modest error
-  // becomes unrecoverable. Sprint still has the longest cadence so it reads as
-  // a knock-on rather than close control.
+  // Legacy cadence retained temporarily for pass/shot migration compatibility.
+  // Stage 05R planned dribbling must not read this field as its cadence source.
   let controlTouchCooldown = 0.16;
   if (mode === 'sprint') controlTouchCooldown = 0.20;
   else if (mode === 'effort-turn') controlTouchCooldown = 0.09;
