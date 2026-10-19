@@ -147,7 +147,7 @@ function setupPanel(): void {
           <h2 id="gameplay-settings-title">Gameplay settings</h2>
           <p>Adjust controls and camera comfort without changing the authoritative football simulation.</p>
         </div>
-        <button type="button" class="settings-close-icon" data-settings-close aria-label="Close settings">×</button>
+        <button type="button" class="settings-close-icon" data-settings-close aria-label="Dismiss settings dialog">×</button>
       </header>
 
       <section aria-labelledby="controls-settings-heading">
