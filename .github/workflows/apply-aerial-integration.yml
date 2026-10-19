@@ -70,22 +70,20 @@ jobs:
           text = text.replace(old, new)
 
           marker = "\n  it('produces useful passing and respects the Stage 06 tactical CPU budget'"
-          test_block = """
-  it('uses a high-percentile CPU budget instead of failing on one scheduler outlier', async () => {
-    const { runTacticalTournament } = await loadTournament();
-    const { evaluateTacticalTournamentGate } = await import('./tournament');
-    const report = runTacticalTournament({ possessions: 500, seed: 0x51a6e006 });
-    expect(report.p99DecisionMsPerTeam).toBeLessThan(1);
-
-    const isolatedPause = { ...report, maxDecisionMsPerTeam: 25 };
-    expect(evaluateTacticalTournamentGate(isolatedPause).pass).toBe(true);
-
-    const sustainedSlowdown = { ...report, p99DecisionMsPerTeam: 1.25 };
-    const gate = evaluateTacticalTournamentGate(sustainedSlowdown);
-    expect(gate.pass).toBe(false);
-    expect(gate.failures.some((failure) => failure.includes('p99 tactical decision'))).toBe(true);
-  });
-"""
+          test_block = (
+            "\n  it('uses a high-percentile CPU budget instead of failing on one scheduler outlier', async () => {\n"
+            "    const { runTacticalTournament } = await loadTournament();\n"
+            "    const { evaluateTacticalTournamentGate } = await import('./tournament');\n"
+            "    const report = runTacticalTournament({ possessions: 500, seed: 0x51a6e006 });\n"
+            "    expect(report.p99DecisionMsPerTeam).toBeLessThan(1);\n\n"
+            "    const isolatedPause = { ...report, maxDecisionMsPerTeam: 25 };\n"
+            "    expect(evaluateTacticalTournamentGate(isolatedPause).pass).toBe(true);\n\n"
+            "    const sustainedSlowdown = { ...report, p99DecisionMsPerTeam: 1.25 };\n"
+            "    const gate = evaluateTacticalTournamentGate(sustainedSlowdown);\n"
+            "    expect(gate.pass).toBe(false);\n"
+            "    expect(gate.failures.some((failure) => failure.includes('p99 tactical decision'))).toBe(true);\n"
+            "  });\n"
+          )
           if text.count(marker) != 1:
             raise SystemExit(f'tactical test insertion marker expected once, found {text.count(marker)}')
           text = text.replace(marker, test_block + marker)
