@@ -1,6 +1,7 @@
 import { awardEncounter, createFreshProfile, selectArchetype, type PlayerArchetype, type PlayerProfile } from './profile';
 import { createPhysicalScrimmage, stepPhysicalScrimmage } from '../../bots/src/physicalScrimmage';
 import type { BotPersonalityId } from '../../bots/src/personalities';
+import type { BallContactKind } from '../../sim/src/football/types';
 
 export interface CampaignEncounter {
   id: string;
@@ -25,6 +26,14 @@ export interface LegacyGauntlet {
   perfectClearObjective: string;
 }
 
+export interface CampaignPlaystyleMetrics {
+  passContacts: number;
+  shotContacts: number;
+  controlTouches: number;
+  challengeContacts: number;
+  possessionChanges: number;
+}
+
 export interface CampaignSimulationReport {
   profile: PlayerProfile;
   encounterIds: readonly string[];
@@ -35,6 +44,7 @@ export interface CampaignSimulationReport {
   simulatedTicks: number;
   physicalContacts: number;
   goalsScored: number;
+  playstyle: CampaignPlaystyleMetrics;
   checksum: string;
 }
 
@@ -127,7 +137,49 @@ const OPPONENT_PERSONALITIES: Readonly<Record<string, Readonly<Record<string, Bo
   'legend-possession-overload': Object.freeze({ 'a-1': 'playmaker', 'a-2': 'aggressive-presser', 'a-gk': 'calm-keeper' }),
 });
 
-function simulateEncounter(seed: number, encounter: Readonly<CampaignEncounter>, opponentArchetype: string): { goal: boolean; ticks: number; contacts: number; checksum: string } {
+/**
+ * The three player builds deliberately use different tactical policies while
+ * sharing the exact same movement, stamina capacity, colliders and ball laws.
+ * This lets the headless campaign prove that "technical / pace / power" is a
+ * real playstyle choice rather than a label or hidden physics advantage.
+ */
+const PLAYER_BUILD_PERSONALITIES: Readonly<Record<PlayerArchetype, Readonly<Record<string, BotPersonalityId>>>> = Object.freeze({
+  technical: Object.freeze({ 'h-1': 'playmaker', 'h-2': 'poacher', 'h-gk': 'calm-keeper' }),
+  pace: Object.freeze({ 'h-1': 'winger', 'h-2': 'aggressive-presser', 'h-gk': 'calm-keeper' }),
+  power: Object.freeze({ 'h-1': 'poacher', 'h-2': 'anchor', 'h-gk': 'calm-keeper' }),
+});
+
+function createEmptyPlaystyle(): CampaignPlaystyleMetrics {
+  return { passContacts: 0, shotContacts: 0, controlTouches: 0, challengeContacts: 0, possessionChanges: 0 };
+}
+
+function countContact(metrics: CampaignPlaystyleMetrics, kind: BallContactKind): void {
+  switch (kind) {
+    case 'pass': metrics.passContacts += 1; break;
+    case 'shot': metrics.shotContacts += 1; break;
+    case 'control-touch': metrics.controlTouches += 1; break;
+    case 'standing-challenge':
+    case 'committed-challenge':
+    case 'interception': metrics.challengeContacts += 1; break;
+    case 'header':
+    case 'volley': metrics.shotContacts += 1; break;
+  }
+}
+
+function mergePlaystyle(target: CampaignPlaystyleMetrics, source: Readonly<CampaignPlaystyleMetrics>): void {
+  target.passContacts += source.passContacts;
+  target.shotContacts += source.shotContacts;
+  target.controlTouches += source.controlTouches;
+  target.challengeContacts += source.challengeContacts;
+  target.possessionChanges += source.possessionChanges;
+}
+
+function simulateEncounter(
+  seed: number,
+  encounter: Readonly<CampaignEncounter>,
+  opponentArchetype: string,
+  playerArchetype: PlayerArchetype,
+): { goal: boolean; ticks: number; contacts: number; playstyle: CampaignPlaystyleMetrics; checksum: string } {
   let state = createPhysicalScrimmage(seed);
   const attacker = state.players.find((player) => player.id === 'h-1');
   if (!attacker) throw new Error('physical campaign scenario is missing its attacker');
@@ -143,17 +195,29 @@ function simulateEncounter(seed: number, encounter: Readonly<CampaignEncounter>,
   state.possessionTeam = 'home';
   state.possessionPlayerId = attacker.id;
 
+  const personalities: Readonly<Record<string, BotPersonalityId>> = {
+    ...(OPPONENT_PERSONALITIES[opponentArchetype] ?? OPPONENT_PERSONALITIES['street-press']!),
+    ...PLAYER_BUILD_PERSONALITIES[playerArchetype],
+  };
   const initialContacts = state.contactCount;
+  const playstyle = createEmptyPlaystyle();
   for (let tick = 0; tick < CAMPAIGN_MATCH_TICKS; tick += 1) {
-    state = stepPhysicalScrimmage(state, 1 / 60, 'standard', OPPONENT_PERSONALITIES[opponentArchetype] ?? OPPONENT_PERSONALITIES['street-press']!);
+    const previousContacts = state.contactCount;
+    const previousPossessionChanges = state.possessionChanges;
+    state = stepPhysicalScrimmage(state, 1 / 60, 'standard', personalities);
+    if (state.contactCount > previousContacts) {
+      const event = state.recentContacts[state.recentContacts.length - 1];
+      if (event) countContact(playstyle, event.kind);
+    }
+    playstyle.possessionChanges += Math.max(0, state.possessionChanges - previousPossessionChanges);
     const scored = state.ball.position.z > state.field.halfLength
       && Math.abs(state.ball.position.x) < state.field.goalHalfWidth
       && state.ball.position.y < 2.44;
     if (scored) {
-      return { goal: true, ticks: tick + 1, contacts: state.contactCount - initialContacts, checksum: state.checksum };
+      return { goal: true, ticks: tick + 1, contacts: state.contactCount - initialContacts, playstyle, checksum: state.checksum };
     }
   }
-  return { goal: false, ticks: CAMPAIGN_MATCH_TICKS, contacts: state.contactCount - initialContacts, checksum: state.checksum };
+  return { goal: false, ticks: CAMPAIGN_MATCH_TICKS, contacts: state.contactCount - initialContacts, playstyle, checksum: state.checksum };
 }
 
 /** Deterministic benchmark that plays each authored encounter in the physical bot scrimmage. */
@@ -162,6 +226,7 @@ export function simulateSkilledCampaign(archetype: PlayerArchetype = 'technical'
   const encounterIds: string[] = [];
   const opponentArchetypes: string[] = [];
   const highlights: string[] = [];
+  const playstyle = createEmptyPlaystyle();
   let checksum = 0x811c9dc5;
   let wins = 0;
   let simulatedTicks = 0;
@@ -171,10 +236,11 @@ export function simulateSkilledCampaign(archetype: PlayerArchetype = 'technical'
   for (const act of CAMPAIGN_ACTS) {
     for (const [index, encounter] of act.encounters.entries()) {
       const encounterSeed = (Math.imul(seed ^ index ^ act.id.length, 1664525) + 1013904223) >>> 0;
-      const simulation = simulateEncounter(encounterSeed, encounter, act.opponentArchetype);
+      const simulation = simulateEncounter(encounterSeed, encounter, act.opponentArchetype, archetype);
       simulatedTicks += simulation.ticks;
       physicalContacts += simulation.contacts;
       goalsScored += Number(simulation.goal);
+      mergePlaystyle(playstyle, simulation.playstyle);
       const goalsFor = Number(simulation.goal);
       const goalsAgainst = 0;
       const reward = awardEncounter(profile, {
@@ -187,7 +253,7 @@ export function simulateSkilledCampaign(archetype: PlayerArchetype = 'technical'
       profile = reward.profile;
       encounterIds.push(encounter.id);
       opponentArchetypes.push(act.opponentArchetype);
-      const highlight = `${encounter.id}:opponent-${act.opponentArchetype}:seed-${encounterSeed}:score-${goalsFor}-${goalsAgainst}:ticks-${simulation.ticks}:contacts-${simulation.contacts}:physics-${simulation.checksum}`;
+      const highlight = `${encounter.id}:build-${archetype}:opponent-${act.opponentArchetype}:seed-${encounterSeed}:score-${goalsFor}-${goalsAgainst}:ticks-${simulation.ticks}:contacts-${simulation.contacts}:physics-${simulation.checksum}`;
       highlights.push(highlight);
       profile.highlights = [...profile.highlights, highlight].slice(-256);
       checksum = (Math.imul(checksum ^ encounterSeed ^ goalsFor ^ goalsAgainst ^ simulation.ticks ^ simulation.contacts, 0x01000193) ^ Number.parseInt(simulation.checksum, 16)) >>> 0;
@@ -201,6 +267,7 @@ export function simulateSkilledCampaign(archetype: PlayerArchetype = 'technical'
         simulatedTicks,
         physicalContacts,
         goalsScored,
+        playstyle,
         checksum: checksum.toString(16).padStart(8, '0'),
       };
       profile = advanceCampaign(profile, true);
@@ -208,5 +275,5 @@ export function simulateSkilledCampaign(archetype: PlayerArchetype = 'technical'
     }
   }
 
-  return { profile, encounterIds, opponentArchetypes, highlights, archetype, wins, simulatedTicks, physicalContacts, goalsScored, checksum: checksum.toString(16).padStart(8, '0') };
+  return { profile, encounterIds, opponentArchetypes, highlights, archetype, wins, simulatedTicks, physicalContacts, goalsScored, playstyle, checksum: checksum.toString(16).padStart(8, '0') };
 }
