@@ -112,6 +112,7 @@ test('a late 90 degree jog cut in the live game retains contact without attachin
   expect(endingFreeBallFrames, 'free-ball simulation should advance between legal contacts').toBeGreaterThan(startingFreeBallFrames);
   expect(maximumSeparation, JSON.stringify({ startTick, startX, startZ, endX, endZ, contactsBeforeCut, contactsAfterCut, loose, maximumSeparation, maximumSeparationState })).toBeLessThan(2.0);
   const looseTicks = tickSamples.filter((state) => state.loose).length;
+  expect(tickSamples.length, 'cut telemetry should include at least 30 unique simulation-tick observations').toBeGreaterThanOrEqual(30);
   expect(looseTicks / tickSamples.length, JSON.stringify({ startX, startZ, endX, endZ, contactsBeforeCut, contactsAfterCut, loose, looseTicks, sampleTicks: tickSamples.length, maximumSeparation, finalDiagnostics })).toBeLessThanOrEqual(0.2);
 });
 

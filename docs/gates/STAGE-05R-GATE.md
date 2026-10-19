@@ -15,7 +15,7 @@
 - `pnpm determinism:headless` — PASS, 10,000 ticks; hash `d55b2d0b968372a5`.
 - Stage 04 golden ball trajectories remain on the existing unchanged physics implementation; the contact planner only changes velocity/angular velocity at legal events.
 - Carry tests and browser probes confirm planned foot/tick/surface IDs, free-ball frames, non-teleporting contacts, longer sprint spacing, and recoverable misses.
-- A new live-game E2E requests a right-angle cut when the live planner displays a contact two simulation ticks ahead. It measures separation and loose-ball state on unique simulation ticks across the next 36 ticks, requires another planned contact, and checks that the free-ball-frame counter advances between contacts. The per-tick version passed five focused repeats and the full 52-test browser suite.
+- A new live-game E2E sends a right-angle cut request after the live planner displays a contact two simulation ticks ahead. It records at least 30 unique DOM observations spanning 36 simulation ticks, checks separation and loose-ball state in those observations, requires another planned contact, and checks that the free-ball-frame counter advances. It does not claim to observe the exact simulation tick when the input is consumed. This version passed five focused repeats and the full 52-test browser suite.
 - `pnpm dribble:calibration` — PASS, 16 deterministic scenarios and 125 measured contacts; distributions are recorded below and in the reproducible runner.
 
 ## Owner gate still required
@@ -24,7 +24,7 @@ The prescribed Task 3 micro-playtest before migrating sprint/skills has no recor
 
 ## Calibration evidence and remaining gaps
 
-`pnpm dribble:calibration` records deterministic simulator distributions at seed `0x05a8c1` across 16 cases: straight carry, precision/slalom, 30/90/120/180-degree jog cuts, 30/60/90/120/180-degree sprint cuts, pressure from both sides, weak-foot selection, loose-ball recovery, and trap-to-exit. The report is reproduced by `tools/perf/dribble-calibration.test.ts`.
+`pnpm dribble:calibration` records deterministic simulator distributions at seed `0x05a8c1` across 16 cases and 136 measured contacts: straight carry, precision/slalom, 30/90/120/180-degree jog cuts, 30/60/90/120/180-degree sprint cuts, pressure from both sides, weak-foot selection, loose-ball recovery, and trap-to-exit. The report is reproduced by `tools/perf/dribble-calibration.test.ts`.
 
 - Touch cadence: median 2.692 contacts/s across cases (p10 2.609, p90 2.840, max 3.750).
 - Contact timing error: 136 contacts, p50/p90/max all 0 ticks.
