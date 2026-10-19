@@ -151,7 +151,7 @@ function corridorCorrection(
 
   return {
     x: direction.x * forwardCorrection + lateral.x * lateralCorrection,
-    z: direction.z * forwardCorrection + lateral.x * 0 + lateral.z * lateralCorrection,
+    z: direction.z * forwardCorrection + lateral.z * lateralCorrection,
   };
 }
 
