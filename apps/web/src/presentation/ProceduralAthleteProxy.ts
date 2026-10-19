@@ -134,7 +134,10 @@ export class ProceduralAthleteProxy {
     this.#trunk.position.y = -player.athleticMotion.plantIntensity * 0.035;
 
     const feet = this.#buildFootPositions(input, alpha);
-    const supportFoot = player.athleticMotion.gait === 'plant'
+    // Every grounded locomotion gait has a stance/support foot, not only the
+    // explicit hard-cut "plant" gait. Locking only hard plants made ordinary
+    // jog/sprint boots translate with the root and visibly skate over the turf.
+    const supportFoot = player.athleticMotion.gait !== 'idle'
       && player.athleticMotion.supportFoot !== 'both'
       ? player.athleticMotion.supportFoot
       : null;
@@ -165,7 +168,11 @@ export class ProceduralAthleteProxy {
         plan.expectedFootPoint.z,
       );
       const reach = base.distanceTo(target);
-      const windowStart = Math.max(plan.prepareTick, plan.contactTick - plan.timingWindowTicks);
+      // Use the plan's declared preparation interval rather than waiting until
+      // the one-tick contact tolerance. This makes a valid pass/shot visibly
+      // acknowledge input immediately while the authoritative impulse still
+      // occurs only on the scheduled contact tick.
+      const windowStart = plan.prepareTick;
       const contactProgress = plan.contactTick <= windowStart
         ? 1
         : clamp((input.simulationTick + alpha - windowStart) / (plan.contactTick - windowStart), 0, 1);
