@@ -1,7 +1,24 @@
 # Stage 05–07 Owner Control Overhaul Gate
 
 **Branch:** `stage/05-07-owner-control-overhaul`  
-**Gate type:** engineering + owner feel acceptance
+**Gate type:** engineering + owner feel acceptance  
+**Current decision:** **REOPENED / BLOCKED BY STAGE 05R OWNER-FEEL REMEDIATION**
+
+## Owner rejection supersedes the earlier engineering green
+
+The owner completed a 74.87 s manual playtest on 2026-10-18/19 and explicitly rejected the current dribbling/movement feel. That verdict is authoritative for the subjective Stage 05 feel gate.
+
+The pre-remediation functional head is `8d5f2099b2b87d9f02ad42da3abc848d143a2377`. The Stage 05R implementation plan was added at `2cc2feb72cbfae40ac2e67a4acbe5bdaa3f707f5`.
+
+Automated green status on the old controller **must not** be interpreted as owner approval. The existing bounded-separation and deterministic-control tests remain useful regressions, but they do not prove professional contact provenance or human feel.
+
+Stage 05R is governed by:
+
+- `docs/superpowers/plans/2026-10-19-professional-motion-dribbling-overhaul.md`
+- `docs/gates/STAGE-05R-PLAYTEST-BASELINE.md`
+- `docs/research/STAGE-05R-MOTION-DRIBBLING-BASIS.md`
+
+No merge to `main` is authorized until Stage 05R reaches its owner micro-playtest gate and the owner explicitly accepts the revised feel.
 
 ## Automated blocking checks
 
@@ -26,6 +43,8 @@ The CI workflow additionally verifies authoritative-source/private-content guard
 
 ## Required behavioral evidence
 
+The following legacy contracts remain required unless Stage 05R replaces them with a stricter equivalent:
+
 - capture click emits no football action;
 - permanent locked reticle and camera-center world aim are present;
 - F receive buffer supports kill and controlled-exit semantics;
@@ -36,11 +55,8 @@ The CI workflow additionally verifies authoritative-source/private-content guard
 - Ctrl+LMB latches chip at shot start and remains chip if Ctrl is released before LMB;
 - Ctrl is no longer a tackle alias; C remains the primary tackle key and B remains a fallback;
 - Z/X do not activate the normal advanced pass/shot modifiers;
-- a laterally displaced but legally reachable ball receives a bounded correction toward the requested control corridor without any position snap;
-- a correctly positioned normal dribble touch does not intentionally target a ball speed below the jogging carrier speed;
-- sustained ordinary browser dribbling keeps player-to-ball separation inside the 1.32 m legal control reach and avoids excessive straight-line lateral drift;
+- no player action teleports or rigidly attaches the ball;
 - sprint touches remain longer/riskier than normal or precision touches;
-- sharp turns brake/redirect the existing physical ball vector;
 - close control reduces movement authority and disables sprint;
 - aim-cone receiver selection respects deliberate open space;
 - shot feedback exposes preparation/contact/failure and technique states;
@@ -49,16 +65,28 @@ The CI workflow additionally verifies authoritative-source/private-content guard
 - difficulty tiers preserve identical physical constants;
 - Stage 02 determinism, Stage 04/05 fuzz, Stage 06 tournament and Stage 07 adaptive gates remain green.
 
+Stage 05R additionally requires:
+
+- routine dribble cadence comes from gait/contact opportunity rather than `controlTouchCooldown`;
+- every routine dribble impulse has a planned foot, contact tick and legal geometry;
+- the ball remains free between contacts;
+- a missed contact can produce a true loose-ball chase state;
+- normal/precision dribbling contains no continuous lateral corridor servo;
+- render cadence cannot change authoritative contact timing;
+- owner manual playtest confirms a meaningful improvement before sprint/skill migration continues.
+
 ## Regression tests added for owner playtest round 2
 
-The owner recording's two failure classes are now explicit automated regressions:
+The previous owner-feedback tests remain regression coverage, but their interpretation is narrowed:
 
-1. `packages/sim/src/football/controlEnvelope.owner.test.ts` checks lateral recentering, carrier-relative normal touch speed and existing sharp-turn/sprint behavior.
-2. `packages/sim/src/football/runtime.test.ts` checks shot-technique latching and the revised repeated-touch cadence.
-3. `apps/web/src/input/ActionMap.owner-overhaul.test.ts` checks Ctrl/C/B/Z/X keyboard semantics.
-4. `packages/sim/src/football/actionIntent.test.ts` checks RMB/precision and Ctrl/lift intent composition.
-5. `e2e/football-practice.spec.ts` checks the real browser chords and sustained multi-second dribble retention.
+1. `packages/sim/src/football/controlEnvelope.owner.test.ts` protects bounded legacy contact behavior while migration proceeds.
+2. `packages/sim/src/football/runtime.test.ts` protects shot-technique latching and legacy paths still using cooldowns.
+3. `apps/web/src/input/ActionMap.owner-overhaul.test.ts` protects Ctrl/C/B/Z/X keyboard semantics.
+4. `packages/sim/src/football/actionIntent.test.ts` protects RMB/precision and Ctrl/lift intent composition.
+5. `e2e/football-practice.spec.ts` protects browser chords and basic physical possession behavior.
+
+These are not, by themselves, a professional-feel certificate.
 
 ## Merge status
 
-Even after the automated gate is green, this branch must **not** be merged into `main` until the owner manually playtests the repaired controls and explicitly approves the feel. The preserved Stage 05/06/07 checkpoint branches remain source-of-truth history until that approval.
+**BLOCKED.** Do not merge this branch into `main` until the owner manually playtests the Stage 05R vertical slice and explicitly approves the revised feel. The preserved Stage 05/06/07 checkpoint branches remain source-of-truth history until that approval.
