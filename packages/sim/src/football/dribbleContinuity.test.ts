@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { createFootballContactPlan } from './contactPlan';
-import * as dribblePlanner from './dribblePlanner';
+import { suspendPlannedDribble } from './dribbleContinuity';
 import type { PlannedDribbleState } from './dribblePlanner';
 
 describe('professional dribble action continuity', () => {
@@ -31,14 +31,7 @@ describe('professional dribble action continuity', () => {
       looseBall: false,
     };
 
-    const api = dribblePlanner as typeof dribblePlanner & {
-      suspendPlannedDribble?: (current: Readonly<PlannedDribbleState>) => PlannedDribbleState;
-    };
-
-    expect(typeof api.suspendPlannedDribble).toBe('function');
-    if (!api.suspendPlannedDribble) return;
-
-    const suspended = api.suspendPlannedDribble(state);
+    const suspended = suspendPlannedDribble(state);
     expect(suspended.activePlan).toBeNull();
     expect(suspended.lastContactTick).toBe(31);
     expect(suspended.lastContactFoot).toBe('left');
