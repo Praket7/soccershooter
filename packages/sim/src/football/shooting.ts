@@ -5,6 +5,7 @@ import {
   horizontalDistance,
   horizontalDot,
   normalizeHorizontal,
+  pitchSpinForDirection,
   type BallContactCommand,
   type FootballActorSnapshot,
   type FootballBallSnapshot,
@@ -110,18 +111,32 @@ function resolvedElevationRadians(input: Readonly<ShotBuildInput>, charge: numbe
   return clampFootball(requestedDegrees, minDegrees, maxDegrees) * Math.PI / 180;
 }
 
-function angularSignature(style: ShotStyle, spinInput: number, foot: FootballFoot): FootballVec3 {
+function withSideSpin(
+  direction: FootballHorizontalDirection,
+  signedPitchSpin: number,
+  sideSpin: number,
+): FootballVec3 {
+  const pitch = pitchSpinForDirection(direction, signedPitchSpin);
+  return { ...pitch, y: sideSpin };
+}
+
+function angularSignature(
+  style: ShotStyle,
+  spinInput: number,
+  foot: FootballFoot,
+  direction: FootballHorizontalDirection,
+): FootballVec3 {
   const spin = clampFootball(spinInput, -1, 1);
   const footSign = foot === 'right' ? -1 : 1;
-  if (style === 'finesse') return { x: -5, y: 48 * spin * footSign, z: 0 };
-  if (style === 'outside-foot') return { x: 1.5, y: 56 * Math.max(0.35, Math.abs(spin)) * footSign, z: 0 };
-  if (style === 'chip') return { x: -28 * (0.55 + 0.45 * Math.abs(spin)), y: 0, z: 0 };
+  if (style === 'finesse') return withSideSpin(direction, -5, 48 * spin * footSign);
+  if (style === 'outside-foot') return withSideSpin(direction, 1.5, 56 * Math.max(0.35, Math.abs(spin)) * footSign);
+  if (style === 'chip') return pitchSpinForDirection(direction, -28 * (0.55 + 0.45 * Math.abs(spin)));
   if (style === 'knuckle') return { x: 0.45 * spin, y: -0.65 * spin, z: 0.25 * spin };
-  if (style === 'driven') return { x: 9 + 7 * Math.max(0, spin), y: 3 * spin * footSign, z: 0 };
+  if (style === 'driven') return withSideSpin(direction, 9 + 7 * Math.max(0, spin), 3 * spin * footSign);
   // Normal is the deliberately straight baseline. Backspin gives it a natural
   // flight profile, while intentional lateral bend belongs to finesse and
   // outside-foot contacts instead of appearing automatically.
-  return { x: -3, y: 0, z: 0 };
+  return pitchSpinForDirection(direction, -3);
 }
 
 function deterministicKnuckleSeed(input: Readonly<ShotBuildInput>): number {
@@ -171,7 +186,7 @@ export function buildShot(input: Readonly<ShotBuildInput>): ShotSolution {
     y: launchSpeed * Math.sin(elevation),
     z: aim.z * horizontal,
   };
-  const angularVelocityDelta = angularSignature(input.style, input.spinInput, input.contactFoot);
+  const angularVelocityDelta = angularSignature(input.style, input.spinInput, input.contactFoot, aim);
   const command = commandTowardVelocity(
     'shot',
     input.ball,
