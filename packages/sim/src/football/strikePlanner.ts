@@ -49,7 +49,10 @@ export function createStrikeContactPlan(
   const untilSwing = ((0.72 - footPhase + 1) % 1) * strideTicks;
   const contactDelay = Math.max(5, Math.min(18, Math.ceil(untilSwing)));
   const contactTick = input.tick + contactDelay;
-  const prepareTick = Math.max(input.tick + 1, contactTick - Math.min(4, Math.max(2, Math.floor(contactDelay / 2))));
+  // A legal action must be visible immediately even though the actual impulse
+  // still waits for the gait-timed contact beat. Presentation can start the
+  // support/setup motion now without granting ball ownership or teleporting it.
+  const prepareTick = input.tick;
   const seconds = contactDelay / TICK_HZ;
   const expectedBallPoint = {
     x: input.ball.position.x + input.ball.velocity.x * seconds,
@@ -57,7 +60,12 @@ export function createStrikeContactPlan(
     z: input.ball.position.z + input.ball.velocity.z * seconds,
   };
   const expectedFootPoint = { ...expectedBallPoint, y: Math.max(0.06, expectedBallPoint.y - input.ball.radius * 0.22) };
-  if (distance(input.actorPosition, expectedFootPoint) > MAX_STRIKE_REACH) return null;
+
+  // Creation only needs a legal *current* setup. Comparing a future moving-ball
+  // intercept against the actor's current root incorrectly rejects running
+  // strikes where player and ball are travelling together. The future geometry
+  // is revalidated against the actor's then-current position at contact time.
+  if (distance(input.actorPosition, input.ball.position) > MAX_STRIKE_REACH) return null;
 
   const balance = finiteUnit(input.balance);
   return createFootballContactPlan({
