@@ -25,6 +25,8 @@ export interface AthleticMotionState {
   bodyLean: { forward: number; lateral: number };
   plannedVelocity: AthleticHorizontalVector;
   trajectory: AthleticTrajectorySample[];
+  /** True only while the current deterministic input is preparing a shot. */
+  strikePreparation?: boolean;
 }
 
 export interface AthleticMotionInput {
@@ -41,6 +43,7 @@ export interface AthleticMotionInput {
   sprintSpeed: number;
   acceleration: number;
   braking: number;
+  strikePreparation?: boolean;
 }
 
 const EPSILON = 1e-9;
@@ -157,6 +160,7 @@ export function createAthleticMotionState(): AthleticMotionState {
     bodyLean: { forward: 0, lateral: 0 },
     plannedVelocity: { x: 0, z: 0 },
     trajectory: [],
+    strikePreparation: false,
   };
 }
 
@@ -266,5 +270,6 @@ export function stepAthleticMotion(
     },
     plannedVelocity,
     trajectory: futureTrajectory(input, plantIntensity),
+    strikePreparation: Boolean(input.strikePreparation),
   };
 }
