@@ -173,10 +173,11 @@ function targetSpeed(input: Readonly<PlannedDribbleInput>): number {
     return clampFootball(actorSpeed * 0.62 + 0.65, 2.4, 5.15);
   }
   if (input.sprint) {
-    // Knock the ball only modestly faster than the runner. During initial
-    // acceleration this avoids punting it away; at full stride it still opens
-    // a visibly larger pocket than jog/precision control.
-    return clampFootball(actorSpeed + 1.05 + Math.min(0.55, actorSpeed * 0.06), 3.55, 9.15);
+    // A sprint knock-on must create a visibly larger stride pocket than close
+    // control. Preserve the safe startup floor, but once the runner is moving
+    // allow roughly 0.7-0.8 m/s of headroom above top sprint speed so the ball
+    // travels ahead between the deliberately sparse contact beats.
+    return clampFootball(actorSpeed + 1.25 + Math.min(0.65, actorSpeed * 0.07), 3.55, 9.55);
   }
   return clampFootball(referenceSpeed * 0.94 + 0.24, 2.65, 5.5);
 }
