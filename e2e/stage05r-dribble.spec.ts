@@ -49,15 +49,8 @@ test('a late 90 degree jog cut in the live game retains contact without attachin
   const startZ = Number(await player.getAttribute('data-z') ?? 0);
   const startTick = Number(await player.getAttribute('data-tick') ?? 0);
   const startingFreeBallFrames = Number(await probe.getAttribute('data-free-ball-frames') ?? 0);
-  let maximumSeparation = 0;
-  let maximumSeparationState: Record<string, unknown> = {};
-  const tickSamples: Array<Record<string, number | boolean>> = [];
-
-  await page.keyboard.down('d');
-  await page.keyboard.up('w');
-  let lastSampledTick = startTick;
-  for (let attempt = 0; attempt < 240 && lastSampledTick < startTick + 36; attempt += 1) {
-    const state = await page.evaluate(() => {
+  const capturePromise = page.evaluate((baselineTick) => new Promise<Array<Record<string, number | boolean>>>((resolve, reject) => {
+    const snapshot = () => {
       const playerState = document.querySelector<HTMLOutputElement>('[data-player-state]');
       const footballState = document.querySelector<HTMLOutputElement>('[data-football-state]');
       if (!playerState || !footballState) throw new Error('missing live cut probes');
@@ -75,18 +68,41 @@ test('a late 90 degree jog cut in the live game retains contact without attachin
         loose: footballState.dataset.dribbleLooseBall === 'true',
         contactTick: Number(footballState.dataset.activeContactTick ?? 0),
       };
-    });
-    if (state.tick > lastSampledTick) {
-      tickSamples.push(state);
-      lastSampledTick = state.tick;
-      if (state.separation > maximumSeparation) {
-        maximumSeparation = state.separation;
-        maximumSeparationState = state;
+    };
+    const samples: Array<Record<string, number | boolean>> = [];
+    let lastSampledTick = baselineTick;
+    let finished = false;
+    const timeout = window.setTimeout(() => {
+      finished = true;
+      reject(new Error(`cut telemetry timed out at tick ${lastSampledTick}`));
+    }, 8000);
+    const collect = () => {
+      if (finished) return;
+      const state = snapshot();
+      if (state.tick > lastSampledTick) {
+        samples.push(state);
+        lastSampledTick = state.tick;
       }
-    }
-    if (lastSampledTick < startTick + 36) await page.waitForTimeout(5);
-  }
+      if (lastSampledTick >= baselineTick + 36) {
+        finished = true;
+        window.clearTimeout(timeout);
+        resolve(samples);
+      } else {
+        requestAnimationFrame(collect);
+      }
+    };
+    requestAnimationFrame(collect);
+  }), startTick);
+
+  await page.keyboard.down('d');
+  await page.keyboard.up('w');
+  const tickSamples = await capturePromise;
   await page.keyboard.up('d');
+
+  const maximumSeparationState = tickSamples.reduce<Record<string, unknown> | undefined>((maximum, state) =>
+    !maximum || Number(state.separation) > Number(maximum.separation) ? state : maximum, undefined);
+  const maximumSeparation = Number(maximumSeparationState?.separation ?? 0);
+  const lastSampledTick = Number(tickSamples.at(-1)?.tick ?? startTick);
 
   const endX = Number(await player.getAttribute('data-x') ?? 0);
   const endZ = Number(await player.getAttribute('data-z') ?? 0);
