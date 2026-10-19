@@ -271,6 +271,7 @@ let lastFrameTime = performance.now();
 let smoothedFps = 60;
 let lastAcceleration = 0;
 let lastAppliedInputTimestamp = -Infinity;
+let lastAppliedInputSimTick = 0;
 let inputToSimulationMs: number | null = null;
 let inputToRenderMs: number | null = null;
 let pendingRenderAckTimestamp: number | null = null;
@@ -533,9 +534,42 @@ function frame(now: number): void {
 
     if (keyboardFrame.inputTimestamp !== null && keyboardFrame.inputTimestamp > lastAppliedInputTimestamp) {
       lastAppliedInputTimestamp = keyboardFrame.inputTimestamp;
+      lastAppliedInputSimTick = simTick;
       inputToSimulationMs = Math.max(0, performance.now() - keyboardFrame.inputTimestamp);
       pendingRenderAckTimestamp = keyboardFrame.inputTimestamp;
       inputAcknowledgedSimTick = simTick;
+    }
+
+    if (practiceMode) {
+      // E2E installs this optional observer for fixed-tick cut assertions; normal play allocates no sample history.
+      const capture = (window as Window & {
+        __stage05rCutCapture?: {
+          onTick?: (sample: {
+            tick: number;
+            playerX: number;
+            playerZ: number;
+            ballX: number;
+            ballZ: number;
+            separation: number;
+            contactTick: number;
+            inputAckSimTick: number;
+          }) => void;
+        };
+      }).__stage05rCutCapture;
+      if (capture?.onTick) {
+        const ball = footballPractice.state.position;
+        const separation = Math.hypot(player.position.x - ball.x, player.position.z - ball.z);
+        capture.onTick({
+          tick: simTick,
+          playerX: player.position.x,
+          playerZ: player.position.z,
+          ballX: ball.x,
+          ballZ: ball.z,
+          separation,
+          contactTick: footballPractice.activeContactPlan?.contactTick ?? 0,
+          inputAckSimTick: lastAppliedInputSimTick,
+        });
+      }
     }
   }
 

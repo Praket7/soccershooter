@@ -31,72 +31,62 @@ test('a late 90 degree jog cut in the live game retains contact without attachin
     .toBeGreaterThan(4);
   await expect.poll(async () => Number(await probe.getAttribute('data-planned-contact-count') ?? 0), { timeout: 3000 })
     .toBeGreaterThanOrEqual(2);
-  let contactCountdown = Number.POSITIVE_INFINITY;
-  for (let attempt = 0; attempt < 600 && contactCountdown !== 2; attempt += 1) {
-    contactCountdown = await page.evaluate(() => {
-      const playerState = document.querySelector<HTMLOutputElement>('[data-player-state]');
-      const footballState = document.querySelector<HTMLOutputElement>('[data-football-state]');
-      if (!playerState || !footballState) throw new Error('missing live cut probes');
-      const currentTick = Number(playerState.dataset.tick ?? 0);
-      const contactTick = Number(footballState.dataset.activeContactTick ?? 0);
-      return contactTick > currentTick ? contactTick - currentTick : Number.POSITIVE_INFINITY;
-    });
-    if (contactCountdown !== 2) await page.waitForTimeout(4);
-  }
-  expect(contactCountdown, 'live dribble planner did not expose a contact two ticks ahead').toBe(2);
-  const contactsBeforeCut = Number(await probe.getAttribute('data-planned-contact-count') ?? 0);
-  const startX = Number(await player.getAttribute('data-x') ?? 0);
-  const startZ = Number(await player.getAttribute('data-z') ?? 0);
-  const startTick = Number(await player.getAttribute('data-tick') ?? 0);
-  const startingFreeBallFrames = Number(await probe.getAttribute('data-free-ball-frames') ?? 0);
-  const capturePromise = page.evaluate((baselineTick) => new Promise<Array<Record<string, number | boolean>>>((resolve, reject) => {
-    const snapshot = () => {
-      const playerState = document.querySelector<HTMLOutputElement>('[data-player-state]');
-      const footballState = document.querySelector<HTMLOutputElement>('[data-football-state]');
-      if (!playerState || !footballState) throw new Error('missing live cut probes');
-      const playerX = Number(playerState.dataset.x ?? 0);
-      const playerZ = Number(playerState.dataset.z ?? 0);
-      const ballX = Number(footballState.dataset.ballX ?? 0);
-      const ballZ = Number(footballState.dataset.ballZ ?? 0);
-      return {
-        playerX,
-        playerZ,
-        tick: Number(playerState.dataset.tick ?? 0),
-        ballX,
-        ballZ,
-        separation: Math.hypot(playerX - ballX, playerZ - ballZ),
-        loose: footballState.dataset.dribbleLooseBall === 'true',
-        contactTick: Number(footballState.dataset.activeContactTick ?? 0),
+  await page.waitForFunction(() => {
+    const windowWithCapture = window as Window & {
+      __stage05rCutCapture?: {
+        baseline: { startX: number; startZ: number; startTick: number; contactCountdown: number; contactsBeforeCut: number; startingFreeBallFrames: number; inputAckSimTick: number };
+        samples: Array<{ tick: number; playerX: number; playerZ: number; ballX: number; ballZ: number; separation: number; contactTick: number; inputAckSimTick: number }>;
+        done: boolean;
+        onTick: (sample: { tick: number; playerX: number; playerZ: number; ballX: number; ballZ: number; separation: number; contactTick: number; inputAckSimTick: number }) => void;
       };
     };
-    const samples: Array<Record<string, number | boolean>> = [];
-    let lastSampledTick = baselineTick;
-    let finished = false;
-    const timeout = window.setTimeout(() => {
-      finished = true;
-      reject(new Error(`cut telemetry timed out at tick ${lastSampledTick}`));
-    }, 8000);
-    const collect = () => {
-      if (finished) return;
-      const state = snapshot();
-      if (state.tick > lastSampledTick) {
-        samples.push(state);
-        lastSampledTick = state.tick;
-      }
-      if (lastSampledTick >= baselineTick + 36) {
-        finished = true;
-        window.clearTimeout(timeout);
-        resolve(samples);
-      } else {
-        requestAnimationFrame(collect);
-      }
+    if (windowWithCapture.__stage05rCutCapture) return true;
+    const playerState = document.querySelector<HTMLOutputElement>('[data-player-state]');
+    const footballState = document.querySelector<HTMLOutputElement>('[data-football-state]');
+    if (!playerState || !footballState) throw new Error('missing live cut probes');
+    const startTick = Number(playerState.dataset.tick ?? 0);
+    const contactTick = Number(footballState.dataset.activeContactTick ?? 0);
+    const contactCountdown = contactTick > startTick ? contactTick - startTick : Number.POSITIVE_INFINITY;
+    if (contactCountdown !== 2) return false;
+
+    const capture = {
+      baseline: {
+        startX: Number(playerState.dataset.x ?? 0),
+        startZ: Number(playerState.dataset.z ?? 0),
+        startTick,
+        contactCountdown,
+        contactsBeforeCut: Number(footballState.dataset.plannedContactCount ?? 0),
+        startingFreeBallFrames: Number(footballState.dataset.freeBallFrames ?? 0),
+        inputAckSimTick: Number(playerState.dataset.inputAckSimTick ?? 0),
+      },
+      samples: [] as Array<{ tick: number; playerX: number; playerZ: number; ballX: number; ballZ: number; separation: number; contactTick: number; inputAckSimTick: number }>,
+      done: false,
+      onTick(sample: { tick: number; playerX: number; playerZ: number; ballX: number; ballZ: number; separation: number; contactTick: number; inputAckSimTick: number }) {
+        if (capture.done || sample.tick <= startTick) return;
+        capture.samples.push(sample);
+        if (sample.tick >= startTick + 36) capture.done = true;
+      },
     };
-    requestAnimationFrame(collect);
-  }), startTick);
+    windowWithCapture.__stage05rCutCapture = capture;
+    return true;
+  }, undefined, { polling: 'raf', timeout: 8000 });
 
   await page.keyboard.down('d');
   await page.keyboard.up('w');
-  const tickSamples = await capturePromise;
+  await page.waitForFunction(
+    () => (window as Window & { __stage05rCutCapture?: { done: boolean } }).__stage05rCutCapture?.done === true,
+    undefined,
+    { timeout: 8000 },
+  );
+  const captureResult = await page.evaluate(() => (window as Window & {
+    __stage05rCutCapture?: {
+      baseline: { startX: number; startZ: number; startTick: number; contactCountdown: number; contactsBeforeCut: number; startingFreeBallFrames: number; inputAckSimTick: number };
+      samples: Array<{ tick: number; playerX: number; playerZ: number; ballX: number; ballZ: number; separation: number; contactTick: number; inputAckSimTick: number }>;
+    };
+  }).__stage05rCutCapture);
+  if (!captureResult) throw new Error('live cut telemetry was not captured');
+  const { startX, startZ, startTick, contactCountdown, contactsBeforeCut, startingFreeBallFrames, inputAckSimTick: baselineInputAckSimTick } = captureResult.baseline;
+  const tickSamples = captureResult.samples;
   await page.keyboard.up('d');
 
   const maximumSeparationState = tickSamples.reduce<Record<string, unknown> | undefined>((maximum, state) =>
@@ -126,16 +116,18 @@ test('a late 90 degree jog cut in the live game retains contact without attachin
   expect(lastSampledTick, 'cut telemetry should cover 36 simulation ticks around the next contact').toBeGreaterThanOrEqual(startTick + 36);
   expect(contactsAfterCut, JSON.stringify({ contactCountdown, contactsBeforeCut, contactsAfterCut, loose, finalDiagnostics })).toBeGreaterThan(contactsBeforeCut);
   expect(endingFreeBallFrames, 'free-ball simulation should advance between legal contacts').toBeGreaterThan(startingFreeBallFrames);
-  expect(maximumSeparation, JSON.stringify({ startTick, startX, startZ, endX, endZ, contactsBeforeCut, contactsAfterCut, loose, maximumSeparation, maximumSeparationState })).toBeLessThan(2.0);
+  expect(maximumSeparation, JSON.stringify({ contactCountdown, startTick, startX, startZ, endX, endZ, contactsBeforeCut, contactsAfterCut, loose, finalDiagnostics, maximumSeparation, maximumSeparationState })).toBeLessThan(2.0);
   const firstObservedTick = Number(tickSamples[0]?.tick ?? startTick);
+  const cutInputAckTick = tickSamples.find((state) => state.inputAckSimTick > baselineInputAckSimTick)?.inputAckSimTick;
   const maximumObservedTickGap = Math.max(
     0,
     firstObservedTick - startTick,
     ...tickSamples.slice(1).map((state, index) => Number(state.tick) - Number(tickSamples[index]?.tick ?? 0)),
   );
-  expect(tickSamples.length, 'cut telemetry should include at least eight unique simulation-tick observations').toBeGreaterThanOrEqual(8);
-  expect(firstObservedTick, JSON.stringify({ startTick, sampleTicks: tickSamples.map((state) => state.tick) })).toBeLessThanOrEqual(startTick + 6);
-  expect(maximumObservedTickGap, JSON.stringify({ sampleTicks: tickSamples.map((state) => state.tick) })).toBeLessThanOrEqual(6);
+  expect(tickSamples.length, 'cut telemetry should include the full 36 simulation ticks').toBeGreaterThanOrEqual(36);
+  expect(firstObservedTick).toBe(startTick + 1);
+  expect(maximumObservedTickGap, JSON.stringify({ sampleTicks: tickSamples.map((state) => state.tick) })).toBeLessThanOrEqual(1);
+  expect(cutInputAckTick, JSON.stringify({ baselineInputAckSimTick, contactCountdown, samples: tickSamples.map((state) => ({ tick: state.tick, inputAckSimTick: state.inputAckSimTick })) })).toBeLessThan(startTick + contactCountdown);
 });
 
 test('RMB close control stays on planned contacts instead of falling back to the cooldown corridor', async ({ page }) => {
