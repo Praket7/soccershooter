@@ -3,6 +3,12 @@ import type { FootballBallSnapshot, FootballFoot, FootballVec3 } from './types';
 
 const TICK_HZ = 60;
 const MAX_STRIKE_REACH = 0.76;
+// Setup may begin while the ball is one normal dribble stride ahead. This is an
+// input-buffer envelope only: stepStrikeContact still enforces MAX_STRIKE_REACH
+// at the actual contact beat, so no extra physical reach or ball magnetism is
+// granted. Keeping this below the dribble planner's 1.48 m recovery boundary
+// also prevents a genuinely lost ball from banking a future kick.
+const MAX_STRIKE_SETUP_REACH = 1.22;
 
 export interface StrikeContactRequest {
   kind: 'pass' | 'shot';
@@ -61,11 +67,10 @@ export function createStrikeContactPlan(
   };
   const expectedFootPoint = { ...expectedBallPoint, y: Math.max(0.06, expectedBallPoint.y - input.ball.radius * 0.22) };
 
-  // Creation only needs a legal *current* setup. Comparing a future moving-ball
-  // intercept against the actor's current root incorrectly rejects running
-  // strikes where player and ball are travelling together. The future geometry
-  // is revalidated against the actor's then-current position at contact time.
-  if (distance(input.actorPosition, input.ball.position) > MAX_STRIKE_REACH) return null;
+  // Accept a short approach setup so pass/shot input during a normal knock-on
+  // is not discarded before the next gait beat. This does NOT authorize the
+  // strike itself; contact-time geometry below remains at MAX_STRIKE_REACH.
+  if (distance(input.actorPosition, input.ball.position) > MAX_STRIKE_SETUP_REACH) return null;
 
   const balance = finiteUnit(input.balance);
   return createFootballContactPlan({
