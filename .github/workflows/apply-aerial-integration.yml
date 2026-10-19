@@ -1,0 +1,41 @@
+name: Apply aerial integration patch
+
+on:
+  push:
+    branches:
+      - 'stress/**'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout foundation branch
+        uses: actions/checkout@v7
+        with:
+          ref: finish/stages-01-10-foundation
+          fetch-depth: 1
+
+      - name: Feed authoritative ball height into technique eligibility
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('apps/web/src/dev/FootballPractice.ts')
+          text = path.read_text()
+          old = "        ballDistance: Math.hypot(snapshot.position.x - actor.position.x, snapshot.position.z - actor.position.z),\n        grounded: player.grounded,"
+          new = "        ballDistance: Math.hypot(snapshot.position.x - actor.position.x, snapshot.position.z - actor.position.z),\n        ballHeight: snapshot.position.y,\n        grounded: player.grounded,"
+          if text.count(old) != 1:
+              raise SystemExit(f'expected exactly one technique context insertion point, found {text.count(old)}')
+          path.write_text(text.replace(old, new))
+          PY
+
+      - name: Commit foundation integration
+        run: |
+          git config user.name 'Praket7'
+          git config user.email '149203433+Praket7@users.noreply.github.com'
+          git add apps/web/src/dev/FootballPractice.ts
+          git diff --cached --check
+          git commit -m 'fix(techniques): use live ball height for aerial eligibility'
+          git push origin HEAD:finish/stages-01-10-foundation
