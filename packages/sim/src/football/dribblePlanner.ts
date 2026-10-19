@@ -161,7 +161,7 @@ function targetSpeed(input: Readonly<PlannedDribbleInput>): number {
   const referenceSpeed = Math.max(actorSpeed, plannedSpeed);
   if (input.receiveMode === 'kill') return Math.min(0.75, actorSpeed * 0.16);
   if (input.receiveMode === 'controlled-exit') return input.precision ? 2.0 : 2.8;
-  if (input.precision) return clampFootball(referenceSpeed * 0.68 + 0.18, 1.45, 3.75);
+  if (input.precision) return clampFootball(referenceSpeed * 0.80 + 0.15, 1.65, 4.35);
   if (isEffortTurn(input)) {
     // A hard cut is a brake/plant/contact/re-accelerate sequence. The touch is
     // deliberately shorter than a sprint knock-on instead of granting an
