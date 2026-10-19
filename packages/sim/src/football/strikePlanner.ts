@@ -10,6 +10,8 @@ const MAX_STRIKE_REACH = 0.76;
 const MAX_STRIKE_SETUP_REACH = 1.22;
 const MIN_CONTACT_DELAY_TICKS = 2;
 const MAX_CONTACT_DELAY_TICKS = 8;
+const PREFERRED_FOOT_BIAS = 0.34;
+const APPROACH_SETUP_SPEED = 4.5;
 
 export interface StrikeContactRequest {
   kind: 'pass' | 'shot';
@@ -64,20 +66,33 @@ function predictPoint(
 interface ContactCandidate {
   foot: Exclude<FootballFoot, 'both'>;
   delayTicks: number;
-  expectedActorPoint: FootballVec3;
   expectedBallPoint: FootballVec3;
   score: number;
 }
 
 function inferredActorVelocity(input: Readonly<StrikeContactRequest>): FootballVec3 {
   if (input.actorVelocity) return { ...input.actorVelocity };
-  // Compatibility bridge for live callers created before actorVelocity became
-  // part of the strike contract. A ball already inside the normal carry pocket
-  // is usually co-moving with the athlete, so use its horizontal velocity only
-  // to rank the next beat. This grants no contact: stepStrikeContact still
-  // checks the real actor against the real free ball at that tick.
-  if (distance(input.actorPosition, input.ball.position) <= 0.95) {
+  const setupDistance = distance(input.actorPosition, input.ball.position);
+  // Compatibility bridge for callers created before actorVelocity became part
+  // of the strike contract. A ball already in the carry pocket is usually
+  // co-moving with the athlete, so use its horizontal velocity for *planning*.
+  if (setupDistance <= 0.95) {
     return { x: input.ball.velocity.x, y: 0, z: input.ball.velocity.z };
+  }
+  // A ball inside the wider input-buffer envelope may be one stride ahead. Let
+  // planning assume the athlete continues approaching it, but do not grant the
+  // contact: stepStrikeContact still checks the real root-to-ball distance.
+  if (setupDistance <= MAX_STRIKE_SETUP_REACH) {
+    const dx = input.ball.position.x - input.actorPosition.x;
+    const dz = input.ball.position.z - input.actorPosition.z;
+    const horizontal = Math.hypot(dx, dz);
+    if (horizontal > 1e-6) {
+      return {
+        x: dx / horizontal * APPROACH_SETUP_SPEED,
+        y: 0,
+        z: dz / horizontal * APPROACH_SETUP_SPEED,
+      };
+    }
   }
   return { x: 0, y: 0, z: 0 };
 }
@@ -99,13 +114,13 @@ function chooseContactCandidate(input: Readonly<StrikeContactRequest>, strideTic
 
       const contactPhase = (phase + delayTicks / strideTicks + footOffset) % 1;
       const swingPhaseError = wrappedPhaseDistance(contactPhase, 0.72);
-      const nonPreferredPenalty = foot === input.preferredFoot ? 0 : 0.055;
-      // Reach is authoritative. Gait phase ranks otherwise legal candidates so
-      // the action binds to a plausible near footfall instead of waiting up to
-      // 300 ms for one rigid preferred-foot phase.
+      // Prefer the declared strong foot when both are feasible, but allow the
+      // alternate foot immediately when it is the only physically reachable
+      // one. This retains skill identity without reintroducing input latency.
+      const nonPreferredPenalty = foot === input.preferredFoot ? 0 : PREFERRED_FOOT_BIAS;
       const score = swingPhaseError * 0.65 + delayTicks * 0.018 + nonPreferredPenalty + reach * 0.035;
       if (!best || score < best.score) {
-        best = { foot, delayTicks, expectedActorPoint, expectedBallPoint, score };
+        best = { foot, delayTicks, expectedBallPoint, score };
       }
     }
   }
