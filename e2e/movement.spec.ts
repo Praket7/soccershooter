@@ -40,6 +40,11 @@ test('Stage 05R records a rendered input acknowledgement latency distribution', 
   expect(distribution.samples).toBeGreaterThanOrEqual(24);
   expect(acknowledgementFrame).toBeGreaterThan(0);
   expect(ordered.every((value) => Number.isFinite(value) && value >= 0)).toBe(true);
+  // Browser timing includes input dispatch, fixed-step pickup, draw, and a
+  // presentation boundary. Keep the ordinary response within two 60 Hz
+  // frames, while rejecting any individual response beyond three frames.
+  expect(distribution.p90Ms).toBeLessThanOrEqual(1000 / 30);
+  expect(distribution.maxMs).toBeLessThanOrEqual(50);
   console.log('Stage 05R rendered input-to-visible latency:', JSON.stringify(distribution));
   await testInfo.attach('stage-05r-input-to-visible-latency.json', {
     body: JSON.stringify(distribution, null, 2),
