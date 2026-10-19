@@ -5,6 +5,7 @@ import { BALL_SUBSTEP_DT, stepBall } from '../../../physics/src/ball/trajectory'
 import { createPlayerState, PlayerActionBits, type PlayerState } from '../player/PlayerState';
 import { createFlatMovementWorld, stepPlayerMovement } from '../player/movement';
 import { createPlannedDribbleState, stepPlannedDribble, type PlannedDribbleState } from './dribblePlanner';
+import { buildShot } from './shooting';
 import { createStrikeContactPlan } from './strikePlanner';
 import type { FootballActorSnapshot, FootballBallSnapshot } from './types';
 
@@ -66,68 +67,101 @@ function applyDribbleStep(
   return { ball: nextBall, dribble: planned.state, touched: planned.contactApplied, reason: planned.reason };
 }
 
-describe('held-run carry to strike integration', () => {
-  test('holding W through a 150 ms shot charge leaves a legal next strike beat on release', () => {
-    let player = createPlayerState({ position: { x: 0, y: 0, z: -13 }, facingYaw: 0 });
-    let ball = createBallState({ position: { x: 0, y: BALL_CONSTANTS.radius, z: -12.32 }, grounded: true });
-    let dribble = createPlannedDribbleState();
-    const setupTouchTicks: number[] = [];
+function runReleaseAt(chargeStartTick: number) {
+  let player = createPlayerState({ position: { x: 0, y: 0, z: -13 }, facingYaw: 0 });
+  let ball = createBallState({ position: { x: 0, y: BALL_CONSTANTS.radius, z: -12.32 }, grounded: true });
+  let dribble = createPlannedDribbleState();
+  const chargeTicks = 9;
+  const releaseTick = chargeStartTick + chargeTicks;
+  const setupTouchTicks: number[] = [];
 
-    // Match the browser regression: establish a running dribble first.
-    for (let tick = 0; tick < 48; tick += 1) {
-      player = stepPlayerMovement(player, { moveX: 0, moveY: 1, aimYaw: 0, sprint: false, actionBits: 0 }, WORLD, DT);
-      const carried = applyDribbleStep(tick, player, ball, dribble);
-      ball = advanceBall(carried.ball);
-      dribble = carried.dribble;
-    }
+  for (let tick = 0; tick < releaseTick; tick += 1) {
+    const charging = tick >= chargeStartTick;
+    player = stepPlayerMovement(player, {
+      moveX: 0,
+      moveY: 1,
+      aimYaw: 0,
+      sprint: false,
+      actionBits: charging ? PlayerActionBits.ShootHeld : 0,
+    }, WORLD, DT);
+    const carried = applyDribbleStep(tick, player, ball, dribble);
+    if (charging && carried.touched && carried.dribble.lastContactTick === tick) setupTouchTicks.push(tick);
+    ball = advanceBall(carried.ball);
+    dribble = carried.dribble;
+  }
 
-    // Keep W held while charging for ~150 ms.
-    for (let tick = 48; tick < 57; tick += 1) {
-      player = stepPlayerMovement(player, {
-        moveX: 0,
-        moveY: 1,
-        aimYaw: 0,
-        sprint: false,
-        actionBits: PlayerActionBits.ShootHeld,
-      }, WORLD, DT);
-      const carried = applyDribbleStep(tick, player, ball, dribble);
-      if (carried.touched && carried.dribble.lastContactTick === tick) setupTouchTicks.push(tick);
-      ball = advanceBall(carried.ball);
-      dribble = carried.dribble;
-    }
+  const releaseActor = actorSnapshot(player);
+  const releaseBall = ballSnapshot(ball);
+  const shot = buildShot({
+    style: 'normal',
+    shooter: releaseActor,
+    ball: releaseBall,
+    aim: { x: 0, z: 1 },
+    charge: 0.55,
+    spinInput: 0.18,
+    pressure: 0,
+    balance: releaseActor.balance,
+    contactFoot: 'right',
+  });
+  const strike = shot.command ? createStrikeContactPlan({
+    kind: 'shot',
+    sourceId: `held-run-${chargeStartTick}`,
+    tick: releaseTick,
+    gaitPhase: player.athleticMotion.gaitPhase,
+    strideSeconds: player.athleticMotion.strideSeconds,
+    actorPosition: releaseActor.position,
+    actorVelocity: releaseActor.velocity,
+    ball: releaseBall,
+    targetBallVelocity: shot.launchVelocity,
+    preferredFoot: 'right',
+    balance: releaseActor.balance,
+  }) : null;
 
-    const releaseActor = actorSnapshot(player);
-    const releaseBall = ballSnapshot(ball);
-    const separation = Math.hypot(
+  return {
+    chargeStartTick,
+    releaseTick,
+    player,
+    releaseActor,
+    releaseBall,
+    dribble,
+    setupTouchTicks,
+    shot,
+    strike,
+    separation: Math.hypot(
       releaseBall.position.x - releaseActor.position.x,
       releaseBall.position.y - releaseActor.position.y,
       releaseBall.position.z - releaseActor.position.z,
-    );
-    const strike = createStrikeContactPlan({
-      kind: 'shot',
-      sourceId: 'held-run-integration',
-      tick: 57,
-      gaitPhase: player.athleticMotion.gaitPhase,
-      strideSeconds: player.athleticMotion.strideSeconds,
-      actorPosition: releaseActor.position,
-      actorVelocity: releaseActor.velocity,
-      ball: releaseBall,
-      targetBallVelocity: { x: 0, y: 2.5, z: 24 },
-      preferredFoot: 'right',
-      balance: 1,
-    });
+    ),
+  };
+}
 
-    expect(strike, JSON.stringify({
-      setupTouchTicks,
-      separation,
-      playerZ: releaseActor.position.z,
-      playerSpeed: Math.hypot(releaseActor.velocity.x, releaseActor.velocity.z),
-      ballZ: releaseBall.position.z,
-      ballSpeed: Math.hypot(releaseBall.velocity.x, releaseBall.velocity.z),
-      lastContactTick: dribble.lastContactTick,
-      activePlan: dribble.activePlan?.reason ?? null,
-    }, null, 2)).not.toBeNull();
-    expect(strike!.contactTick - 57).toBeGreaterThanOrEqual(2);
-    expect(strike!.contactTick - 57).toBeLessThanOrEqual(8);
+function diagnostic(result: ReturnType<typeof runReleaseAt>): string {
+  return JSON.stringify({
+    chargeStartTick: result.chargeStartTick,
+    releaseTick: result.releaseTick,
+    setupTouchTicks: result.setupTouchTicks,
+    separation: result.separation,
+    gaitPhase: result.player.athleticMotion.gaitPhase,
+    playerZ: result.releaseActor.position.z,
+    playerSpeed: Math.hypot(result.releaseActor.velocity.x, result.releaseActor.velocity.z),
+    ballZ: result.releaseBall.position.z,
+    ballSpeed: Math.hypot(result.releaseBall.velocity.x, result.releaseBall.velocity.z),
+    shotLegal: result.shot.legal,
+    shotReason: result.shot.reason,
+    lastContactTick: result.dribble.lastContactTick,
+    activePlan: result.dribble.activePlan?.reason ?? null,
+  }, null, 2);
+}
+
+describe('held-run carry to strike integration', () => {
+  test('150 ms W+shot release stays legal across plausible running gait phases', () => {
+    for (let chargeStartTick = 22; chargeStartTick <= 58; chargeStartTick += 2) {
+      const result = runReleaseAt(chargeStartTick);
+      expect(result.shot.legal, diagnostic(result)).toBe(true);
+      expect(result.shot.command, diagnostic(result)).toBeDefined();
+      expect(result.strike, diagnostic(result)).not.toBeNull();
+      expect(result.strike!.contactTick - result.releaseTick, diagnostic(result)).toBeGreaterThanOrEqual(2);
+      expect(result.strike!.contactTick - result.releaseTick, diagnostic(result)).toBeLessThanOrEqual(8);
+    }
   });
 });
