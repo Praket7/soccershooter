@@ -5,7 +5,7 @@ test('physical football lab replays the exact Node reference trace', async ({ pa
   const expected = runReferenceTrace();
   await page.goto('/');
 
-  await expect(page.getByRole('heading', { name: 'SoccerShooter Physical Football Lab' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'SoccerShooter' })).toBeVisible();
   const result = page.locator('[data-determinism-hash]');
   await expect(result).toHaveAttribute('data-determinism-ticks', String(expected.ticks));
   await expect(result).toHaveAttribute('data-determinism-hash', expected.hash);
