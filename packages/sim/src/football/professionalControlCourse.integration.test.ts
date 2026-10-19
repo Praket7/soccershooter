@@ -110,7 +110,11 @@ describe('planned physical control integration', () => {
       }, WORLD, DT);
     }
     const brakingSpeed = Math.hypot(player.velocity.x, player.velocity.z);
-    expect(brakingSpeed).toBeLessThan(initialSpeed * 0.82);
+    // Six 60 Hz ticks are only 100 ms. With the football-like 13 m/s² braking
+    // envelope, an 8 m/s approach should shed about 1.3 m/s here, not the
+    // ~2.2 m/s previously implied by the old 27 m/s² arcade stop rate.
+    expect(brakingSpeed).toBeLessThan(initialSpeed * 0.86);
+    expect(brakingSpeed).toBeGreaterThan(initialSpeed * 0.70);
     expect(player.position.z).toBeGreaterThan(0);
   });
 });
