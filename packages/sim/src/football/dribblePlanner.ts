@@ -161,7 +161,11 @@ function targetSpeed(input: Readonly<PlannedDribbleInput>): number {
   const referenceSpeed = Math.max(actorSpeed, plannedSpeed);
   if (input.receiveMode === 'kill') return Math.min(0.75, actorSpeed * 0.16);
   if (input.receiveMode === 'controlled-exit') return input.precision ? 2.0 : 2.8;
-  if (input.precision) return clampFootball(referenceSpeed * 0.80 + 0.15, 1.65, 4.35);
+  // Close control means a short *relative* player-ball pocket, not an
+  // artificially slow ball in world space. Keep the ball almost pace-matched
+  // to the carrier so a full jog cannot physically overrun it between the
+  // deliberately frequent precision contacts.
+  if (input.precision) return clampFootball(actorSpeed * 0.96 + 0.22, 1.45, 5.05);
   if (isEffortTurn(input)) {
     // A hard cut is a brake/plant/contact/re-accelerate sequence. The touch is
     // deliberately shorter than a sprint knock-on instead of granting an
