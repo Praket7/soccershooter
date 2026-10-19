@@ -10,7 +10,7 @@
   "scripts": {
     "lint": "node tools/security/check-authoritative-random.mjs && node tools/security/check-private-imports.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run packages/sim/src/determinism.test.ts packages/sim/src/player/movementTick.test.ts packages/sim/src/football/actionIntent.test.ts packages/sim/src/football/contactSpinFrame.test.ts packages/sim/src/football/controlEnvelope.idle.test.ts packages/sim/src/football/controlEnvelope.mastery.test.ts packages/sim/src/football/controlEnvelope.owner.test.ts packages/sim/src/football/controlEnvelope.rolling.test.ts packages/sim/src/football/passing.owner-overhaul.test.ts packages/sim/src/football/receive.test.ts packages/sim/src/football/runtime.test.ts packages/sim/src/football/shooting.knuckle.test.ts packages/sim/src/football/shooting.reticle.test.ts packages/sim/src/techniques/executeTechnique.test.ts --reporter=verbose",
+    "test": "vitest run apps/web/src --reporter=verbose",
     "test:determinism": "vitest run packages/sim/src/determinism.test.ts --reporter=verbose",
     "test:e2e": "playwright test",
     "determinism:headless": "tsx tools/perf/run-determinism.ts",
