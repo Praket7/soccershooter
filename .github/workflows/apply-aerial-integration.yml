@@ -18,6 +18,11 @@ jobs:
           ref: finish/stages-01-10-foundation
           fetch-depth: 1
 
+      - name: Setup Node 24
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24.21.0'
+
       - name: Replace scheduler-sensitive max gate with p99 budget
         run: |
           python - <<'PY'
