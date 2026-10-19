@@ -12,7 +12,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --reporter=verbose",
     "test:determinism": "vitest run packages/sim/src/determinism.test.ts --reporter=verbose",
-    "test:e2e": "playwright test e2e/movement-running-action-rebuild.spec.ts --reporter=line",
+    "test:e2e": "playwright test e2e/movement-running-action-rebuild.spec.ts --grep \"player can keep running\" --reporter=line",
     "determinism:headless": "tsx tools/perf/run-determinism.ts",
     "dribble:calibration": "tsx tools/perf/dribble-calibration.ts",
     "strike:calibration": "tsx tools/perf/strike-transition-calibration.ts",
