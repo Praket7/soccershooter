@@ -9,7 +9,7 @@ test('Stage 07 Adaptive Bot Lab exposes cognition scaling with identical physica
   const lab = page.locator('[data-adaptive-bot-lab]');
   const probe = page.locator('[data-adaptive-state]');
   await expect(lab).toBeVisible();
-  await expect(lab.getByRole('heading', { name: adaptiveButtonName })).toBeVisible();
+  await expect(lab.locator('h2')).toHaveText(adaptiveButtonName);
   await expect(lab).toContainText('Difficulty changes perception, reaction, prediction and precision only');
   await expect(page.locator('[data-tier-card]')).toHaveCount(3);
   await expect(probe).toHaveAttribute('data-physical-invariant', 'true');
