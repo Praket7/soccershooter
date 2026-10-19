@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CampaignEncounter, LegacyGauntlet } from '@soccershooter/progression/campaign';
-import { resolveLiveCampaignModifiers } from './campaignChallengeModifiers';
+import { buildSyntheticCampaignGauntlet, resolveLiveCampaignModifiers, tacticalPitchScale } from './campaignChallengeModifiers';
 
 const PROBLEMS: readonly CampaignEncounter['tacticalProblem'][] = [
   'basic-space',
@@ -21,10 +21,10 @@ describe('Road to Legend live tactical challenge modifiers', () => {
     expect(new Set(PROBLEMS.map((problem) => JSON.stringify(profiles[problem]))).size).toBeGreaterThanOrEqual(6);
     expect(profiles['high-press']!.pressure).toBeGreaterThan(basic.pressure);
     expect(profiles['deep-block']!.pitchScale).toBeLessThan(basic.pitchScale);
-    expect(profiles['deep-block']!.keeperHalfReach).toBeGreaterThan(basic.keeperHalfReach);
+    expect(profiles['deep-block']!.keeperMaxHeight).toBeGreaterThan(basic.keeperMaxHeight);
     expect(profiles['counterattack']!.recoveryRate).toBeGreaterThan(basic.recoveryRate);
     expect(profiles['aerial-team']!.keeperMaxHeight).toBeGreaterThan(basic.keeperMaxHeight);
-    expect(profiles['elite-keeper']!.keeperHalfReach).toBeGreaterThan(profiles['deep-block']!.keeperHalfReach);
+    expect(profiles['elite-keeper']!.keeperMaxHeight).toBeGreaterThan(profiles['aerial-team']!.keeperMaxHeight);
     expect(profiles['possession-overload']!.pitchScale).toBeLessThan(basic.pitchScale);
     expect(profiles['aggressive-marking']!.pressure).toBeGreaterThan(profiles['high-press']!.pressure);
 
@@ -37,9 +37,19 @@ describe('Road to Legend live tactical challenge modifiers', () => {
       expect(profile.recoveryRate).toBeLessThanOrEqual(2.5);
       expect(profile.keeperMaxHeight).toBeGreaterThanOrEqual(2.18);
       expect(profile.keeperMaxHeight).toBeLessThanOrEqual(2.7);
-      expect(profile.keeperHalfReach).toBeGreaterThanOrEqual(0.68);
-      expect(profile.keeperHalfReach).toBeLessThanOrEqual(1.05);
     }
+  });
+
+  it('maps authored problems onto existing authoritative challenge hooks', () => {
+    expect(buildSyntheticCampaignGauntlet('basic-space')).toBeNull();
+    for (const problem of PROBLEMS.filter((problem) => problem !== 'basic-space')) {
+      expect(buildSyntheticCampaignGauntlet(problem)).not.toBeNull();
+    }
+    expect(buildSyntheticCampaignGauntlet('high-press')?.modifier).toBe('high-press');
+    expect(buildSyntheticCampaignGauntlet('counterattack')?.modifier).toBe('quick-recovery');
+    expect(buildSyntheticCampaignGauntlet('elite-keeper')?.modifier).toBe('aerial-pressure');
+    expect(tacticalPitchScale('possession-overload')).toBeLessThan(1);
+    expect(tacticalPitchScale('basic-space')).toBe(1);
   });
 
   it('composes a seeded Legacy modifier with the authored tactical problem instead of replacing it', () => {
@@ -56,6 +66,5 @@ describe('Road to Legend live tactical challenge modifiers', () => {
     expect(combined.pressure).toBeGreaterThanOrEqual(tactical.pressure);
     expect(combined.pitchScale).toBeLessThan(tactical.pitchScale);
     expect(combined.keeperMaxHeight).toBeGreaterThanOrEqual(tactical.keeperMaxHeight);
-    expect(combined.keeperHalfReach).toBeGreaterThanOrEqual(tactical.keeperHalfReach);
   });
 });
