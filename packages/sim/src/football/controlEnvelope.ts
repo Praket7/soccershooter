@@ -61,10 +61,12 @@ export interface ControlBreakInput {
 const MAX_CONTROL_HEIGHT = 0.72;
 const HARD_INCOMING_SPEED = 26;
 const MIN_FRONT_DOT = Math.cos(128 * Math.PI / 180);
+const CLOSE_STRIDE_MIN_DOT = -0.92;
+const CLOSE_STRIDE_START = 0.42;
+const CLOSE_STRIDE_END = 1.02;
 const IDLE_PLAYER_SPEED = 0.35;
 const IDLE_BALL_SPEED = 0.8;
-const EFFORT_TURN_DOT = Math.cos(52 * Math.PI / 180);
-const HARD_TURN_DOT = Math.cos(105 * Math.PI / 180);
+const EFFORT_TURN_ANGLE = 36 * Math.PI / 180;
 
 function actorSpeed(actor: Readonly<FootballActorSnapshot>): number {
   return horizontalMagnitude(actor.velocity);
@@ -107,7 +109,7 @@ function corridorTuning(mode: ControlTouchMode): CorridorTuning {
     return { horizon: 0.20, gain: 0.82, maxAdvance: 0.45, maxRecovery: 4.8, maxLateral: 3.3 };
   }
   if (mode === 'effort-turn') {
-    return { horizon: 0.12, gain: 0.96, maxAdvance: 1.1, maxRecovery: 5.2, maxLateral: 4.6 };
+    return { horizon: 0.11, gain: 0.92, maxAdvance: 2.4, maxRecovery: 5.2, maxLateral: 4.2 };
   }
   return { horizon: 0.16, gain: 0.84, maxAdvance: 0.52, maxRecovery: 4.3, maxLateral: 3.5 };
 }
@@ -168,68 +170,73 @@ function rollingAngularVelocityDelta(
   };
 }
 
-function mixHash(hash: number, value: number): number {
-  let next = hash ^ (Math.round(value) | 0);
-  next = Math.imul(next, 0x45d9f3b);
-  next ^= next >>> 16;
-  return next >>> 0;
+function rotateDirectionToward(
+  current: FootballHorizontalDirection,
+  target: FootballHorizontalDirection,
+  maxRadians: number,
+): FootballHorizontalDirection {
+  const currentYaw = Math.atan2(current.x, current.z);
+  const targetYaw = Math.atan2(target.x, target.z);
+  let delta = targetYaw - currentYaw;
+  while (delta > Math.PI) delta -= Math.PI * 2;
+  while (delta < -Math.PI) delta += Math.PI * 2;
+  const applied = clampFootball(delta, -maxRadians, maxRadians);
+  const yaw = currentYaw + applied;
+  return { x: Math.sin(yaw), z: Math.cos(yaw) };
 }
 
-/** Integer-only hash of visible simulation state. It makes touch imperfection
- * replayable and cross-run deterministic without a global nondeterministic source. */
-function touchStateHash(
-  actor: Readonly<FootballActorSnapshot>,
-  ball: Readonly<FootballBallSnapshot>,
-  direction: FootballHorizontalDirection,
+/**
+ * A ball almost under the player's stride can still be touched when it has just
+ * crossed the root during a cut. As distance grows, the normal front-of-body
+ * rule returns smoothly. This is a reach/geometry allowance, not possession:
+ * position never snaps and the eventual correction is still impulse bounded.
+ */
+function minimumFrontDotForReach(reach: number): number {
+  const t = clampFootball(
+    (reach - CLOSE_STRIDE_START) / (CLOSE_STRIDE_END - CLOSE_STRIDE_START),
+    0,
+    1,
+  );
+  return CLOSE_STRIDE_MIN_DOT + (MIN_FRONT_DOT - CLOSE_STRIDE_MIN_DOT) * t;
+}
+
+function straightTouchDistance(
+  precision: boolean,
+  sprint: boolean,
+  playerSpeed: number,
 ): number {
-  let hash = 0x811c9dc5;
-  for (const value of [
-    actor.position.x * 1000,
-    actor.position.z * 1000,
-    actor.velocity.x * 1000,
-    actor.velocity.z * 1000,
-    actor.facingYaw * 10000,
-    actor.balance * 10000,
-    ball.position.x * 1000,
-    ball.position.z * 1000,
-    ball.velocity.x * 1000,
-    ball.velocity.z * 1000,
-    direction.x * 10000,
-    direction.z * 10000,
-  ]) hash = mixHash(hash, value);
-  return hash >>> 0;
+  if (precision) return 0.30;
+  if (sprint) return 0.78 + clampFootball(playerSpeed - 6, 0, 3) * 0.015;
+  return 0.52;
 }
 
-function signedHash(hash: number): number {
-  let value = hash >>> 0;
-  value ^= value >>> 16;
-  value = Math.imul(value, 0x7feb352d);
-  value ^= value >>> 15;
-  value = Math.imul(value, 0x846ca68b);
-  value ^= value >>> 16;
-  return (value / 0xffffffff) * 2 - 1;
+function straightTargetSpeed(
+  precision: boolean,
+  sprint: boolean,
+  playerSpeed: number,
+): number {
+  if (precision) return clampFootball(playerSpeed + 0.05, 1.8, 5.15);
+  if (sprint) return clampFootball(playerSpeed + 0.08, 4.0, 8.95);
+  return clampFootball(playerSpeed + 0.15, 3.0, 5.45);
 }
 
 interface TouchImperfection {
   difficulty: number;
-  lateral: number;
-  longitudinal: number;
+  momentumRetention: number;
   magnitude: number;
 }
 
 /**
- * Beginner-friendly error model with a mastery ceiling.
+ * Beginner-friendly, learnable error model with a mastery ceiling.
  *
- * Routine straight carry deliberately lives near zero difficulty. Risk comes
- * from choices and football context: sprinting at top speed, changing the ball's
- * travel direction sharply, reaching for a stretched ball, pressure, and poor
- * balance. RMB precision lowers both difficulty and resulting error, rewarding
- * deliberate close control. The resulting variation is deterministic from
- * simulation state so identical replays remain identical.
+ * A clean carry has no invented sideways noise. Difficult choices instead make
+ * the old ball momentum harder to erase: pressure, poor balance, stretch, speed,
+ * and a severe requested turn create deterministic understeer/heavy-touch error.
+ * The mistake therefore has a football-shaped cause that the player can read and
+ * improve, while RMB precision reduces it by sacrificing speed.
  */
 function buildTouchImperfection(
   input: Readonly<ControlTouchInput>,
-  direction: FootballHorizontalDirection,
   mode: ControlTouchMode,
   playerSpeed: number,
   ballDirectionDot: number,
@@ -238,9 +245,9 @@ function buildTouchImperfection(
   pressure: number,
   balance: number,
 ): TouchImperfection {
-  if (mode === 'trap') return { difficulty: 0, lateral: 0, longitudinal: 0, magnitude: 0 };
+  if (mode === 'trap') return { difficulty: 0, momentumRetention: 0, magnitude: 0 };
 
-  const turnDifficulty = clampFootball((0.98 - ballDirectionDot) / 1.18, 0, 1);
+  const turnDifficulty = clampFootball((1 - ballDirectionDot) / 2, 0, 1);
   const stretchStart = touchDistance * 1.15;
   const stretchSpan = Math.max(0.18, controlReach(mode) - stretchStart);
   const stretchDifficulty = clampFootball((reach - stretchStart) / stretchSpan, 0, 1);
@@ -253,38 +260,25 @@ function buildTouchImperfection(
     turnDifficulty * 0.42
       + pressure * 0.34
       + imbalance * 0.28
-      + stretchDifficulty * 0.20
-      + speedDifficulty * 0.10
-      + (input.sprint ? 0.05 : 0),
+      + stretchDifficulty * 0.18
+      + speedDifficulty * 0.08
+      + (input.sprint ? 0.03 : 0),
     0,
     1,
   );
 
   if (mode === 'receive-exit') difficulty *= 0.72;
-  if (input.precision) difficulty *= 0.55;
+  if (input.precision) difficulty *= 0.52;
   difficulty = clampFootball(difficulty, 0, 1);
 
-  // A clean carry has only millimetre-scale velocity variation. Error grows
-  // quadratically, so beginners are protected while stacked difficult choices
-  // become meaningfully imperfect. Precision gets a second reduction because
-  // the player is explicitly sacrificing speed for control.
-  let envelope = 0.006 + 0.70 * difficulty * difficulty;
-  if (mode === 'receive-exit') envelope *= 0.72;
-  if (input.precision) envelope *= 0.62;
-  envelope = Math.min(0.78, envelope);
-
-  const seed = touchStateHash(input.actor, input.ball, direction);
-  const a = signedHash(seed ^ 0x9e3779b9);
-  const b = signedHash(seed ^ 0x85ebca6b);
-  const rawLateral = Math.abs(a) < 0.08 ? (a < 0 ? -0.08 : 0.08) : a;
-  const rawLongitudinal = b * 0.42;
-  const norm = Math.max(1e-6, Math.hypot(rawLateral, rawLongitudinal));
-  const magnitude = envelope * (0.68 + Math.abs(b) * 0.32);
+  let magnitude = 0.68 * difficulty * difficulty;
+  if (mode === 'receive-exit') magnitude *= 0.72;
+  if (input.precision) magnitude *= 0.62;
+  magnitude = Math.min(0.78, magnitude);
 
   return {
     difficulty,
-    lateral: rawLateral / norm * magnitude,
-    longitudinal: rawLongitudinal / norm * magnitude,
+    momentumRetention: magnitude,
     magnitude,
   };
 }
@@ -324,20 +318,39 @@ export function buildControlTouch(input: Readonly<ControlTouchInput>): ControlTo
   const ballDirectionDot = horizontalBallSpeed > 0.8
     ? horizontalDot(movingBallDirection, direction)
     : 1;
+  const turnAngle = horizontalBallSpeed > 0.8
+    ? Math.acos(clampFootball(ballDirectionDot, -1, 1))
+    : 0;
   const trapRequested = input.receiveMode === 'kill';
   const receiveExitRequested = input.receiveMode === 'controlled-exit';
   const effortTurn = !trapRequested
     && !receiveExitRequested
     && moveIntentMagnitude >= 0.12
     && horizontalBallSpeed > 1.15
-    && ballDirectionDot < EFFORT_TURN_DOT;
+    && turnAngle > EFFORT_TURN_ANGLE;
+  const turnSeverity = effortTurn
+    ? clampFootball((turnAngle - EFFORT_TURN_ANGLE) / (Math.PI - EFFORT_TURN_ANGLE), 0, 1)
+    : 0;
 
-  const frontFactor = clampFootball((ballFacingDot - MIN_FRONT_DOT) / (1 - MIN_FRONT_DOT), 0, 1);
+  const minimumFrontDot = minimumFrontDotForReach(reach);
+  const frontFactor = clampFootball((ballFacingDot - minimumFrontDot) / (1 - minimumFrontDot), 0, 1);
   const rawDirectionFactor = clampFootball((desiredFacingDot + 0.35) / 1.35, 0, 1);
   const directionFactor = effortTurn || receiveExitRequested ? Math.max(0.34, rawDirectionFactor) : rawDirectionFactor;
   const pressureFactor = 1 - 0.58 * pressure;
   const speedFactor = clampFootball(1 - Math.max(0, incomingSpeed - 12) / 22, 0.18, 1);
   const quality = clampFootball(frontFactor * directionFactor * pressureFactor * speedFactor * (0.55 + 0.45 * balance), 0, 1);
+
+  const closeRecovery = clampFootball((0.72 - reach) / 0.52, 0, 1);
+  const trailingRecovery = clampFootball((0.35 - ballFacingDot) / 1.15, 0, 1);
+  const recoverySteer = Math.max(closeRecovery, trailingRecovery);
+  const turnAllowanceDegrees = input.precision
+    ? 50 + 20 * recoverySteer
+    : input.sprint
+      ? 26 + 40 * recoverySteer
+      : 42 + 18 * recoverySteer;
+  const controlDirection = effortTurn
+    ? rotateDirectionToward(movingBallDirection, direction, turnAllowanceDegrees * Math.PI / 180)
+    : direction;
 
   let touchMode: ControlTouchMode;
   let touchDistance: number;
@@ -352,28 +365,35 @@ export function buildControlTouch(input: Readonly<ControlTouchInput>): ControlTo
     targetBallSpeed = input.precision ? 1.8 : 2.6;
   } else if (effortTurn) {
     touchMode = 'effort-turn';
-    const hardTurn = ballDirectionDot < HARD_TURN_DOT;
-    touchDistance = input.precision ? 0.30 : input.sprint ? 0.58 : 0.40;
-    targetBallSpeed = hardTurn
-      ? input.precision ? 1.2 : input.sprint ? 3.4 : 1.8
-      : input.precision ? 1.9 : input.sprint ? 4.4 : 2.7;
+    const baseDistance = straightTouchDistance(input.precision, input.sprint, playerSpeed);
+    const minimumDistance = input.precision ? 0.27 : input.sprint ? 0.42 : 0.36;
+    touchDistance = baseDistance
+      + (minimumDistance - baseDistance) * Math.pow(turnSeverity, 0.65);
+
+    const baseSpeed = straightTargetSpeed(input.precision, input.sprint, playerSpeed);
+    const minimumSpeed = input.precision
+      ? Math.max(1.6, playerSpeed * 0.40)
+      : input.sprint
+        ? Math.max(2.2, playerSpeed * 0.44)
+        : Math.max(2.2, playerSpeed * 0.48);
+    targetBallSpeed = baseSpeed
+      + (minimumSpeed - baseSpeed) * Math.pow(turnSeverity, 0.85);
   } else if (input.sprint) {
     touchMode = 'sprint';
-    touchDistance = 0.78 + clampFootball(playerSpeed - 6, 0, 3) * 0.015;
-    targetBallSpeed = clampFootball(playerSpeed + 0.08, 4.0, 8.95);
+    touchDistance = straightTouchDistance(false, true, playerSpeed);
+    targetBallSpeed = straightTargetSpeed(false, true, playerSpeed);
   } else if (input.precision) {
     touchMode = 'precision';
-    touchDistance = 0.30;
-    targetBallSpeed = clampFootball(playerSpeed + 0.05, 1.8, 5.15);
+    touchDistance = straightTouchDistance(true, false, playerSpeed);
+    targetBallSpeed = straightTargetSpeed(true, false, playerSpeed);
   } else {
     touchMode = 'normal';
-    touchDistance = 0.52;
-    targetBallSpeed = clampFootball(playerSpeed + 0.15, 3.0, 5.45);
+    touchDistance = straightTouchDistance(false, false, playerSpeed);
+    targetBallSpeed = straightTargetSpeed(false, false, playerSpeed);
   }
 
   const imperfection = buildTouchImperfection(
     input,
-    direction,
     touchMode,
     playerSpeed,
     ballDirectionDot,
@@ -382,7 +402,12 @@ export function buildControlTouch(input: Readonly<ControlTouchInput>): ControlTo
     pressure,
     balance,
   );
-  const plannedPoint = targetPoint(input.actor, direction, touchDistance, Math.max(input.ball.radius, input.ball.position.y));
+  const plannedPoint = targetPoint(
+    input.actor,
+    controlDirection,
+    touchDistance,
+    Math.max(input.ball.radius, input.ball.position.y),
+  );
   const baseResult = {
     quality,
     touchMode,
@@ -394,7 +419,7 @@ export function buildControlTouch(input: Readonly<ControlTouchInput>): ControlTo
   };
 
   if (reach > controlReach(touchMode)) return { eligible: false, reason: 'out-of-reach', ...baseResult };
-  if (ballFacingDot < MIN_FRONT_DOT) return { eligible: false, reason: 'behind-body', ...baseResult };
+  if (ballFacingDot < minimumFrontDot) return { eligible: false, reason: 'behind-body', ...baseResult };
   if (input.ball.position.y - input.ball.radius > MAX_CONTROL_HEIGHT) return { eligible: false, reason: 'ball-too-high', ...baseResult };
   if (incomingSpeed > HARD_INCOMING_SPEED) return { eligible: false, reason: 'ball-too-fast', ...baseResult };
   if (!trapRequested && !receiveExitRequested && playerSpeed < IDLE_PLAYER_SPEED && incomingSpeed < IDLE_BALL_SPEED) {
@@ -403,11 +428,10 @@ export function buildControlTouch(input: Readonly<ControlTouchInput>): ControlTo
 
   const correction = trapRequested || receiveExitRequested
     ? { x: 0, z: 0 }
-    : corridorCorrection(input.actor, input.ball, direction, touchDistance, touchMode);
-  const lateral = { x: direction.z, z: -direction.x };
-  const imperfectVelocity = {
-    x: direction.x * imperfection.longitudinal + lateral.x * imperfection.lateral,
-    z: direction.z * imperfection.longitudinal + lateral.z * imperfection.lateral,
+    : corridorCorrection(input.actor, input.ball, controlDirection, touchDistance, touchMode);
+  const momentumError = {
+    x: movingBallDirection.x * imperfection.momentumRetention,
+    z: movingBallDirection.z * imperfection.momentumRetention,
   };
   const desiredVelocity: FootballVec3 = trapRequested
     ? {
@@ -417,14 +441,14 @@ export function buildControlTouch(input: Readonly<ControlTouchInput>): ControlTo
       }
     : receiveExitRequested
       ? {
-          x: direction.x * targetBallSpeed + imperfectVelocity.x,
+          x: direction.x * targetBallSpeed + momentumError.x,
           y: input.ball.grounded ? 0 : input.ball.velocity.y * 0.12,
-          z: direction.z * targetBallSpeed + imperfectVelocity.z,
+          z: direction.z * targetBallSpeed + momentumError.z,
         }
       : {
-          x: direction.x * targetBallSpeed + correction.x + imperfectVelocity.x,
+          x: controlDirection.x * targetBallSpeed + correction.x + momentumError.x,
           y: input.ball.grounded ? 0 : input.ball.velocity.y * (effortTurn ? 0.18 : 0.32),
-          z: direction.z * targetBallSpeed + correction.z + imperfectVelocity.z,
+          z: controlDirection.z * targetBallSpeed + correction.z + momentumError.z,
         };
 
   const baseDeltaSpeed = trapRequested
@@ -455,9 +479,9 @@ export function buildControlTouch(input: Readonly<ControlTouchInput>): ControlTo
   } else {
     const spinRate = effortTurn ? 3.1 : 2.2;
     angularVelocityDelta = {
-      x: direction.z * spinRate,
+      x: controlDirection.z * spinRate,
       y: 0,
-      z: direction.x * -spinRate,
+      z: controlDirection.x * -spinRate,
     };
   }
 
@@ -467,7 +491,7 @@ export function buildControlTouch(input: Readonly<ControlTouchInput>): ControlTo
     desiredVelocity,
     angularVelocityDelta,
     input.ball.mass * maxDeltaSpeed,
-    `control mode=${touchMode} q=${quality.toFixed(3)} difficulty=${imperfection.difficulty.toFixed(3)} error=${imperfection.magnitude.toFixed(3)} turnDot=${ballDirectionDot.toFixed(3)} corridor=(${correction.x.toFixed(2)},${correction.z.toFixed(2)}) reach=${reach.toFixed(2)}/${controlReach(touchMode).toFixed(2)} rolling=${input.ball.grounded} pressure=${pressure.toFixed(3)}`,
+    `control mode=${touchMode} q=${quality.toFixed(3)} difficulty=${imperfection.difficulty.toFixed(3)} error=${imperfection.magnitude.toFixed(3)} turn=${(turnAngle * 180 / Math.PI).toFixed(1)} steer=${turnAllowanceDegrees.toFixed(1)} corridor=(${correction.x.toFixed(2)},${correction.z.toFixed(2)}) reach=${reach.toFixed(2)}/${controlReach(touchMode).toFixed(2)} rolling=${input.ball.grounded} pressure=${pressure.toFixed(3)}`,
   );
 
   return {
