@@ -15,6 +15,9 @@ import { intersectAimRayWithPlaneZ } from './input/WorldAim';
 const DT = 1 / 60;
 const WORLD = createFlatMovementWorld();
 const MIN_LOWER_BODY_BALL_CLEARANCE = 0.24;
+const MIN_FRONT_BOOT_BALL_CENTER = PLAYER_VISUAL_LAYOUT.footForward
+  + PLAYER_VISUAL_LAYOUT.footLength / 2
+  + BALL_CONSTANTS.radius;
 
 function direction(degrees: number): FootballHorizontalDirection {
   const radians = degrees * Math.PI / 180;
@@ -86,6 +89,53 @@ describe('Stage 05 final owner-feel regressions', () => {
     const torsoBottom = PLAYER_VISUAL_LAYOUT.torsoCenterY - PLAYER_VISUAL_LAYOUT.torsoHeight / 2;
     expect(torsoBottom).toBeGreaterThanOrEqual(0.5);
     expect(playerVisualFootY(0)).toBeCloseTo(0, 6);
+  });
+
+  test('precision, trap, and sharp-turn target pockets stay outside the rendered boot face', () => {
+    const player = createPlayerState({
+      position: { x: 0, y: 0, z: -13 },
+      facingYaw: 0,
+      velocity: { x: 0, y: 0, z: 3.4 },
+    });
+    const actor = actorSnapshot(player);
+    const movingBall = createBallState({
+      position: { x: 0, y: BALL_CONSTANTS.radius, z: -12.45 },
+      velocity: { x: 0, y: 0, z: 3.1 },
+      grounded: true,
+    });
+
+    const precision = buildControlTouch({
+      actor,
+      ball: ballSnapshot(movingBall),
+      desiredDirection: direction(0),
+      precision: true,
+      sprint: false,
+      pressure: 0,
+      moveIntentMagnitude: 1,
+    });
+    const trap = buildControlTouch({
+      actor,
+      ball: ballSnapshot(movingBall),
+      desiredDirection: direction(0),
+      precision: false,
+      sprint: false,
+      pressure: 0,
+      moveIntentMagnitude: 0,
+      receiveMode: 'kill',
+    });
+    const sharpTurn = buildControlTouch({
+      actor,
+      ball: ballSnapshot(movingBall),
+      desiredDirection: direction(120),
+      precision: true,
+      sprint: false,
+      pressure: 0,
+      moveIntentMagnitude: 1,
+    });
+
+    expect(precision.touchDistance).toBeGreaterThanOrEqual(MIN_FRONT_BOOT_BALL_CENTER);
+    expect(trap.touchDistance).toBeGreaterThanOrEqual(MIN_FRONT_BOOT_BALL_CENTER);
+    expect(sharpTurn.touchDistance).toBeGreaterThanOrEqual(MIN_FRONT_BOOT_BALL_CENTER);
   });
 
   test('ordinary eight-direction WASD changes stay recoverable without a loss cascade or crossing the player root', () => {
