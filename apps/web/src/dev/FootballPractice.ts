@@ -51,7 +51,10 @@ const PRACTICE_BALL_START = Object.freeze({ x: 0, y: BALL_CONSTANTS.radius, z: -
 const KEEPER_Z = STANDARD_GOAL_FRAME.planeZ - 0.72;
 const KEEPER_MAX_SPEED = 4.8;
 const KEEPER_HALF_REACH = 0.68;
-const VISUAL_SCALE = 1.35;
+// Render the practice ball at the same regulation-scale radius used by the
+// authoritative simulation. The older 1.35x presentation scale made a legal
+// close-control pocket look like the ball was intersecting the athlete.
+const VISUAL_SCALE = 1;
 const PRACTICE_KNUCKLE_SEED = 0x5a17f00d;
 const SPECIALIST_SHOT_STYLES: readonly ShotStyle[] = Object.freeze(['normal', 'knuckle', 'outside-foot']);
 
