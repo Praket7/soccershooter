@@ -1,5 +1,6 @@
 import type { InputIntent } from '@soccershooter/sim';
 import { PlayerActionBits } from '@soccershooter/sim/player/PlayerState';
+import { currentGameplayPreferences } from '../settings/GameplayPreferences';
 import { normalizeMoveAxes, type LookDelta } from './ActionMap';
 
 export interface GamepadButtonSnapshot {
@@ -106,6 +107,15 @@ export class GamepadAdapter {
     const pads = navigator.getGamepads?.() ?? [];
     for (const pad of pads) {
       if (!pad || !pad.connected || pad.mapping !== 'standard') continue;
+      const preferences = currentGameplayPreferences();
+      const sensitivity = preferences.gamepadLookSensitivity;
+      const liveOptions: GamepadOptions = {
+        deadzone: this.#options.deadzone ?? preferences.gamepadMoveDeadzone,
+        lookDeadzone: this.#options.lookDeadzone ?? preferences.gamepadLookDeadzone,
+        yawRate: this.#options.yawRate ?? DEFAULT_GAMEPAD_YAW_RATE * sensitivity,
+        pitchRate: this.#options.pitchRate ?? DEFAULT_GAMEPAD_PITCH_RATE * sensitivity,
+        invertY: this.#options.invertY ?? preferences.invertY,
+      };
       const frame = gamepadSnapshotToFrame(
         {
           axes: [...pad.axes],
@@ -114,7 +124,7 @@ export class GamepadAdapter {
         },
         currentAimYaw,
         deltaSeconds,
-        this.#options,
+        liveOptions,
       );
 
       const shootHeld = (frame.intent.actionBits & PlayerActionBits.ShootHeld) !== 0;
