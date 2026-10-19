@@ -43,6 +43,13 @@ function interpolateYaw(from: number, to: number, alpha: number): number {
   return from + angleDelta(from, to) * clamp(alpha, 0, 1);
 }
 
+function presentationFacingYaw(player: ProceduralAthleteInput['player']): number {
+  const velocity = player.athleticMotion.plannedVelocity;
+  return Math.hypot(velocity.x, velocity.z) > 0.22
+    ? Math.atan2(velocity.x, velocity.z)
+    : player.facingYaw;
+}
+
 function localToWorld(
   position: Readonly<THREE.Vector3>,
   local: Readonly<THREE.Vector3>,
@@ -139,14 +146,15 @@ export class ProceduralAthleteProxy {
   update(input: Readonly<ProceduralAthleteInput>): ProceduralAthletePose {
     const { player, plan } = input;
     const alpha = clamp(input.interpolationAlpha, 0, 1);
+    const targetDisplayYaw = presentationFacingYaw(player);
     if (!this.#yawInitialized) {
       this.#yawInitialized = true;
-      this.#yawFrom = player.facingYaw;
-      this.#yawTo = player.facingYaw;
+      this.#yawFrom = targetDisplayYaw;
+      this.#yawTo = targetDisplayYaw;
       this.#lastSimulationTick = input.simulationTick;
     } else if (input.simulationTick !== this.#lastSimulationTick) {
       this.#yawFrom = this.#yawTo;
-      this.#yawTo = player.facingYaw;
+      this.#yawTo = targetDisplayYaw;
       this.#lastSimulationTick = input.simulationTick;
     }
     const displayYaw = interpolateYaw(this.#yawFrom, this.#yawTo, alpha);
