@@ -49,7 +49,7 @@ interface CarryMetrics {
   contacts: number;
   contactTicks: number[];
   maxSeparation: number;
-  steadyMaxSeparation: number;
+  steadyMaxForwardGap: number;
   maxExitSpeed: number;
 }
 
@@ -59,7 +59,7 @@ function runStraightCarry(mode: 'precision' | 'sprint', ticks = 180): CarryMetri
   let planner = createPlannedDribbleState();
   const contactTicks: number[] = [];
   let maxSeparation = separation(player, ball);
-  let steadyMaxSeparation = 0;
+  let steadyMaxForwardGap = Number.NEGATIVE_INFINITY;
   let maxExitSpeed = 0;
 
   for (let tick = 0; tick < ticks; tick += 1) {
@@ -102,10 +102,10 @@ function runStraightCarry(mode: 'precision' | 'sprint', ticks = 180): CarryMetri
     ball = stepBall(ball, BALL_SUBSTEP_DT, MATCH_BALL_PROFILE, null);
     const currentSeparation = separation(player, ball);
     maxSeparation = Math.max(maxSeparation, currentSeparation);
-    if (tick >= 60) steadyMaxSeparation = Math.max(steadyMaxSeparation, currentSeparation);
+    if (tick >= 60) steadyMaxForwardGap = Math.max(steadyMaxForwardGap, ball.position.z - player.position.z);
   }
 
-  return { contacts: contactTicks.length, contactTicks, maxSeparation, steadyMaxSeparation, maxExitSpeed };
+  return { contacts: contactTicks.length, contactTicks, maxSeparation, steadyMaxForwardGap, maxExitSpeed };
 }
 
 function applyPlannerBall(ball: Readonly<BallState>, result: ReturnType<typeof stepPlannedDribble>): BallState {
@@ -125,9 +125,10 @@ describe('Stage 05R sprint dribbling and effort-turn integration', () => {
     expect(sprint.contacts).toBeGreaterThanOrEqual(4);
     expect(sprint.contacts).toBeLessThan(precision.contacts);
     expect(sprint.maxExitSpeed).toBeGreaterThan(precision.maxExitSpeed + 1.4);
-    // Ignore the shared startup pickup beat. Once both carriers have reached
-    // their running rhythm, sprint must open a visibly larger physical pocket.
-    expect(sprint.steadyMaxSeparation).toBeGreaterThan(precision.steadyMaxSeparation + 0.08);
+    // Straight sprint should deliberately knock the free ball farther *ahead*.
+    // Absolute separation is not the right comparison because close control
+    // can sit slightly behind the carrier while still remaining physically near.
+    expect(sprint.steadyMaxForwardGap).toBeGreaterThan(precision.steadyMaxForwardGap + 0.08);
     expect(sprint.maxSeparation).toBeLessThan(2.2);
   });
 
