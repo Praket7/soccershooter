@@ -108,7 +108,7 @@ After campaign victory:
 - [x] **Task 5:** Implement technique unlock/evolution integration with progression.
 - [x] **Task 6:** Implement campaign final and postgame Legacy progression.
 - [x] **Task 7:** Implement save export/import and migration fixtures.
-- [ ] **Task 8:** Physical headless encounter benchmark and live build-path wiring pass; comparative path viability and a new tester completing Act 1 without help remain pending (see `docs/gates/STAGE-09-GATE.md`).
+- [ ] **Task 8:** Partial proof: physical headless goal benchmark, career-to-practice goal challenge with saved advancement, and practice build modifiers. Still required: distinct tactical opponents/full campaign play, Legacy modifiers in live challenges, comparative viability of three builds, and a new tester completing Act 1 without help (see `docs/gates/STAGE-09-GATE.md`).
 
 ## Tests
 - fresh save starts correctly

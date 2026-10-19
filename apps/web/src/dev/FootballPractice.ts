@@ -44,10 +44,12 @@ import { ActionDebugHud } from '../debug/ActionDebugHud';
 import { TechniqueDebugHud } from '../debug/TechniqueDebugHud';
 import { resolveDribbleIntent, resolveTravelFacingYaw, updateShotFacingLock } from '../input/FootballControl';
 import { PLAYER_VISUAL_LAYOUT } from '../presentation/PlayerVisualLayout';
+import { applyShotBuildModifier } from './shotBuildModifiers';
 
 export interface FootballPracticeOptions {
   scene: THREE.Scene;
   host: HTMLElement;
+  onGoalScored?: () => void;
 }
 
 export interface FootballBuildModifiers {
@@ -81,20 +83,6 @@ const SPECIALIST_SHOT_STYLES: readonly ShotStyle[] = Object.freeze(['normal', 'k
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
-}
-
-function scaleShotCommand(command: BallContactCommand | undefined, scale: number): BallContactCommand | undefined {
-  if (!command) return undefined;
-  return {
-    ...command,
-    deltaVelocity: { x: command.deltaVelocity.x * scale, y: command.deltaVelocity.y * scale, z: command.deltaVelocity.z * scale },
-    maxImpulse: command.maxImpulse * scale,
-    diagnostic: `${command.diagnostic} build-power=${scale.toFixed(2)}`,
-  };
-}
-
-function scaleShotVelocity(velocity: FootballVec3, scale: number): FootballVec3 {
-  return { x: velocity.x * scale, y: velocity.y * scale, z: velocity.z * scale };
 }
 
 function playerDirection(player: Readonly<PlayerState>): { x: number; z: number } {
@@ -325,9 +313,11 @@ export class FootballPractice {
   #shotState = 'READY';
   #probe: HTMLOutputElement;
   #buildModifiers: FootballBuildModifiers = { contactTimingTicks: 1, sprintStaminaCostScale: 1, strikeImpulseScale: 1 };
+  #onGoalScored: () => void;
 
   constructor(options: FootballPracticeOptions) {
     this.ballVisual = createBall(options.scene);
+    this.#onGoalScored = options.onGoalScored ?? (() => {});
     this.ballMarker = createGroundRing(options.scene, 'stage05-ball-marker', 0xf2ce6b, 0.22, 0.32);
     this.aimGuide = createAimGuide(options.scene, 'stage05-shot-aim-guide', 0xf2ce6b);
     this.passGuide = createAimGuide(options.scene, 'stage05-pass-lane-guide', 0x76d7ea);
@@ -367,6 +357,7 @@ export class FootballPractice {
         <p>Choose a technique and press <kbd>T</kbd> in context. Defenders can punish its recovery window.</p>
       </details>
       <div class="practice-intent-status" aria-live="polite"><strong data-practice-intent>READY</strong><span data-practice-reason>point, move, receive, pass, or shoot</span></div>
+      <p data-campaign-objective hidden></p>
       <output data-football-state data-ball-x="${this.#state.position.x}" data-ball-y="${this.#state.position.y}" data-ball-z="${this.#state.position.z}" data-goals="0" data-saves="0" data-shot-style="normal" data-shot-state="READY" data-receive-state="idle" data-selected-receiver="false" hidden></output>
     `;
     options.host.append(this.root);
@@ -411,6 +402,15 @@ export class FootballPractice {
 
   setWorldAimTarget(target: Readonly<FootballVec3> | null): void {
     this.#worldAimTarget = target ? { ...target } : null;
+  }
+
+  setCampaignChallenge(encounter: { id: string; tacticalProblem: string } | null): void {
+    const label = this.root.querySelector<HTMLElement>('[data-campaign-objective]');
+    if (!label) return;
+    this.root.dataset.campaignEncounter = encounter?.id ?? '';
+    this.root.dataset.campaignTacticalProblem = encounter?.tacticalProblem ?? '';
+    label.hidden = !encounter;
+    label.textContent = encounter ? `CAREER CHALLENGE · ${encounter.tacticalProblem.replaceAll('-', ' ')} · score a physical goal to advance` : '';
   }
 
   setVisible(visible: boolean): void {
@@ -547,7 +547,7 @@ export class FootballPractice {
             contactFoot: pending.plan.foot,
             knuckleSeed: PRACTICE_KNUCKLE_SEED,
           });
-          command = scaleShotCommand(solution.command, this.#buildModifiers.strikeImpulseScale);
+          command = applyShotBuildModifier(solution, this.#buildModifiers.strikeImpulseScale).command;
           this.#shotState = command ? 'FOLLOW THROUGH' : solution.reason.toUpperCase().replaceAll('-', ' ');
           if (command) this.#state.knuckleSeed = solution.knuckleSeed;
         } else {
@@ -811,6 +811,7 @@ export class FootballPractice {
         knuckleSeed: PRACTICE_KNUCKLE_SEED,
       });
       this.#shotState = shot.legal ? 'CONTACT' : shot.reason.toUpperCase().replaceAll('-', ' ');
+      const modifiedShot = applyShotBuildModifier(shot, this.#buildModifiers.strikeImpulseScale);
       const strikePlan = shot.command ? createStrikeContactPlan({
         kind: 'shot',
         sourceId: `practice-shot-${contactTick}`,
@@ -819,7 +820,7 @@ export class FootballPractice {
         strideSeconds: player.athleticMotion.strideSeconds,
         actorPosition: actor.position,
         ball: snapshot,
-        targetBallVelocity: scaleShotVelocity(shot.launchVelocity, this.#buildModifiers.strikeImpulseScale),
+        targetBallVelocity: modifiedShot.launchVelocity,
         preferredFoot: actor.preferredFoot,
         balance: actor.balance,
       }) : null;
@@ -978,6 +979,7 @@ export class FootballPractice {
         this.#goals += 1;
         this.#resetCountdown = 0.9;
         this.#recordAction('GOAL', true, 'whole-ball-crossed-line');
+        this.#onGoalScored();
       }
       this.#state = next;
       this.#advanceVisualRotation(BALL_SUBSTEP_DT);

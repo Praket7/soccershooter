@@ -7,8 +7,8 @@
 
 - `pnpm lint` — PASS.
 - `pnpm typecheck` — PASS.
-- `pnpm test` — PASS, 80 files / 336 tests.
-- `pnpm test:e2e` — PASS, 47 tests.
+- `pnpm test` — PASS, 81 files / 337 tests.
+- `pnpm test:e2e` — PASS, 48 tests.
 - `pnpm ball:fuzz` — PASS, 1,000,000 launches / 4,000,000 states / 0 failures; checksum `e0afd3f7`.
 - `pnpm football:fuzz` — PASS, 250,000 mixed cases / 1,000,000 contact-plan states / 0 failures; checksum `8758b230`.
 - `pnpm football:balance` — PASS; all eight spam/exploit policies score below their timed or varied references.

@@ -230,9 +230,19 @@ actionMap.attach();
 const gamepad = new GamepadAdapter();
 const hud = new MovementHud(document.body);
 const ballLab = new BallLab({ scene, host: viewport });
-const footballPractice = new FootballPractice({ scene, host: viewport });
-const roadToLegend = new RoadToLegendScreen(document.body, () => setMode('practice'), undefined, (profile) => {
+let roadToLegend: RoadToLegendScreen | null = null;
+const footballPractice = new FootballPractice({ scene, host: viewport, onGoalScored: () => { void roadToLegend?.notifyCampaignGoal(); } });
+roadToLegend = new RoadToLegendScreen(document.body, () => {
+  footballPractice.setCampaignChallenge(null);
+  setMode('practice');
+}, undefined, (profile) => {
   footballPractice.setBuildModifiers(ARCHETYPE_MODIFIERS[profile.archetype]);
+}, (encounter) => {
+  footballPractice.setCampaignChallenge(encounter);
+  setMode('practice');
+}, () => {
+  footballPractice.setCampaignChallenge(null);
+  setMode('career');
 });
 
 const FIXED_DT = 1 / PLAYER_MOVEMENT_TICK_HZ;
@@ -298,7 +308,7 @@ function setMode(mode: 'practice' | 'ball-lab' | 'career'): void {
   practiceMode = mode === 'practice';
   footballPractice.setVisible(practiceMode);
   const ballLabMode = mode === 'ball-lab';
-  roadToLegend.root.hidden = mode !== 'career';
+  if (roadToLegend) roadToLegend.root.hidden = mode !== 'career';
   renderer.domElement.hidden = mode === 'career';
   ballLab.root.hidden = !ballLabMode;
   ballLab.ballVisual.visible = ballLabMode;
