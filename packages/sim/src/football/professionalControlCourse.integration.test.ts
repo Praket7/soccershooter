@@ -142,26 +142,40 @@ function runFrames(state: CourseState, frames: readonly CourseFrame[]): void {
   for (const frame of frames) stepCourse(state, frame);
 }
 
+function assertPhaseClean(state: CourseState, phase: string): void {
+  const meaningfulFailures = state.failures.filter((reason) => reason !== 'idle-no-touch');
+  const separation = Math.hypot(
+    state.ball.position.x - state.player.position.x,
+    state.ball.position.z - state.player.position.z,
+  );
+  expect(
+    meaningfulFailures,
+    `${phase} failed: count=${meaningfulFailures.length} sep=${separation.toFixed(3)} max=${state.maxSeparation.toFixed(3)} player=(${state.player.position.x.toFixed(3)},${state.player.position.z.toFixed(3)}) ball=(${state.ball.position.x.toFixed(3)},${state.ball.position.z.toFixed(3)})`,
+  ).toEqual([]);
+  state.failures.length = 0;
+}
+
 describe('professional physical ball-control course', () => {
   test('clean carry, slalom, sprint, planted cut, and close control remain one smooth learnable sequence', () => {
     const state = createCourseState();
-    const frames: CourseFrame[] = [
-      ...Array.from({ length: 90 }, () => ({ direction: direction(0) })),
-      ...Array.from({ length: 30 }, () => ({ direction: direction(38) })),
-      ...Array.from({ length: 30 }, () => ({ direction: direction(-38) })),
-      ...Array.from({ length: 75 }, () => ({ direction: direction(0), sprint: true })),
+    const phases: Array<{ name: string; frames: CourseFrame[] }> = [
+      { name: 'clean carry', frames: Array.from({ length: 90 }, () => ({ direction: direction(0) })) },
+      { name: 'slalom right', frames: Array.from({ length: 30 }, () => ({ direction: direction(38) })) },
+      { name: 'slalom left', frames: Array.from({ length: 30 }, () => ({ direction: direction(-38) })) },
+      { name: 'straight sprint', frames: Array.from({ length: 75 }, () => ({ direction: direction(0), sprint: true })) },
       // Skilled change of direction: release sprint to plant instead of demanding
       // an arcade-perfect full-speed pivot. Separate maneuver tests still require
       // a held-sprint 90 degree cut to remain physically recoverable.
-      ...Array.from({ length: 60 }, () => ({ direction: direction(90), sprint: false })),
-      ...Array.from({ length: 60 }, () => ({ direction: direction(55), precision: true })),
-      ...Array.from({ length: 60 }, () => ({ direction: direction(0) })),
+      { name: 'sprint release 90 plant', frames: Array.from({ length: 60 }, () => ({ direction: direction(90), sprint: false })) },
+      { name: 'precision exit', frames: Array.from({ length: 60 }, () => ({ direction: direction(55), precision: true })) },
+      { name: 'settled straight carry', frames: Array.from({ length: 60 }, () => ({ direction: direction(0) })) },
     ];
 
-    runFrames(state, frames);
-    const meaningfulFailures = state.failures.filter((reason) => reason !== 'idle-no-touch');
+    for (const phase of phases) {
+      runFrames(state, phase.frames);
+      assertPhaseClean(state, phase.name);
+    }
 
-    expect(meaningfulFailures).toEqual([]);
     expect(state.touches).toBeGreaterThan(25);
     expect(state.maxSeparation).toBeLessThan(1.55);
     expect(Math.hypot(state.ball.velocity.x, state.ball.velocity.z)).toBeLessThan(7);
