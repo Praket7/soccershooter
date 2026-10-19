@@ -17,6 +17,15 @@ export type {
   PlannedContactExecutionReason,
   PlannedFootballContactExecution,
 } from './contactPlan';
+export {
+  createPlannedDribbleState,
+  stepPlannedDribble,
+} from './dribblePlanner';
+export type {
+  PlannedDribbleInput,
+  PlannedDribbleState,
+  PlannedDribbleStep,
+} from './dribblePlanner';
 
 export interface FootballRuntimeState {
   controlTouchCooldown: number;
