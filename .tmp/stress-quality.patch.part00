@@ -1,0 +1,101 @@
+--- a/packages/content/src/techniques/schema.ts
++++ b/packages/content/src/techniques/schema.ts
+@@ -1,5 +1,6 @@
+ export type TechniqueFamily = 'dribble' | 'pass-shot' | 'aerial';
+ export type ContactSurface = 'inside' | 'outside' | 'instep' | 'sole' | 'toe' | 'head';
++export type TechniqueSpinAxis = 'none' | 'side' | 'top' | 'back';
+ export type TechniqueId = string;
+ export type TechniqueMechanic = 'standard' | 'branching-step' | 'late-cut' | 'curl-release' | 'late-plant' | 'guided-lane' | 'air-redirection';
+ 
+@@ -19,7 +20,22 @@
+   cost: { stamina: number; cooldownTicks: number };
+   timing: { anticipationTicks: number; contactWindowTicks: number; recoveryTicks: number };
+   movement: { maximumTurnRadians: number; speedScale: number; preserveSteering: boolean };
+-  contact: { surface: ContactSurface; impulseScale: number; maxImpulse: number; spinScale: number };
++  contact: {
++    surface: ContactSurface;
++    /** Desired post-contact ball speed in metres per second before mechanic modifiers. */
++    targetSpeed: number;
++    /** Desired launch angle in degrees. Positive values lift the ball. */
++    launchElevationDegrees: number;
++    /** Physical spin axis used by the shared ball solver. */
++    spinAxis: TechniqueSpinAxis;
++    /** Desired angular speed in radians per second before mechanic modifiers. */
++    spinRate: number;
++    /** Legacy bounded strength scalar retained for progression/balance compatibility. */
++    impulseScale: number;
++    maxImpulse: number;
++    /** Legacy spin scalar retained for progression/balance compatibility. */
++    spinScale: number;
++  };
+   mechanic: TechniqueMechanic;
+   failure: { recoveryTicks: number; reason: string };
+   counter: { windowTicks: number; vulnerable: boolean };
+@@ -41,6 +57,8 @@
+     technique.timing.recoveryTicks,
+     technique.movement.maximumTurnRadians,
+     technique.movement.speedScale,
++    technique.contact.targetSpeed,
++    technique.contact.spinRate,
+     technique.contact.impulseScale,
+     technique.contact.maxImpulse,
+     technique.contact.spinScale,
+@@ -48,7 +66,11 @@
+     technique.counter.windowTicks,
+   ];
+   if (values.some((value) => !Number.isFinite(value) || value < 0)) throw new RangeError(`${technique.id} has invalid bounds`);
++  if (!Number.isFinite(technique.contact.launchElevationDegrees)
++    || technique.contact.launchElevationDegrees < -5
++    || technique.contact.launchElevationDegrees > 55) throw new RangeError(`${technique.id} has invalid launch elevation`);
+   if (technique.eligibility.maximumSpeed < technique.eligibility.minimumSpeed) throw new RangeError(`${technique.id} speed range is inverted`);
+   if (technique.eligibility.maximumPressure > 1 || technique.movement.speedScale > 1.2) throw new RangeError(`${technique.id} exceeds its bounded envelope`);
+   if (technique.contact.impulseScale > 1.5 || technique.contact.maxImpulse > 18) throw new RangeError(`${technique.id} exceeds the technique impulse envelope`);
++  if (technique.contact.targetSpeed > 36 || technique.contact.spinRate > 120) throw new RangeError(`${technique.id} exceeds the physical ball contact envelope`);
+ }
+--- a/packages/content/src/techniques/catalog.ts
++++ b/packages/content/src/techniques/catalog.ts
+@@ -1,4 +1,70 @@
+-import { validateTechnique, type TechniqueDefinition } from './schema';
++import { validateTechnique, type TechniqueDefinition, type TechniqueMechanic, type TechniqueSpinAxis } from './schema';
++
++type Eligibility = TechniqueDefinition['eligibility'];
++type Cost = TechniqueDefinition['cost'];
++type Timing = TechniqueDefinition['timing'];
++type Movement = TechniqueDefinition['movement'];
++type Contact = TechniqueDefinition['contact'];
++type Counter = TechniqueDefinition['counter'];
++
++interface TechniqueTuning {
++  eligibility?: Partial<Eligibility>;
++  cost?: Partial<Cost>;
++  timing?: Partial<Timing>;
++  movement?: Partial<Movement>;
++  contact?: Partial<Omit<Contact, 'surface'>>;
++  counter?: Partial<Counter>;
++  mechanic?: TechniqueMechanic;
++}
++
++/**
++ * Physical-unit contact profiles keep named moves distinct without changing the
++ * authoritative ball laws. Shot speeds are deliberately below the 36 m/s
++ * absolute solver envelope: ordinary specialist strikes sit around the
++ * 20–30 m/s range, while knuckle contacts combine high speed with low spin.
++ */
++const TUNING: Readonly<Record<string, Readonly<TechniqueTuning>>> = Object.freeze({
++  stepover: { cost: { stamina: 3, cooldownTicks: 34 }, timing: { anticipationTicks: 3, recoveryTicks: 11 }, contact: { targetSpeed: 2.9, spinAxis: 'side', spinRate: 8, impulseScale: 0.76, maxImpulse: 5.6, spinScale: 0.42 }, counter: { windowTicks: 6 } },
++  'double-stepover': { cost: { stamina: 4, cooldownTicks: 42 }, timing: { anticipationTicks: 4, recoveryTicks: 14 }, contact: { targetSpeed: 3.2, spinAxis: 'side', spinRate: 11, impulseScale: 0.84, maxImpulse: 6.2, spinScale: 0.5 }, counter: { windowTicks: 8 } },
++  'phantom-step': { cost: { stamina: 5, cooldownTicks: 48 }, timing: { anticipationTicks: 3, recoveryTicks: 15 }, contact: { targetSpeed: 3.7, spinAxis: 'side', spinRate: 18, impulseScale: 0.96, maxImpulse: 7.2, spinScale: 0.72 }, counter: { windowTicks: 9 } },
++  roulette: { cost: { stamina: 5, cooldownTicks: 50 }, timing: { anticipationTicks: 5, recoveryTicks: 16 }, movement: { speedScale: 0.66 }, contact: { targetSpeed: 2.7, spinAxis: 'back', spinRate: 16, impulseScale: 0.72, maxImpulse: 5.7, spinScale: 0.56 }, counter: { windowTicks: 10 } },
++  elastico: { cost: { stamina: 5, cooldownTicks: 46 }, timing: { anticipationTicks: 4, recoveryTicks: 15 }, contact: { targetSpeed: 4.0, spinAxis: 'side', spinRate: 24, impulseScale: 1.05, maxImpulse: 7.5, spinScale: 0.9 }, counter: { windowTicks: 9 }, mechanic: 'late-cut' },
++  rainbow: { eligibility: { maximumPressure: 0.62, maximumBallDistance: 0.68 }, cost: { stamina: 7, cooldownTicks: 72 }, timing: { anticipationTicks: 7, recoveryTicks: 22 }, movement: { speedScale: 0.58 }, contact: { targetSpeed: 4.8, launchElevationDegrees: 40, spinAxis: 'back', spinRate: 20, impulseScale: 1.24, maxImpulse: 8.2, spinScale: 0.72 }, counter: { windowTicks: 14 }, mechanic: 'air-redirection' },
++  'body-feint': { eligibility: { maximumPressure: 0.92 }, cost: { stamina: 2, cooldownTicks: 24 }, timing: { anticipationTicks: 2, recoveryTicks: 8 }, contact: { targetSpeed: 2.2, spinAxis: 'side', spinRate: 4, impulseScale: 0.58, maxImpulse: 4.4, spinScale: 0.24 }, counter: { windowTicks: 4 } },
++
++  'finesse-curl': { cost: { stamina: 5, cooldownTicks: 60 }, timing: { anticipationTicks: 6, recoveryTicks: 17 }, contact: { targetSpeed: 23, launchElevationDegrees: 16.5, spinAxis: 'side', spinRate: 55, impulseScale: 1, maxImpulse: 13.5, spinScale: 1.35 }, counter: { windowTicks: 11 } },
++  'whipped-curl': { cost: { stamina: 6, cooldownTicks: 66 }, timing: { anticipationTicks: 6, recoveryTicks: 18 }, contact: { targetSpeed: 24.5, launchElevationDegrees: 14, spinAxis: 'side', spinRate: 65, impulseScale: 1.06, maxImpulse: 14.3, spinScale: 1.5 }, counter: { windowTicks: 12 } },
++  'impossible-angle': { eligibility: { maximumPressure: 0.74 }, cost: { stamina: 7, cooldownTicks: 74 }, timing: { anticipationTicks: 5, recoveryTicks: 21 }, contact: { targetSpeed: 22.5, launchElevationDegrees: 13, spinAxis: 'side', spinRate: 74, impulseScale: 1.02, maxImpulse: 14.1, spinScale: 1.65 }, counter: { windowTicks: 15 } },
++  'power-strike': { cost: { stamina: 7, cooldownTicks: 72 }, timing: { anticipationTicks: 7, recoveryTicks: 22 }, contact: { targetSpeed: 27, launchElevationDegrees: 10, spinAxis: 'top', spinRate: 12, impulseScale: 1.18, maxImpulse: 15.5, spinScale: 0.38 }, counter: { windowTicks: 13 } },
++  'thunder-strike': { eligibility: { maximumPressure: 0.7 }, cost: { stamina: 9, cooldownTicks: 86 }, timing: { anticipationTicks: 8, recoveryTicks: 27 }, contact: { targetSpeed: 30, launchElevationDegrees: 9, spinAxis: 'top', spinRate: 8, impulseScale: 1.32, maxImpulse: 15.5, spinScale: 0.28 }, counter: { windowTicks: 17 } },
++  'knuckle-strike': { eligibility: { maximumPressure: 0.68 }, cost: { stamina: 8, cooldownTicks: 84 }, timing: { anticipationTicks: 8, recoveryTicks: 25 }, contact: { targetSpeed: 26, launchElevationDegrees: 10, spinAxis: 'none', spinRate: 5, impulseScale: 1.14, maxImpulse: 15.5, spinScale: 0.08 }, counter: { windowTicks: 16 } },
++  'trivela-contact': { cost: { stamina: 6, cooldownTicks: 68 }, timing: { anticipationTicks: 6, recoveryTicks: 19 }, contact: { targetSpeed: 24, launchElevationDegrees: 12, spinAxis: 'side', spinRate: 62, impulseScale: 1.04, maxImpulse: 14.4, spinScale: 1.45 }, counter: { windowTicks: 13 }, mechanic: 'curl-release' },
++  'lofted-through': { cost: { stamina: 4, cooldownTicks: 54 }, timing: { anticipationTicks: 5, recoveryTicks: 14 }, contact: { targetSpeed: 18, launchElevationDegrees: 28, spinAxis: 'back', spinRate: 34, impulseScale: 0.82, maxImpulse: 11.5, spinScale: 0.9 }, counter: { windowTicks: 9 } },
++  'threaded-ball': { cost: { stamina
