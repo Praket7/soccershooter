@@ -54,6 +54,9 @@ describe('Road to Legend progression', () => {
     const power = simulateSkilledCampaign('power', 1234);
     expect(technical.profile.campaignComplete).toBe(true);
     expect(technical.wins).toBe(CAMPAIGN_ACTS.reduce((total, act) => total + act.encounters.length, 0));
+    expect(technical.simulatedTicks).toBeGreaterThan(technical.wins);
+    expect(technical.physicalContacts).toBeGreaterThan(technical.wins);
+    expect(technical.goalsScored).toBe(technical.wins);
     expect(technical.profile.highlights).toHaveLength(technical.wins);
     expect(technical.checksum).toBe(simulateSkilledCampaign('technical', 1234).checksum);
     expect(new Set([

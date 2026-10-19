@@ -108,7 +108,7 @@ After campaign victory:
 - [x] **Task 5:** Implement technique unlock/evolution integration with progression.
 - [x] **Task 6:** Implement campaign final and postgame Legacy progression.
 - [x] **Task 7:** Implement save export/import and migration fixtures.
-- [ ] **Task 8:** Headless campaign simulations pass; owner Act 1 usability test remains pending (see `docs/gates/STAGE-09-GATE.md`).
+- [ ] **Task 8:** Physical headless encounter benchmark and live build-path wiring pass; comparative path viability and a new tester completing Act 1 without help remain pending (see `docs/gates/STAGE-09-GATE.md`).
 
 ## Tests
 - fresh save starts correctly

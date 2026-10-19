@@ -18,7 +18,7 @@ Stage 05R is governed by:
 - `docs/gates/STAGE-05R-PLAYTEST-BASELINE.md`
 - `docs/research/STAGE-05R-MOTION-DRIBBLING-BASIS.md`
 
-No merge to `main` is authorized until Stage 05R reaches its owner micro-playtest gate and the owner explicitly accepts the revised feel.
+The normal Stage 05R release gate remains closed until the owner completes the required micro-playtest and accepts the revised feel. The owner's explicit 2026-10-19 request to push to `main` is a one-time integration authorization; it does not waive, pass, or supersede any Stage 05R sequencing or feel-acceptance criteria.
 
 ## Automated blocking checks
 
@@ -89,4 +89,4 @@ These are not, by themselves, a professional-feel certificate.
 
 ## Integration status
 
-The owner explicitly requested a push to `main` on 2026-10-19, authorizing that integration. This does not certify the subjective Stage 05R feel gate: the owner playtest and scorecard remain pending. Stage 05/06/07 checkpoint branches remain preserved as independent history.
+The owner explicitly requested a push to `main` on 2026-10-19, authorizing that integration despite the normal release hold. This does not certify the subjective Stage 05R feel gate or retroactively satisfy the required intermediate Task 3 micro-playtest. The final owner playtest and scorecard remain pending. Stage 05/06/07 checkpoint branches remain preserved as independent history.

@@ -1,4 +1,5 @@
 import { awardEncounter, createFreshProfile, selectArchetype, type PlayerArchetype, type PlayerProfile } from './profile';
+import { createPhysicalScrimmage, stepPhysicalScrimmage } from '../../bots/src/physicalScrimmage';
 
 export interface CampaignEncounter {
   id: string;
@@ -29,6 +30,9 @@ export interface CampaignSimulationReport {
   highlights: readonly string[];
   archetype: PlayerArchetype;
   wins: number;
+  simulatedTicks: number;
+  physicalContacts: number;
+  goalsScored: number;
   checksum: string;
 }
 
@@ -99,37 +103,96 @@ export function createLegacyGauntlet(profile: Readonly<PlayerProfile>, seed: num
   };
 }
 
-/** Deterministic skilled-agent benchmark for the complete data-driven solo campaign. */
+const ENCOUNTER_START_Z: Readonly<Record<CampaignEncounter['tacticalProblem'], number>> = Object.freeze({
+  'basic-space': 9.2,
+  'high-press': 8.8,
+  'deep-block': 10.6,
+  counterattack: 9.8,
+  'aerial-team': 8.9,
+  'elite-keeper': 11.4,
+  'possession-overload': 9.4,
+  'aggressive-marking': 10.1,
+});
+
+const CAMPAIGN_MATCH_TICKS = 90 * 60;
+
+function simulateEncounter(seed: number, encounter: Readonly<CampaignEncounter>): { goal: boolean; ticks: number; contacts: number; checksum: string } {
+  let state = createPhysicalScrimmage(seed);
+  const attacker = state.players.find((player) => player.id === 'h-1');
+  if (!attacker) throw new Error('physical campaign scenario is missing its attacker');
+  // A challenge begins at its authored tactical moment; every subsequent
+  // movement decision, contact, ball flight, and goalkeeper response runs in
+  // the deterministic physical scrimmage simulation.
+  attacker.position = { x: 0, y: 0, z: ENCOUNTER_START_Z[encounter.tacticalProblem] };
+  attacker.velocity = { x: 0, y: 0, z: 0 };
+  state.ball.position = { x: 0, y: 0.11, z: attacker.position.z + 0.78 };
+  state.ball.velocity = { x: 0, y: 0, z: 0 };
+  state.ball.angularVelocity = { x: 0, y: 0, z: 0 };
+  state.ball.grounded = true;
+  state.possessionTeam = 'home';
+  state.possessionPlayerId = attacker.id;
+
+  const initialContacts = state.contactCount;
+  for (let tick = 0; tick < CAMPAIGN_MATCH_TICKS; tick += 1) {
+    state = stepPhysicalScrimmage(state, 1 / 60, 'standard');
+    const scored = state.ball.position.z > state.field.halfLength
+      && Math.abs(state.ball.position.x) < state.field.goalHalfWidth
+      && state.ball.position.y < 2.44;
+    if (scored) {
+      return { goal: true, ticks: tick + 1, contacts: state.contactCount - initialContacts, checksum: state.checksum };
+    }
+  }
+  return { goal: false, ticks: CAMPAIGN_MATCH_TICKS, contacts: state.contactCount - initialContacts, checksum: state.checksum };
+}
+
+/** Deterministic benchmark that plays each authored encounter in the physical bot scrimmage. */
 export function simulateSkilledCampaign(archetype: PlayerArchetype = 'technical', seed = 0x51a6): CampaignSimulationReport {
   let profile = selectArchetype(createFreshProfile(), archetype);
   const encounterIds: string[] = [];
   const highlights: string[] = [];
   let checksum = 0x811c9dc5;
   let wins = 0;
+  let simulatedTicks = 0;
+  let physicalContacts = 0;
+  let goalsScored = 0;
 
   for (const act of CAMPAIGN_ACTS) {
-    profile = { ...profile, campaignActId: act.id, campaignEncounterIndex: 0 };
     for (const [index, encounter] of act.encounters.entries()) {
       const encounterSeed = (Math.imul(seed ^ index ^ act.id.length, 1664525) + 1013904223) >>> 0;
-      const goalsFor = 2 + (encounterSeed % 3);
-      const goalsAgainst = encounter.tacticalProblem === 'elite-keeper' ? 0 : encounterSeed % 2;
+      const simulation = simulateEncounter(encounterSeed, encounter);
+      simulatedTicks += simulation.ticks;
+      physicalContacts += simulation.contacts;
+      goalsScored += Number(simulation.goal);
+      const goalsFor = Number(simulation.goal);
+      const goalsAgainst = 0;
       const reward = awardEncounter(profile, {
         encounterId: encounter.id,
-        outcome: 'win',
+        outcome: simulation.goal ? 'win' : 'loss',
         goalsFor,
         goalsAgainst,
         seed: encounterSeed,
       });
       profile = reward.profile;
-      profile = advanceCampaign(profile, true);
       encounterIds.push(encounter.id);
-      const highlight = `${encounter.id}:seed-${encounterSeed}:score-${goalsFor}-${goalsAgainst}`;
+      const highlight = `${encounter.id}:seed-${encounterSeed}:score-${goalsFor}-${goalsAgainst}:ticks-${simulation.ticks}:contacts-${simulation.contacts}:physics-${simulation.checksum}`;
       highlights.push(highlight);
       profile.highlights = [...profile.highlights, highlight].slice(-256);
-      checksum = (Math.imul(checksum ^ encounterSeed ^ goalsFor ^ goalsAgainst, 0x01000193)) >>> 0;
+      checksum = (Math.imul(checksum ^ encounterSeed ^ goalsFor ^ goalsAgainst ^ simulation.ticks ^ simulation.contacts, 0x01000193) ^ Number.parseInt(simulation.checksum, 16)) >>> 0;
+      if (!simulation.goal) return {
+        profile,
+        encounterIds,
+        highlights,
+        archetype,
+        wins,
+        simulatedTicks,
+        physicalContacts,
+        goalsScored,
+        checksum: checksum.toString(16).padStart(8, '0'),
+      };
+      profile = advanceCampaign(profile, true);
       wins += 1;
     }
   }
 
-  return { profile, encounterIds, highlights, archetype, wins, checksum: checksum.toString(16).padStart(8, '0') };
+  return { profile, encounterIds, highlights, archetype, wins, simulatedTicks, physicalContacts, goalsScored, checksum: checksum.toString(16).padStart(8, '0') };
 }

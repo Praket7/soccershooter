@@ -18,5 +18,13 @@ test('Road to Legend exposes all campaign acts, local baseline profile, and save
   await expect(page.locator('[data-career-export]')).toBeVisible();
   await expect(page.locator('[data-career-import]')).toBeVisible();
   await page.getByRole('button', { name: 'Open practice' }).click();
-  await expect(page.locator('[data-football-practice]')).toBeVisible();
+  const practice = page.locator('[data-football-practice]');
+  await expect(practice).toBeVisible();
+  await expect(practice).toHaveAttribute('data-archetype-contact-timing-ticks', '0');
+  await expect(practice).toHaveAttribute('data-archetype-sprint-stamina-cost-scale', '0.82');
+  await page.getByRole('button', { name: 'Road to Legend' }).click();
+  await screen.locator('[data-archetype="power"]').click();
+  await page.getByRole('button', { name: 'Open practice' }).click();
+  await expect(practice).toHaveAttribute('data-archetype-contact-timing-ticks', '-1');
+  await expect(practice).toHaveAttribute('data-archetype-strike-impulse-scale', '1.08');
 });

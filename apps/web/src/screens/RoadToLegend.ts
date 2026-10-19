@@ -26,7 +26,12 @@ export class RoadToLegendScreen {
   readonly root: HTMLElement;
   #profile: PlayerProfile = createFreshProfile();
 
-  constructor(host: HTMLElement, private readonly onContinuePractice: () => void, private readonly store: ProfileStore = new LocalStorageProfileStore(window.localStorage)) {
+  constructor(
+    host: HTMLElement,
+    private readonly onContinuePractice: () => void,
+    private readonly store: ProfileStore = new LocalStorageProfileStore(window.localStorage),
+    private readonly onProfileChange: (profile: Readonly<PlayerProfile>) => void = () => {},
+  ) {
     this.root = document.createElement('main');
     this.root.hidden = true;
     host.append(this.root);
@@ -40,6 +45,7 @@ export class RoadToLegendScreen {
     } catch {
       this.#profile = createFreshProfile();
     }
+    this.onProfileChange(this.#profile);
     this.#render();
   }
 
@@ -54,6 +60,7 @@ export class RoadToLegendScreen {
       button.addEventListener('click', () => {
         const archetype = button.dataset.archetype as PlayerArchetype;
         this.#profile = selectArchetype(this.#profile, archetype);
+        this.onProfileChange(this.#profile);
         void this.store.save(this.#profile).then(() => this.#render());
       });
     }
@@ -69,6 +76,7 @@ export class RoadToLegendScreen {
     if (!file) return;
     try {
       this.#profile = importProfile(await file.text());
+      this.onProfileChange(this.#profile);
       await this.store.save(this.#profile);
       this.#render();
     } catch {

@@ -25,6 +25,7 @@ import { playerVisualFootY } from './presentation/PlayerVisualLayout';
 import { ProceduralAthleteProxy } from './presentation/ProceduralAthleteProxy';
 import { ContactDebugOverlay } from './presentation/ContactDebugOverlay';
 import { RoadToLegendScreen } from './screens/RoadToLegend';
+import { ARCHETYPE_MODIFIERS } from '@soccershooter/progression';
 import { selectContentMode } from '@soccershooter/content/contentMode';
 import './styles.css';
 
@@ -230,7 +231,9 @@ const gamepad = new GamepadAdapter();
 const hud = new MovementHud(document.body);
 const ballLab = new BallLab({ scene, host: viewport });
 const footballPractice = new FootballPractice({ scene, host: viewport });
-const roadToLegend = new RoadToLegendScreen(document.body, () => setMode('practice'));
+const roadToLegend = new RoadToLegendScreen(document.body, () => setMode('practice'), undefined, (profile) => {
+  footballPractice.setBuildModifiers(ARCHETYPE_MODIFIERS[profile.archetype]);
+});
 
 const FIXED_DT = 1 / PLAYER_MOVEMENT_TICK_HZ;
 const ACTION_FEEDBACK_MS = 480;
@@ -494,7 +497,7 @@ function frame(now: number): void {
     if (recording && playbackIndex === null) recordedIntents.push(copyIntent(tickIntent));
 
     const beforeVelocity = player.velocity;
-    player = stepPlayerMovement(player, tickIntent, practiceMode ? practiceWorld : world, FIXED_DT);
+    player = stepPlayerMovement(player, tickIntent, practiceMode ? practiceWorld : world, FIXED_DT, practiceMode ? footballPractice.movementConfig : DEFAULT_MOVEMENT_CONFIG);
     if (practiceMode) {
       if (!playingBack) footballPractice.processIntent(player, tickIntent, FIXED_DT);
       // Keep the independent football on the same authoritative timeline as

@@ -41,6 +41,7 @@ export interface PlannedDribbleInput {
   sprint: boolean;
   pressure: number;
   moveIntentMagnitude: number;
+  contactTimingOffsetTicks?: number;
   receiveMode?: ReceiveMode | null;
 }
 
@@ -318,7 +319,7 @@ function planContact(
     targetBallVelocity: velocity,
     maxLinearImpulse: kind === 'trap' ? 4.6 : input.precision ? 2.8 : effort ? 4.2 : input.sprint ? 4.8 : 3.8,
     maxAngularImpulse: kind === 'trap' ? 85 : 120,
-    timingWindowTicks: input.receiveMode ? 1 : assist.timingWindowTicks,
+    timingWindowTicks: input.receiveMode ? 1 : clampFootball(assist.timingWindowTicks + (input.contactTimingOffsetTicks ?? 0), 1, 3),
     geometryTolerance: tolerance,
     quality,
     reason: kind === 'trap'

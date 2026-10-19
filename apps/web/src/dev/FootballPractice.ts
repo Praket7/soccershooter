@@ -4,6 +4,7 @@ import { MATCH_BALL_PROFILE } from '@soccershooter/physics/ball/aerodynamics';
 import { BALL_SUBSTEP_DT, STANDARD_GOAL_FRAME, crossedGoalPlane, stepBall } from '@soccershooter/physics/ball/trajectory';
 import type { InputIntent } from '@soccershooter/sim';
 import { PlayerActionBits, type PlayerState } from '@soccershooter/sim/player/PlayerState';
+import { DEFAULT_MOVEMENT_CONFIG } from '@soccershooter/sim/player/movement';
 import { decodeFootballActionIntent } from '@soccershooter/sim/football/actionIntent';
 import { selectPassTarget, solvePass, type PassType } from '@soccershooter/sim/football/passing';
 import { resolveReceiveMode } from '@soccershooter/sim/football/receive';
@@ -49,6 +50,12 @@ export interface FootballPracticeOptions {
   host: HTMLElement;
 }
 
+export interface FootballBuildModifiers {
+  contactTimingTicks: number;
+  sprintStaminaCostScale: number;
+  strikeImpulseScale: number;
+}
+
 type PendingStrike =
   | { kind: 'shot'; plan: Readonly<FootballContactPlan>; style: ShotStyle; charge: number }
   | { kind: 'pass'; plan: Readonly<FootballContactPlan>; passType: PassType };
@@ -74,6 +81,20 @@ const SPECIALIST_SHOT_STYLES: readonly ShotStyle[] = Object.freeze(['normal', 'k
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
+}
+
+function scaleShotCommand(command: BallContactCommand | undefined, scale: number): BallContactCommand | undefined {
+  if (!command) return undefined;
+  return {
+    ...command,
+    deltaVelocity: { x: command.deltaVelocity.x * scale, y: command.deltaVelocity.y * scale, z: command.deltaVelocity.z * scale },
+    maxImpulse: command.maxImpulse * scale,
+    diagnostic: `${command.diagnostic} build-power=${scale.toFixed(2)}`,
+  };
+}
+
+function scaleShotVelocity(velocity: FootballVec3, scale: number): FootballVec3 {
+  return { x: velocity.x * scale, y: velocity.y * scale, z: velocity.z * scale };
 }
 
 function playerDirection(player: Readonly<PlayerState>): { x: number; z: number } {
@@ -303,6 +324,7 @@ export class FootballPractice {
   #leadPoint: FootballVec3 | null = null;
   #shotState = 'READY';
   #probe: HTMLOutputElement;
+  #buildModifiers: FootballBuildModifiers = { contactTimingTicks: 1, sprintStaminaCostScale: 1, strikeImpulseScale: 1 };
 
   constructor(options: FootballPracticeOptions) {
     this.ballVisual = createBall(options.scene);
@@ -363,6 +385,16 @@ export class FootballPractice {
   }
 
   get state(): Readonly<BallState> { return this.#state; }
+  get movementConfig() {
+    return { ...DEFAULT_MOVEMENT_CONFIG, staminaDrainPerSecond: DEFAULT_MOVEMENT_CONFIG.staminaDrainPerSecond * this.#buildModifiers.sprintStaminaCostScale };
+  }
+
+  setBuildModifiers(modifiers: FootballBuildModifiers): void {
+    this.#buildModifiers = { ...modifiers };
+    this.root.dataset.archetypeContactTimingTicks = String(modifiers.contactTimingTicks);
+    this.root.dataset.archetypeSprintStaminaCostScale = String(modifiers.sprintStaminaCostScale);
+    this.root.dataset.archetypeStrikeImpulseScale = String(modifiers.strikeImpulseScale);
+  }
   get tackleRecoverySeconds(): number { return this.#defenderState.recoverySeconds; }
   get shotStyle(): ShotStyle { return this.#shotStyle; }
   get visible(): boolean { return this.#visible; }
@@ -515,7 +547,7 @@ export class FootballPractice {
             contactFoot: pending.plan.foot,
             knuckleSeed: PRACTICE_KNUCKLE_SEED,
           });
-          command = solution.command;
+          command = scaleShotCommand(solution.command, this.#buildModifiers.strikeImpulseScale);
           this.#shotState = command ? 'FOLLOW THROUGH' : solution.reason.toUpperCase().replaceAll('-', ' ');
           if (command) this.#state.knuckleSeed = solution.knuckleSeed;
         } else {
@@ -787,7 +819,7 @@ export class FootballPractice {
         strideSeconds: player.athleticMotion.strideSeconds,
         actorPosition: actor.position,
         ball: snapshot,
-        targetBallVelocity: shot.launchVelocity,
+        targetBallVelocity: scaleShotVelocity(shot.launchVelocity, this.#buildModifiers.strikeImpulseScale),
         preferredFoot: actor.preferredFoot,
         balance: actor.balance,
       }) : null;
@@ -876,6 +908,7 @@ export class FootballPractice {
         sprint: intent.sprint,
         pressure: actor.pressure,
         moveIntentMagnitude: dribbleIntent.magnitude,
+        contactTimingOffsetTicks: this.#buildModifiers.contactTimingTicks,
         receiveMode,
       });
       this.#dribble = planned.state;
