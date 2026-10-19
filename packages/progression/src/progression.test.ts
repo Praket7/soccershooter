@@ -86,8 +86,16 @@ describe('Road to Legend progression', () => {
     }
 
     const signatures = runs.map((run) => JSON.stringify(run.playstyle));
-    expect(new Set(signatures).size).toBe(3);
-    expect(new Set(runs.map((run) => run.checksum)).size).toBe(3);
+    const diagnostic = JSON.stringify(runs.map((run) => ({
+      archetype: run.archetype,
+      playstyle: run.playstyle,
+      checksum: run.checksum,
+      simulatedTicks: run.simulatedTicks,
+      physicalContacts: run.physicalContacts,
+      goalsScored: run.goalsScored,
+    })));
+    expect(new Set(signatures).size, diagnostic).toBe(3);
+    expect(new Set(runs.map((run) => run.checksum)).size, diagnostic).toBe(3);
   });
 
   it('keeps every build beatable across a deterministic adversarial seed sweep', () => {
