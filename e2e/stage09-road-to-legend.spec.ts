@@ -49,6 +49,29 @@ test('Road to Legend starts a physical-goal campaign challenge and saves an aban
   await expect(page.getByRole('button', { name: 'Start current challenge' })).toBeVisible();
 });
 
+test('authored campaign tactics alter the live physical challenge without masquerading as Legacy', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => {
+    const profile = JSON.parse(localStorage.getItem('soccershooter.profile.v2') ?? '{}');
+    profile.campaignActId = 'academy';
+    profile.campaignEncounterIndex = 0;
+    profile.campaignComplete = false;
+    localStorage.setItem('soccershooter.profile.v2', JSON.stringify(profile));
+  });
+  await page.reload();
+  await page.getByRole('button', { name: 'Road to Legend' }).click();
+  await expect(page.locator('[data-current-encounter]')).toContainText('academy-01');
+  await page.getByRole('button', { name: 'Start current challenge' }).click();
+
+  const practice = page.locator('[data-football-practice]');
+  await expect(practice).toHaveAttribute('data-campaign-tactical-problem', 'high-press');
+  await expect(practice).toHaveAttribute('data-campaign-pressure', '0.340');
+  await expect(practice).toHaveAttribute('data-campaign-pitch-scale', '0.9700');
+  await expect(practice).toHaveAttribute('data-campaign-legacy-modifier', '');
+  await expect(page.locator('[data-campaign-objective]')).toContainText('high press');
+  await expect(page.locator('[data-campaign-objective]')).not.toContainText('Legacy');
+});
+
 test('Legacy gauntlet seed applies its modifier to the live challenge', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('button', { name: 'Road to Legend' })).toBeVisible();
