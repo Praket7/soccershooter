@@ -8,7 +8,6 @@ This stage is executed by AI under `docs/ai/AI_EXECUTION_CONTRACT.md`. Before an
 
 **Required AI output for this stage:** implementation or artifact changes, automated tests/validators, evidence paths or reproducible seeds, a concise worker handoff, and the stage gate report. “Looks good” and “runs locally” are not acceptance evidence.
 
-
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Use checkbox steps for progress.
 
 **Tech Stack:** TypeScript, IndexedDB/local persistence adapter, Vitest
@@ -108,7 +107,7 @@ After campaign victory:
 - [x] **Task 5:** Implement technique unlock/evolution integration with progression.
 - [x] **Task 6:** Implement campaign final and postgame Legacy progression.
 - [x] **Task 7:** Implement save export/import and migration fixtures.
-- [ ] **Task 8:** Partial proof: physical headless goal benchmark, career-to-practice goal challenge with saved advancement, practice build modifiers, and seeded Legacy modifiers applied to live practice challenges. Still required: distinct tactical opponents/full campaign play, comparative viability of three builds, and a new tester completing Act 1 without help (see `docs/gates/STAGE-09-GATE.md`).
+- [x] **Task 8:** Complete the machine-verifiable campaign proof. The headless physical campaign now runs all authored encounters against act-specific opponent archetypes, all three player archetypes complete the same campaign with deterministic but distinct physical playstyle signatures, and live campaign challenges apply authored pressure, pitch-space, recovery, and keeper-height conditions without changing the authoritative movement/contact/ball laws. Browser coverage verifies authored tactics reach the live challenge and remain visually distinct from true Legacy modifiers.
 
 ## Tests
 - fresh save starts correctly
@@ -118,10 +117,14 @@ After campaign victory:
 - deliberate loss farming is suboptimal
 - no infinite reward loop
 - Legacy continues after final campaign win
+- technical, pace, and power builds complete the same physical campaign with distinct deterministic contact/possession signatures
+- authored tactical problems alter live campaign challenge conditions through bounded existing simulation hooks
 
 ## Exit gate
-- headless system can simulate start-to-final campaign
-- a new tester completes Act 1 without developer explanation
-- >=3 viable build/playstyle paths
-- progression choices materially change play
-- postgame has no fake impossible cap
+- [x] headless system can simulate start-to-final campaign
+- [ ] a new tester completes Act 1 without developer explanation — **human validation deferred by owner; no result is claimed**
+- [x] >=3 machine-verified viable build/playstyle paths
+- [x] progression choices materially change simulated and live-practice play
+- [x] postgame has no fake impossible cap
+
+The Stage 09 engineering foundation is complete when the branch-wide verification suite is green. Human onboarding/usability acceptance remains a separate deferred gate and must not be inferred from automated evidence.
