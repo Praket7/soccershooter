@@ -23,7 +23,7 @@ export function evaluateTacticalTournamentGate(report: Readonly<TacticalTourname
     failures.push(`average support distance=${report.averageSupportDistance.toFixed(3)} outside (3.2, 10.5)`);
   }
   if (report.averageDecisionMsPerTeam >= 1) failures.push(`average tactical decision=${report.averageDecisionMsPerTeam.toFixed(4)}ms >= 1ms`);
-  if (report.maxDecisionMsPerTeam >= 12) failures.push(`max tactical decision=${report.maxDecisionMsPerTeam.toFixed(4)}ms >= 12ms`);
+  if (report.p99DecisionMsPerTeam >= 1) failures.push(`p99 tactical decision=${report.p99DecisionMsPerTeam.toFixed(4)}ms >= 1ms`);
   return { pass: failures.length === 0, failures };
 }
 

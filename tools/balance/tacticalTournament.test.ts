@@ -6,8 +6,8 @@ async function loadTournament() {
   return module as NonNullable<typeof module>;
 }
 
-function deterministicMetrics<T extends { averageDecisionMsPerTeam: number; maxDecisionMsPerTeam: number }>(report: T) {
-  const { averageDecisionMsPerTeam: _average, maxDecisionMsPerTeam: _max, ...deterministic } = report;
+function deterministicMetrics<T extends { averageDecisionMsPerTeam: number; p99DecisionMsPerTeam: number; maxDecisionMsPerTeam: number }>(report: T) {
+  const { averageDecisionMsPerTeam: _average, p99DecisionMsPerTeam: _p99, maxDecisionMsPerTeam: _max, ...deterministic } = report;
   return deterministic;
 }
 
@@ -38,6 +38,21 @@ describe('Stage 06 headless tactical tournament', () => {
     expect(Object.values(report.roleOccupancy).reduce((sum, value) => sum + value, 0)).toBeGreaterThan(0);
   });
 
+  it('uses a high-percentile CPU budget instead of failing on one scheduler outlier', async () => {
+    const { runTacticalTournament } = await loadTournament();
+    const { evaluateTacticalTournamentGate } = await import('./tournament');
+    const report = runTacticalTournament({ possessions: 500, seed: 0x51a6e006 });
+    expect(report.p99DecisionMsPerTeam).toBeLessThan(1);
+
+    const isolatedPause = { ...report, maxDecisionMsPerTeam: 25 };
+    expect(evaluateTacticalTournamentGate(isolatedPause).pass).toBe(true);
+
+    const sustainedSlowdown = { ...report, p99DecisionMsPerTeam: 1.25 };
+    const gate = evaluateTacticalTournamentGate(sustainedSlowdown);
+    expect(gate.pass).toBe(false);
+    expect(gate.failures.some((failure) => failure.includes('p99 tactical decision'))).toBe(true);
+  });
+
   it('produces useful passing and respects the Stage 06 tactical CPU budget', async () => {
     const { runTacticalTournament } = await loadTournament();
     const report = runTacticalTournament({ possessions: 3000, seed: 0x51a6e006 });
@@ -48,6 +63,7 @@ describe('Stage 06 headless tactical tournament', () => {
     expect(report.averageSupportDistance).toBeGreaterThan(3.2);
     expect(report.averageSupportDistance).toBeLessThan(10.5);
     expect(report.averageDecisionMsPerTeam).toBeLessThan(1);
-    expect(report.maxDecisionMsPerTeam).toBeLessThan(12);
+    expect(report.p99DecisionMsPerTeam).toBeLessThan(1);
+    expect(Number.isFinite(report.maxDecisionMsPerTeam)).toBe(true);
   });
 });

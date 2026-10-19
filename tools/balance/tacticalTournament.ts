@@ -47,6 +47,7 @@ export interface TacticalTournamentReport {
   idleRatio: number;
   averageSupportDistance: number;
   averageDecisionMsPerTeam: number;
+  p99DecisionMsPerTeam: number;
   maxDecisionMsPerTeam: number;
   checksum: string;
 }
@@ -204,6 +205,25 @@ function mixChecksum(hash: number, value: number): number {
   return next >>> 0;
 }
 
+const DECISION_TIMING_BIN_MS = 0.01;
+const DECISION_TIMING_BINS = 2001;
+
+function recordDecisionTiming(histogram: Uint32Array, elapsedMs: number): void {
+  const bin = Math.min(histogram.length - 1, Math.max(0, Math.floor(elapsedMs / DECISION_TIMING_BIN_MS)));
+  histogram[bin] = (histogram[bin] ?? 0) + 1;
+}
+
+function decisionTimingPercentile(histogram: Uint32Array, samples: number, percentile: number): number {
+  if (samples <= 0) return 0;
+  const target = Math.max(1, Math.ceil(samples * percentile));
+  let cumulative = 0;
+  for (let index = 0; index < histogram.length; index += 1) {
+    cumulative += histogram[index] ?? 0;
+    if (cumulative >= target) return (index + 1) * DECISION_TIMING_BIN_MS;
+  }
+  return histogram.length * DECISION_TIMING_BIN_MS;
+}
+
 function timedStep(
   world: Readonly<BotWorldSnapshot>,
   team: TeamId,
@@ -253,6 +273,7 @@ export function runTacticalTournament(options: Readonly<TacticalTournamentOption
   let supportDistanceSamples = 0;
   let timingSum = 0;
   let timingSamples = 0;
+  const decisionTimingHistogram = new Uint32Array(DECISION_TIMING_BINS);
   let maxDecisionMsPerTeam = 0;
   let checksum = 2166136261 >>> 0;
 
@@ -273,6 +294,7 @@ export function runTacticalTournament(options: Readonly<TacticalTournamentOption
       for (const elapsed of [homeTimed.elapsedMs, awayTimed.elapsedMs]) {
         timingSum += elapsed;
         timingSamples += 1;
+        recordDecisionTiming(decisionTimingHistogram, elapsed);
         maxDecisionMsPerTeam = Math.max(maxDecisionMsPerTeam, elapsed);
       }
       roleSwitches += homeRuntime.roles.switchCount + awayRuntime.roles.switchCount;
@@ -390,6 +412,7 @@ export function runTacticalTournament(options: Readonly<TacticalTournamentOption
     idleRatio: idleSamples > 0 ? idleHits / idleSamples : 0,
     averageSupportDistance: supportDistanceSamples > 0 ? supportDistanceSum / supportDistanceSamples : 0,
     averageDecisionMsPerTeam: timingSamples > 0 ? timingSum / timingSamples : 0,
+    p99DecisionMsPerTeam: decisionTimingPercentile(decisionTimingHistogram, timingSamples, 0.99),
     maxDecisionMsPerTeam,
     checksum: checksum.toString(16).padStart(8, '0'),
   };
