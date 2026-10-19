@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test';
 
-const adaptiveButtonName = 'Adaptive Debug';
+const adaptiveButtonName = 'Adaptive Bot Lab';
 
-test('Stage 07 Adaptive Debug exposes cognition scaling with identical physical laws', async ({ page }) => {
+test('Stage 07 Adaptive Bot Lab exposes cognition scaling with identical physical laws', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: adaptiveButtonName, exact: true }).click();
 
@@ -10,7 +10,7 @@ test('Stage 07 Adaptive Debug exposes cognition scaling with identical physical 
   const probe = page.locator('[data-adaptive-state]');
   await expect(lab).toBeVisible();
   await expect(lab.getByRole('heading', { name: adaptiveButtonName })).toBeVisible();
-  await expect(lab).toContainText('Physical 3v3 is now the owner acceptance surface');
+  await expect(lab).toContainText('Difficulty changes perception, reaction, prediction and precision only');
   await expect(page.locator('[data-tier-card]')).toHaveCount(3);
   await expect(probe).toHaveAttribute('data-physical-invariant', 'true');
   await expect(probe).toHaveAttribute('data-learned-enabled', 'false');
