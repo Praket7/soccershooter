@@ -307,6 +307,7 @@ export function buildControlTouch(input: Readonly<ControlTouchInput>): ControlTo
   const playerSpeed = actorSpeed(input.actor);
   const ballFacingDot = horizontalDot(facing, toBall);
   const desiredFacingDot = horizontalDot(facing, direction);
+  const desiredBallDot = horizontalDot(direction, toBall);
   const moveIntentMagnitude = clampFootball(input.moveIntentMagnitude ?? 1, 0, 1);
   const pressure = clampFootball(input.pressure, 0, 1);
   const balance = clampFootball(input.actor.balance, 0, 1);
@@ -333,7 +334,15 @@ export function buildControlTouch(input: Readonly<ControlTouchInput>): ControlTo
     : 0;
 
   const minimumFrontDot = minimumFrontDotForReach(reach);
-  const frontFactor = clampFootball((ballFacingDot - minimumFrontDot) / (1 - minimumFrontDot), 0, 1);
+  const activeRecoveryReach = input.precision ? 0.82 : 0.70;
+  const activeTurnBackRecovery = !trapRequested
+    && moveIntentMagnitude >= 0.5
+    && reach <= activeRecoveryReach
+    && desiredBallDot >= 0.82;
+  const frontDotForQuality = activeTurnBackRecovery
+    ? Math.max(ballFacingDot, minimumFrontDot + (1 - minimumFrontDot) * 0.22)
+    : ballFacingDot;
+  const frontFactor = clampFootball((frontDotForQuality - minimumFrontDot) / (1 - minimumFrontDot), 0, 1);
   const rawDirectionFactor = clampFootball((desiredFacingDot + 0.35) / 1.35, 0, 1);
   const directionFactor = effortTurn || receiveExitRequested ? Math.max(0.34, rawDirectionFactor) : rawDirectionFactor;
   const pressureFactor = 1 - 0.58 * pressure;
@@ -342,7 +351,7 @@ export function buildControlTouch(input: Readonly<ControlTouchInput>): ControlTo
 
   const closeRecovery = clampFootball((0.72 - reach) / 0.52, 0, 1);
   const trailingRecovery = clampFootball((0.35 - ballFacingDot) / 1.15, 0, 1);
-  const recoverySteer = Math.max(closeRecovery, trailingRecovery);
+  const recoverySteer = Math.max(closeRecovery, trailingRecovery, activeTurnBackRecovery ? 1 : 0);
   const turnAllowanceDegrees = input.precision
     ? 50 + 20 * recoverySteer
     : input.sprint
@@ -419,7 +428,7 @@ export function buildControlTouch(input: Readonly<ControlTouchInput>): ControlTo
   };
 
   if (reach > controlReach(touchMode)) return { eligible: false, reason: 'out-of-reach', ...baseResult };
-  if (ballFacingDot < minimumFrontDot) return { eligible: false, reason: 'behind-body', ...baseResult };
+  if (ballFacingDot < minimumFrontDot && !activeTurnBackRecovery) return { eligible: false, reason: 'behind-body', ...baseResult };
   if (input.ball.position.y - input.ball.radius > MAX_CONTROL_HEIGHT) return { eligible: false, reason: 'ball-too-high', ...baseResult };
   if (incomingSpeed > HARD_INCOMING_SPEED) return { eligible: false, reason: 'ball-too-fast', ...baseResult };
   if (!trapRequested && !receiveExitRequested && playerSpeed < IDLE_PLAYER_SPEED && incomingSpeed < IDLE_BALL_SPEED) {
@@ -491,7 +500,7 @@ export function buildControlTouch(input: Readonly<ControlTouchInput>): ControlTo
     desiredVelocity,
     angularVelocityDelta,
     input.ball.mass * maxDeltaSpeed,
-    `control mode=${touchMode} q=${quality.toFixed(3)} difficulty=${imperfection.difficulty.toFixed(3)} error=${imperfection.magnitude.toFixed(3)} turn=${(turnAngle * 180 / Math.PI).toFixed(1)} steer=${turnAllowanceDegrees.toFixed(1)} corridor=(${correction.x.toFixed(2)},${correction.z.toFixed(2)}) reach=${reach.toFixed(2)}/${controlReach(touchMode).toFixed(2)} rolling=${input.ball.grounded} pressure=${pressure.toFixed(3)}`,
+    `control mode=${touchMode} q=${quality.toFixed(3)} difficulty=${imperfection.difficulty.toFixed(3)} error=${imperfection.magnitude.toFixed(3)} turn=${(turnAngle * 180 / Math.PI).toFixed(1)} steer=${turnAllowanceDegrees.toFixed(1)} recovery=${activeTurnBackRecovery} corridor=(${correction.x.toFixed(2)},${correction.z.toFixed(2)}) reach=${reach.toFixed(2)}/${controlReach(touchMode).toFixed(2)} rolling=${input.ball.grounded} pressure=${pressure.toFixed(3)}`,
   );
 
   return {
