@@ -224,6 +224,63 @@ test('dedicated E pass contact moves the free ball and exposes lane intent witho
   expect(Number(await probe.getAttribute('data-ball-speed'))).toBeGreaterThan(2);
 });
 
+test('Stage 05R measures live dribble-to-shot and dribble-to-pass contact delays', async ({ page }, testInfo) => {
+  await installPointerLockHarness(page);
+  await page.goto('/');
+  await capturePointerWithoutNativePlaywrightLock(page);
+  await expect(page.locator('[data-player-state]')).toHaveAttribute('data-pointer-locked', 'true');
+  const canvas = page.locator('[data-game-viewport]');
+  const canvasBounds = await canvas.boundingBox();
+  expect(canvasBounds).not.toBeNull();
+  if (!canvasBounds) return;
+  await page.mouse.move(canvasBounds.x + canvasBounds.width / 2, canvasBounds.y + canvasBounds.height / 2);
+
+  const football = page.locator('[data-football-state]');
+  const samples: { kind: 'shot' | 'pass'; delayTicks: number }[] = [];
+  for (const kind of ['shot', 'pass'] as const) {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await page.keyboard.down('w');
+      await page.waitForTimeout(180);
+      await page.keyboard.up('w');
+      await page.keyboard.press('g');
+      let startTick: number;
+      if (kind === 'shot') {
+        await page.mouse.down({ button: 'left' });
+        await page.waitForTimeout(100);
+        startTick = Number(await football.getAttribute('data-contact-tick'));
+        await page.mouse.up({ button: 'left' });
+      } else {
+        startTick = Number(await football.getAttribute('data-contact-tick'));
+        await page.keyboard.press('e');
+      }
+      await expect.poll(async () => await football.getAttribute('data-last-contact-event-tick'), { timeout: 2500 })
+        .not.toBe('');
+      const contactTick = Number(await football.getAttribute('data-last-contact-event-tick'));
+      const delayTicks = contactTick - startTick;
+      expect(delayTicks).toBeGreaterThanOrEqual(3);
+      expect(delayTicks).toBeLessThanOrEqual(24);
+      samples.push({ kind, delayTicks });
+    }
+  }
+
+  const summarize = (kind: 'shot' | 'pass') => {
+    const values = samples.filter((sample) => sample.kind === kind).map((sample) => sample.delayTicks).sort((a, b) => a - b);
+    return {
+      samples: values.length,
+      minTicks: values[0],
+      p50Ticks: values[Math.floor((values.length - 1) * 0.5)],
+      p90Ticks: values[Math.floor((values.length - 1) * 0.9)],
+      maxTicks: values.at(-1),
+    };
+  };
+  const report = { tickRateHz: 60, shot: summarize('shot'), pass: summarize('pass'), samples };
+  console.log('Stage 05R live dribble-to-strike transition ticks:', JSON.stringify(report));
+  await testInfo.attach('stage-05r-live-strike-transition-calibration.json', {
+    body: JSON.stringify(report, null, 2),
+    contentType: 'application/json',
+  });
+});
+
 test('RMB+E drives the ground pass and Ctrl+Q chips the through ball', async ({ page }) => {
   await installPointerLockHarness(page);
   await page.goto('/');

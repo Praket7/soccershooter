@@ -274,6 +274,7 @@ let lastAppliedInputTimestamp = -Infinity;
 let inputToSimulationMs: number | null = null;
 let inputToRenderMs: number | null = null;
 let pendingRenderAckTimestamp: number | null = null;
+let inputRenderAckFrame = 0;
 let bufferedActionBits = 0;
 let lastActionFlash: 'jump' | 'tackle' | null = null;
 let actionFlashUntil = 0;
@@ -535,8 +536,8 @@ function frame(now: number): void {
     }
   }
 
-  if (stepped && pendingRenderAckTimestamp !== null) {
-    inputToRenderMs = Math.max(0, performance.now() - pendingRenderAckTimestamp);
+  const renderAckTimestamp = stepped ? pendingRenderAckTimestamp : null;
+  if (renderAckTimestamp !== null) {
     pendingRenderAckTimestamp = null;
   }
 
@@ -672,6 +673,16 @@ function frame(now: number): void {
   });
 
   renderer.render(scene, camera);
+  if (renderAckTimestamp !== null) {
+    requestAnimationFrame((acknowledgedAt) => {
+      // The prior frame has now completed its render and crossed a browser
+      // frame boundary, giving the browser a chance to present the response.
+      inputToRenderMs = Math.max(0, acknowledgedAt - renderAckTimestamp);
+      inputRenderAckFrame += 1;
+      playerProbe.dataset.inputToRenderMs = inputToRenderMs.toFixed(3);
+      playerProbe.dataset.inputRenderAckFrame = String(inputRenderAckFrame);
+    });
+  }
   requestAnimationFrame(frame);
 }
 

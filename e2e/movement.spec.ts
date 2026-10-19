@@ -1,5 +1,52 @@
 import { expect, test } from '@playwright/test';
 
+test('Stage 05R records a rendered input acknowledgement latency distribution', async ({ page }, testInfo) => {
+  await page.goto('/');
+  await page.evaluate(() => {
+    const probe = document.querySelector('[data-player-state]');
+    if (!probe) throw new Error('missing player telemetry probe');
+    const samples: number[] = [];
+    Object.assign(window, { __stage05rRenderLatencySamples: samples });
+    new MutationObserver((records) => {
+      for (const record of records) {
+        if (record.attributeName !== 'data-input-render-ack-frame') continue;
+        const value = Number((probe as HTMLElement).dataset.inputToRenderMs);
+        if (Number.isFinite(value) && value >= 0) samples.push(value);
+      }
+    }).observe(probe, { attributes: true, attributeFilter: ['data-input-render-ack-frame'] });
+  });
+
+  for (let index = 0; index < 24; index += 1) {
+    await page.keyboard.down('w');
+    await page.waitForTimeout(24);
+    await page.keyboard.up('w');
+    await expect.poll(() => page.evaluate(() =>
+      (window as typeof window & { __stage05rRenderLatencySamples: number[] }).__stage05rRenderLatencySamples.length,
+    ), { timeout: 1500 }).toBeGreaterThanOrEqual(index + 1);
+  }
+
+  const samples = await page.evaluate(() =>
+    (window as typeof window & { __stage05rRenderLatencySamples: number[] }).__stage05rRenderLatencySamples,
+  );
+  const acknowledgementFrame = Number(await page.locator('[data-player-state]').getAttribute('data-input-render-ack-frame'));
+  const ordered = [...samples].sort((a, b) => a - b);
+  const distribution = {
+    samples: ordered.length,
+    minMs: ordered[0],
+    p50Ms: ordered[Math.floor((ordered.length - 1) * 0.5)],
+    p90Ms: ordered[Math.floor((ordered.length - 1) * 0.9)],
+    maxMs: ordered.at(-1),
+  };
+  expect(distribution.samples).toBeGreaterThanOrEqual(24);
+  expect(acknowledgementFrame).toBeGreaterThan(0);
+  expect(ordered.every((value) => Number.isFinite(value) && value >= 0)).toBe(true);
+  console.log('Stage 05R rendered input-to-visible latency:', JSON.stringify(distribution));
+  await testInfo.attach('stage-05r-input-to-visible-latency.json', {
+    body: JSON.stringify(distribution, null, 2),
+    contentType: 'application/json',
+  });
+});
+
 test('Stage 03 movement remains controllable inside the physical football lab', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'SoccerShooter Physical Football Lab' })).toBeVisible();
