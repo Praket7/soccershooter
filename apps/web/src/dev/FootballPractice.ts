@@ -19,10 +19,13 @@ import { evaluateAerialContact } from '@soccershooter/sim/football/aerial';
 import {
   consumeReceiveIntent,
   createFootballRuntimeState,
+  createPlannedDribbleState,
   markControlTouch,
   markKick,
   stepFootballRuntime,
+  stepPlannedDribble,
   type FootballRuntimeState,
+  type PlannedDribbleState,
 } from '@soccershooter/sim/football/runtime';
 import {
   applyBallContact,
@@ -250,7 +253,12 @@ export class FootballPractice {
   #state = createBallState({ position: PRACTICE_BALL_START, grounded: true });
   #previousState = cloneBallState(this.#state);
   #runtime: FootballRuntimeState = createFootballRuntimeState();
+  #dribble: PlannedDribbleState = createPlannedDribbleState();
   #defenderState: DefenderActionState = createDefenderActionState();
+  #contactTick = 0;
+  #plannedContactCount = 0;
+  #freeBallFrames = 0;
+  #lastContactSurface = '';
   #accumulator = 0;
   #elapsed = 0;
   #visible = true;
@@ -293,10 +301,10 @@ export class FootballPractice {
     this.root.dataset.footballPractice = 'true';
     this.root.innerHTML = `
       <div class="football-practice-heading">
-        <div><span>Stage 05 repaired</span><strong>Football Practice</strong></div>
+        <div><span>Stage 05R contact slice</span><strong>Football Practice</strong></div>
         <span class="football-practice-live"><i></i> independent physical ball</span>
       </div>
-      <p>WASD carries through a physical control corridor. RMB gives close control and the firm technique family. Ctrl is the lift modifier. F is receive/trap: F alone kills the ball; F + WASD takes the first touch out. Aim through the center reticle.</p>
+      <p>WASD now drives gait-timed physical foot contacts with a free ball between touches. RMB shortens the stride and lowers exit speed for close control. Sprint remains on the legacy knock-on path until the next owner gate. F is receive/trap: F alone kills the ball; F + WASD takes the first touch out. Aim through the center reticle.</p>
       <div class="practice-actions">
         <button type="button" data-football-reset>Reset ball <kbd>G</kbd></button>
         <span><kbd>E</kbd> ground · <kbd>Q</kbd> through · <kbd>R</kbd> lofted · <kbd>RMB+E</kbd> driven · <kbd>Ctrl+Q</kbd> chipped through</span>
@@ -382,6 +390,7 @@ export class FootballPractice {
     });
     this.#previousState = cloneBallState(this.#state);
     this.#runtime = createFootballRuntimeState();
+    this.#resetPlannedDribble(true);
     this.#shotFacingYaw = null;
     this.#lastAim = forward;
     this.#accumulator = 0;
@@ -401,6 +410,8 @@ export class FootballPractice {
     else {
       this.#state = createBallState({ position: PRACTICE_BALL_START, grounded: true });
       this.#previousState = cloneBallState(this.#state);
+      this.#runtime = createFootballRuntimeState();
+      this.#resetPlannedDribble(true);
       this.#shotFacingYaw = null;
       this.ballVisual.quaternion.identity();
       this.#syncVisuals();
@@ -409,6 +420,8 @@ export class FootballPractice {
 
   processIntent(player: Readonly<PlayerState>, intent: Readonly<InputIntent>, dt: number): void {
     if (!this.#visible) return;
+    const contactTick = this.#contactTick;
+    this.#contactTick += 1;
     this.#lastPlayer = clonePlayer(player);
     this.#elapsed += Math.max(0, dt);
     const runtimeStep = stepFootballRuntime(this.#runtime, intent.actionBits, dt);
@@ -449,7 +462,10 @@ export class FootballPractice {
       });
       this.#defenderState = challenge.nextState;
       this.#recordAction(intent.sprint ? 'COMMITTED TACKLE' : 'STANDING CHALLENGE', challenge.wonBall, challenge.reason);
-      if (challenge.command) this.#applyCommand(challenge.command);
+      if (challenge.command) {
+        this.#applyCommand(challenge.command);
+        this.#resetPlannedDribble(false);
+      }
       this.#runtime = { ...this.#runtime, lastAction: 'challenge' };
       this.#updateHud();
       return;
@@ -464,6 +480,7 @@ export class FootballPractice {
           { x: -3, y: 0, z: 0 }, 8.2,
           `header timing=${aerial.timingScore.toFixed(2)}`,
         ));
+        this.#resetPlannedDribble(false);
         this.#runtime = markKick(this.#runtime, 'shot');
         this.#recordAction('CONTACT', true, 'legal header contact');
         this.#updateHud();
@@ -506,6 +523,7 @@ export class FootballPractice {
       this.#recordAction(this.#shotState, shot.legal, shot.reason);
       if (shot.command) {
         this.#applyCommand(shot.command);
+        this.#resetPlannedDribble(false);
         this.#state.knuckleSeed = shot.knuckleSeed;
         this.#runtime = markKick(this.#runtime, 'shot');
       }
@@ -547,21 +565,74 @@ export class FootballPractice {
       this.#recordAction(solution.legal ? 'CONTACT' : 'PASS FAILED', solution.legal, `${this.#passType}: ${solution.reason}`);
       if (solution.command) {
         this.#applyCommand(solution.command);
+        this.#resetPlannedDribble(false);
         this.#runtime = markKick(this.#runtime, 'pass');
       }
       this.#updateHud();
       return;
     }
 
-    if (this.#runtime.controlTouchCooldown <= 0 && this.#runtime.kickCooldown <= 0 && this.#defenderState.recoverySeconds <= 0.08) {
-      const receiveArmed = this.#runtime.receive.armedSeconds > 0;
-      const receiveMode = receiveArmed ? resolveReceiveMode(dribbleIntent.magnitude) : null;
+    const receiveArmed = this.#runtime.receive.armedSeconds > 0;
+    const receiveMode = receiveArmed ? resolveReceiveMode(dribbleIntent.magnitude) : null;
+    const controlAvailable = this.#runtime.kickCooldown <= 0 && this.#defenderState.recoverySeconds <= 0.08;
+
+    if (!intent.sprint && controlAvailable) {
+      const contactPlan = this.#dribble.activePlan;
+      const planned = stepPlannedDribble({
+        tick: contactTick,
+        state: this.#dribble,
+        actor,
+        motion: player.athleticMotion,
+        ball: snapshot,
+        desiredDirection: dribbleIntent.direction,
+        precision,
+        sprint: false,
+        pressure: actor.pressure,
+        moveIntentMagnitude: dribbleIntent.magnitude,
+        receiveMode,
+      });
+      this.#dribble = planned.state;
+
+      if (planned.contactApplied) {
+        const next = cloneBallState(this.#state);
+        next.velocity = { ...planned.ball.velocity };
+        next.angularVelocity = { ...planned.ball.angularVelocity };
+        if (Math.abs(next.velocity.y) > 0.05) next.grounded = false;
+        if (next.lastContact) delete next.lastContact;
+        this.#state = next;
+        this.#plannedContactCount += 1;
+        this.#lastControlQuality = contactPlan?.quality ?? 1;
+        this.#lastContactSurface = contactPlan?.surface ?? '';
+        if (receiveMode) this.#runtime = consumeReceiveIntent(this.#runtime);
+        const action = contactPlan?.kind === 'trap'
+          ? 'CUSHION TOUCH'
+          : receiveMode === 'controlled-exit'
+            ? 'CONTROLLED EXIT'
+            : precision
+              ? 'PRECISION CONTACT'
+              : 'PLANNED TOUCH';
+        this.#recordAction(
+          action,
+          true,
+          `${contactPlan?.foot ?? this.#dribble.lastContactFoot ?? 'foot'} ${contactPlan?.surface ?? 'contact'} · gait-timed`,
+        );
+      } else {
+        if (Math.hypot(this.#state.velocity.x, this.#state.velocity.z) > 0.2) this.#freeBallFrames += 1;
+        if (receiveArmed && (planned.reason === 'loose-ball-chase' || planned.reason === 'no-viable-intercept')) {
+          this.#recordAction('TRAP ARMED', true, 'waiting for legal foot contact');
+        }
+      }
+    } else if (intent.sprint && this.#runtime.controlTouchCooldown <= 0 && controlAvailable) {
+      // Task 4 migrates sprint knock-ons and effort turns. Until the owner has
+      // approved this normal/RMB slice, keep sprint behavior isolated on the
+      // previously verified path rather than half-migrating it here.
+      this.#resetPlannedDribble(false);
       const touch = buildControlTouch({
         actor,
         ball: snapshot,
         desiredDirection: dribbleIntent.direction,
         precision,
-        sprint: intent.sprint,
+        sprint: true,
         pressure: actor.pressure,
         moveIntentMagnitude: dribbleIntent.magnitude,
         receiveMode,
@@ -569,7 +640,7 @@ export class FootballPractice {
       this.#lastControlQuality = touch.quality;
       if (touch.eligible && touch.command) {
         this.#applyCommand(touch.command);
-        this.#runtime = markControlTouch(this.#runtime, touch.touchMode === 'sprint', touch.touchMode);
+        this.#runtime = markControlTouch(this.#runtime, true, touch.touchMode);
         if (receiveMode) this.#runtime = consumeReceiveIntent(this.#runtime);
         const action = touch.touchMode === 'trap'
           ? 'CUSHION TOUCH'
@@ -626,6 +697,16 @@ export class FootballPractice {
     }
     this.#syncVisuals();
     this.#updateHud();
+  }
+
+  #resetPlannedDribble(resetCounters: boolean): void {
+    this.#dribble = createPlannedDribbleState();
+    if (resetCounters) {
+      this.#contactTick = 0;
+      this.#plannedContactCount = 0;
+      this.#freeBallFrames = 0;
+      this.#lastContactSurface = '';
+    }
   }
 
   #resolveAim(fallbackYaw: number): { x: number; z: number } {
@@ -794,6 +875,13 @@ export class FootballPractice {
     this.#probe.dataset.worldAimX = this.#worldAimTarget?.x.toFixed(6) ?? '';
     this.#probe.dataset.worldAimY = this.#worldAimTarget?.y.toFixed(6) ?? '';
     this.#probe.dataset.worldAimZ = this.#worldAimTarget?.z.toFixed(6) ?? '';
+    this.#probe.dataset.dribbleController = 'planned-contact';
+    this.#probe.dataset.plannedContactCount = String(this.#plannedContactCount);
+    this.#probe.dataset.lastContactFoot = this.#dribble.lastContactFoot ?? '';
+    this.#probe.dataset.freeBallFrames = String(this.#freeBallFrames);
+    this.#probe.dataset.dribbleLooseBall = String(this.#dribble.looseBall);
+    this.#probe.dataset.contactSurface = this.#dribble.activePlan?.surface ?? this.#lastContactSurface;
+    this.#probe.dataset.contactTick = String(this.#contactTick);
     this.#probe.dataset.action = this.#lastAction;
     this.#probe.dataset.reason = this.#lastReason;
     this.#probe.dataset.ballVisualQuaternion = [
