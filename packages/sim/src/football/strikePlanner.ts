@@ -69,9 +69,22 @@ interface ContactCandidate {
   score: number;
 }
 
+function inferredActorVelocity(input: Readonly<StrikeContactRequest>): FootballVec3 {
+  if (input.actorVelocity) return { ...input.actorVelocity };
+  // Compatibility bridge for live callers created before actorVelocity became
+  // part of the strike contract. A ball already inside the normal carry pocket
+  // is usually co-moving with the athlete, so use its horizontal velocity only
+  // to rank the next beat. This grants no contact: stepStrikeContact still
+  // checks the real actor against the real free ball at that tick.
+  if (distance(input.actorPosition, input.ball.position) <= 0.95) {
+    return { x: input.ball.velocity.x, y: 0, z: input.ball.velocity.z };
+  }
+  return { x: 0, y: 0, z: 0 };
+}
+
 function chooseContactCandidate(input: Readonly<StrikeContactRequest>, strideTicks: number): ContactCandidate | null {
   const phase = ((input.gaitPhase % 1) + 1) % 1;
-  const actorVelocity = input.actorVelocity ?? { x: 0, y: 0, z: 0 };
+  const actorVelocity = inferredActorVelocity(input);
   let best: ContactCandidate | null = null;
 
   for (const foot of [input.preferredFoot, oppositeFoot(input.preferredFoot)] as const) {
