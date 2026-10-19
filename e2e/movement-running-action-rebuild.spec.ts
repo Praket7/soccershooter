@@ -48,11 +48,29 @@ test('player can keep running while charging and completing a shot', async ({ pa
 
   await page.evaluate(() => {
     const output = document.querySelector<HTMLOutputElement>('[data-football-state]');
-    if (!output) throw new Error('missing football practice probe');
-    const observer = new MutationObserver(() => {
+    const playerOutput = document.querySelector<HTMLOutputElement>('[data-player-state]');
+    if (!output || !playerOutput) throw new Error('missing football practice probe');
+    const trace: string[] = [];
+    const capture = () => {
+      const entry = JSON.stringify({
+        tick: output.dataset.contactTick ?? '',
+        action: output.dataset.action ?? '',
+        reason: output.dataset.reason ?? '',
+        shotState: output.dataset.shotState ?? '',
+        charge: output.dataset.shotCharge ?? '',
+        ballX: output.dataset.ballX ?? '',
+        ballZ: output.dataset.ballZ ?? '',
+        playerX: playerOutput.dataset.x ?? '',
+        playerZ: playerOutput.dataset.z ?? '',
+        speed: playerOutput.dataset.speed ?? '',
+      });
+      if (trace[trace.length - 1] !== entry) trace.push(entry);
       if (output.dataset.reason?.startsWith('shot:')) output.dataset.runningShotContactSeen = 'true';
-    });
-    observer.observe(output, { attributes: true, attributeFilter: ['data-reason'] });
+    };
+    capture();
+    const observer = new MutationObserver(capture);
+    observer.observe(output, { attributes: true });
+    (window as Window & { __runningShotTrace?: string[] }).__runningShotTrace = trace;
   });
 
   const beforeContact = Number(await football.getAttribute('data-last-contact-event-tick'));
@@ -60,7 +78,9 @@ test('player can keep running while charging and completing a shot', async ({ pa
   await page.waitForTimeout(150);
   await page.mouse.up({ button: 'left' });
 
-  await expect(football).toHaveAttribute('data-running-shot-contact-seen', 'true', { timeout: 1800 });
+  await page.waitForTimeout(500);
+  const trace = await page.evaluate(() => (window as Window & { __runningShotTrace?: string[] }).__runningShotTrace ?? []);
+  expect(await football.getAttribute('data-running-shot-contact-seen'), trace.join('\n')).toBe('true');
   await expect.poll(async () => Number(await football.getAttribute('data-last-contact-event-tick')), { timeout: 1800 })
     .toBeGreaterThan(beforeContact);
   expect(Number(await player.getAttribute('data-speed'))).toBeGreaterThan(2.5);
