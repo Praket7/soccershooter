@@ -36,6 +36,8 @@ export const DEFAULT_GAMEPLAY_PREFERENCES: Readonly<GameplayPreferences> = Objec
   showControlHints: true,
 });
 
+let activePreferences: GameplayPreferences = { ...DEFAULT_GAMEPLAY_PREFERENCES };
+
 function numberIn(value: unknown, fallback: number, min: number, max: number): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
   return Math.min(max, Math.max(min, value));
@@ -61,6 +63,16 @@ export function sanitizeGameplayPreferences(value: unknown): GameplayPreferences
     hudScale: numberIn(source.hudScale, DEFAULT_GAMEPLAY_PREFERENCES.hudScale, 0.8, 1.4),
     showControlHints: booleanOr(source.showControlHints, DEFAULT_GAMEPLAY_PREFERENCES.showControlHints),
   };
+}
+
+/** Web-only live preference snapshot. Authoritative simulation never imports this module. */
+export function currentGameplayPreferences(): Readonly<GameplayPreferences> {
+  return activePreferences;
+}
+
+export function setActiveGameplayPreferences(value: unknown): GameplayPreferences {
+  activePreferences = sanitizeGameplayPreferences(value);
+  return { ...activePreferences };
 }
 
 export function loadGameplayPreferences(storage: PreferenceStorage): GameplayPreferences {
