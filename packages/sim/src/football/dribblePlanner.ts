@@ -81,9 +81,13 @@ function isEffortTurn(input: Readonly<PlannedDribbleInput>): boolean {
     || (actorSpeed >= 2.5 && Math.abs(input.motion.turnDemand) >= 0.18);
 }
 
+function isStrikePreparation(input: Readonly<PlannedDribbleInput>): boolean {
+  return input.strikePreparation ?? Boolean(input.motion.strikePreparation);
+}
+
 function cadenceTicks(input: Readonly<PlannedDribbleInput>): number {
   if (input.receiveMode === 'kill' || input.receiveMode === 'controlled-exit') return 3;
-  if (input.strikePreparation) return STRIKE_SETUP_CONTACT_TICKS;
+  if (isStrikePreparation(input)) return STRIKE_SETUP_CONTACT_TICKS;
   const strideTicks = Math.max(1, input.motion.strideSeconds * TICK_HZ);
   // Competent close control needs a physical touch often enough that the ball
   // remains available without feeling welded. Cadence is still gait-derived;
@@ -95,7 +99,7 @@ function cadenceTicks(input: Readonly<PlannedDribbleInput>): number {
 }
 
 function nextContactTick(input: Readonly<PlannedDribbleInput>): number {
-  if (input.strikePreparation) return input.tick + STRIKE_SETUP_CONTACT_TICKS;
+  if (isStrikePreparation(input)) return input.tick + STRIKE_SETUP_CONTACT_TICKS;
   if (input.state.lastContactTick < 0) {
     if (input.receiveMode) return input.tick + 2;
     if (input.sprint) return input.tick + FIRST_CONTACT_TICKS_SPRINT;
@@ -123,7 +127,7 @@ function contactFoot(input: Readonly<PlannedDribbleInput>): FootballFoot {
 function chooseSurface(input: Readonly<PlannedDribbleInput>, foot: FootballFoot): FootballContactSurface {
   if (input.receiveMode === 'kill') return 'sole';
   if (input.receiveMode === 'controlled-exit' || input.precision) return 'inside';
-  if (input.strikePreparation) return foot === input.actor.preferredFoot ? 'inside' : 'outside';
+  if (isStrikePreparation(input)) return foot === input.actor.preferredFoot ? 'inside' : 'outside';
   // Effort-turn selection must happen before the generic normal-dribble assist.
   // Previously this branch was unreachable for ordinary dribbling because the
   // null receive mode returned through the generic assist first.
@@ -205,7 +209,7 @@ function targetSpeed(input: Readonly<PlannedDribbleInput>): number {
   // A running shot setup touch deliberately leaves the ball fractionally slower
   // than the athlete. The player catches the free ball into the next stride;
   // nothing moves the ball toward the foot except the real contact and turf.
-  if (input.strikePreparation) return clampFootball(actorSpeed * 0.80 + 0.20, 1.4, 4.85);
+  if (isStrikePreparation(input)) return clampFootball(actorSpeed * 0.80 + 0.20, 1.4, 4.85);
   // Precision changes touch spacing and cadence more than locomotion speed. The
   // ball stays almost pace-matched so close control is responsive, not mud.
   if (input.precision) return clampFootball(actorSpeed * 0.98 + 0.16, 1.4, 5.15);
@@ -265,7 +269,7 @@ function rollingAngularDelta(ball: Readonly<FootballBallSnapshot>, velocity: Rea
 
 function geometryTolerance(input: Readonly<PlannedDribbleInput>): number {
   if (input.receiveMode === 'kill') return 0.22;
-  if (input.precision || input.strikePreparation) return 0.24;
+  if (input.precision || isStrikePreparation(input)) return 0.24;
   return 0.29;
 }
 
@@ -311,7 +315,7 @@ function planContact(
   );
   const prepareTick = Math.max(input.tick, contactTick - COMMIT_BEFORE_CONTACT_TICKS);
   const surface = chooseSurface(input, foot);
-  const mode = input.strikePreparation
+  const mode = isStrikePreparation(input)
     ? 'strike-setup'
     : effort ? 'effort' : input.precision ? 'precision' : input.sprint ? 'sprint' : 'normal';
 
@@ -326,7 +330,7 @@ function planContact(
     expectedBallPoint,
     expectedFootPoint: { ...expectedBallPoint, y: Math.max(0.06, expectedBallPoint.y - input.ball.radius * 0.22) },
     targetBallVelocity: velocity,
-    maxLinearImpulse: kind === 'trap' ? 4.6 : input.strikePreparation ? 3.6 : input.precision ? 2.8 : effort ? 4.5 : input.sprint ? 4.8 : 3.8,
+    maxLinearImpulse: kind === 'trap' ? 4.6 : isStrikePreparation(input) ? 3.6 : input.precision ? 2.8 : effort ? 4.5 : input.sprint ? 4.8 : 3.8,
     maxAngularImpulse: kind === 'trap' ? 85 : 120,
     timingWindowTicks: input.receiveMode ? 1 : clampFootball(assist.timingWindowTicks + (input.contactTimingOffsetTicks ?? 0), 1, 3),
     geometryTolerance: tolerance,
@@ -393,7 +397,7 @@ export function stepPlannedDribble(input: Readonly<PlannedDribbleInput>): Planne
   // touch. Only a still-uncommitted carry plan may be pulled earlier; a foot
   // already inside its final plant window is allowed to finish normally.
   if (plan
-    && input.strikePreparation
+    && isStrikePreparation(input)
     && plan.kind === 'dribble'
     && input.tick < plan.prepareTick
     && plan.contactTick - input.tick > STRIKE_SETUP_CONTACT_TICKS) {
