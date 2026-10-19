@@ -30,8 +30,13 @@ export const DEFAULT_MOVEMENT_CONFIG: Readonly<MovementConfig> = Object.freeze({
   walkSpeed: 2.35,
   jogSpeed: 5.2,
   sprintSpeed: 8.8,
-  acceleration: 20,
-  braking: 27,
+  // Deliberately quicker than laboratory sprint/deceleration averages so the
+  // controller stays responsive, but no longer so high that a player covers
+  // five metres from rest in <0.8 s or erases full sprint momentum in ~0.3 s.
+  // These shared rates also drive the athletic-motion trajectory predictor, so
+  // root movement, contact planning, and presentation now agree on momentum.
+  acceleration: 11,
+  braking: 13,
   lowSpeedTurnRate: 12,
   highSpeedTurnRate: 5.6,
   facingTurnRate: 12,
