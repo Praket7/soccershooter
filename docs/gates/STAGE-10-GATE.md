@@ -11,4 +11,4 @@
 - Private preview selection carries the visible `LOCAL CONTENT PREVIEW · NOT FOR DISTRIBUTION` watermark.
 - Normal `pnpm build` passed for server and web; bundle scan passed and the four team badge assets are present.
 - Negative build probe `VITE_CONTENT_MODE=PRIVATE pnpm build:web` fails with `Production builds require FICTIONAL_PUBLIC content mode`, as required.
-- Full `pnpm lint`, `pnpm typecheck`, and `pnpm test` pass (335 tests); Playwright passes 47/47.
+- Full `pnpm lint`, `pnpm typecheck`, and `pnpm test` pass (81 files / 338 tests); Playwright passes 48/48. The production web build reports a 771.67 kB minified JavaScript chunk, above Vite's 500 kB advisory threshold; the public-bundle guard passes.

@@ -79,12 +79,26 @@ test('committed challenge creates readable recovery and immediate spam is reject
   await page.goto('/');
   await resetPracticeBall(page);
   const probe = page.locator('[data-football-state]');
+  const playerProbe = page.locator('[data-player-state]');
 
-  await page.keyboard.down('Shift');
-  await page.keyboard.press('c');
-  await page.keyboard.up('Shift');
-  await expect.poll(async () => Number(await probe.getAttribute('data-recovery')), { timeout: 800 })
-    .toBeGreaterThan(0.25);
+  await page.evaluate(() => {
+    const output = document.querySelector<HTMLOutputElement>('[data-football-state]');
+    if (!output) throw new Error('missing football practice probe');
+    const observer = new MutationObserver(() => {
+      if (output.dataset.action?.includes('COMMITTED TACKLE')) {
+        output.dataset.committedTackleSeen = 'true';
+        output.dataset.committedTackleRecovery = output.dataset.recovery ?? '0';
+      }
+    });
+    observer.observe(output, { attributes: true, attributeFilter: ['data-action'] });
+  });
+  await page.keyboard.down('ShiftLeft');
+  await expect(playerProbe).toHaveAttribute('data-sprinting', 'true');
+  await page.keyboard.down('c');
+  await expect(probe).toHaveAttribute('data-committed-tackle-seen', 'true');
+  expect(Number(await probe.getAttribute('data-committed-tackle-recovery'))).toBeGreaterThan(0.25);
+  await page.keyboard.up('c');
+  await page.keyboard.up('ShiftLeft');
 
   await page.keyboard.press('c');
   await expect.poll(async () => await probe.getAttribute('data-reason'), { timeout: 600 }).toBe('recovering');

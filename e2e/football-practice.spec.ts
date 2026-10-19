@@ -319,15 +319,30 @@ test('practice ball visual rotation advances from physics steps, never idle rend
 test('committed challenge still creates an explicit recovery cost', async ({ page }) => {
   await page.goto('/');
   const probe = page.locator('[data-football-state]');
+  const playerProbe = page.locator('[data-player-state]');
 
   await page.keyboard.press('g');
   await page.waitForTimeout(60);
-  await page.keyboard.down('Shift');
-  await page.keyboard.press('c');
-  await page.keyboard.up('Shift');
+  await page.evaluate(() => {
+    const output = document.querySelector<HTMLOutputElement>('[data-football-state]');
+    if (!output) throw new Error('missing football practice probe');
+    const observer = new MutationObserver(() => {
+      if (output.dataset.action?.includes('COMMITTED TACKLE')) {
+        output.dataset.committedTackleSeen = 'true';
+        output.dataset.committedTackleRecovery = output.dataset.recovery ?? '0';
+      }
+    });
+    observer.observe(output, { attributes: true, attributeFilter: ['data-action'] });
+  });
+  await page.keyboard.down('ShiftLeft');
+  await expect(playerProbe).toHaveAttribute('data-sprinting', 'true');
+  await page.keyboard.down('c');
+  await expect(playerProbe).toHaveAttribute('data-tackle-hook', 'true');
+  await expect(probe).toHaveAttribute('data-committed-tackle-seen', 'true');
+  await page.keyboard.up('c');
+  await page.keyboard.up('ShiftLeft');
 
-  await expect(probe).toHaveAttribute('data-action', /COMMITTED TACKLE/);
-  expect(Number(await probe.getAttribute('data-recovery'))).toBeGreaterThan(0);
+  expect(Number(await probe.getAttribute('data-committed-tackle-recovery'))).toBeGreaterThan(0);
 });
 
 test('Stage 04 Ball Lab remains a separate instrument', async ({ page }) => {
