@@ -189,9 +189,15 @@ importers:
 
   apps/web:
     dependencies:
+      '@soccershooter/content':
+        specifier: workspace:*
+        version: link:../../packages/content
       '@soccershooter/physics':
         specifier: workspace:*
         version: link:../../packages/physics
+      '@soccershooter/progression':
+        specifier: workspace:*
+        version: link:../../packages/progression
       '@soccershooter/sim':
         specifier: workspace:*
         version: link:../../packages/sim
@@ -219,7 +225,11 @@ importers:
 
   packages/replay: {}
 
-  packages/sim: {}
+  packages/sim:
+    dependencies:
+      '@soccershooter/content':
+        specifier: workspace:*
+        version: link:../content
 
   packages/telemetry: {}
 

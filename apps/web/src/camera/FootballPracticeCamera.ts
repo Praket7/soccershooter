@@ -7,6 +7,15 @@ const BALL_FOCUS_DEADZONE = 0.9;
 const BALL_FOCUS_GAIN = 0.32;
 const GOAL_CAMERA_PADDING = 0.08;
 
+export interface FootballCameraContext {
+  velocity?: { x: number; z: number };
+  trajectory?: readonly { position: { x: number; z: number } }[];
+  contactPoint?: { x: number; z: number } | null;
+  plantDemand?: number;
+  actionPreparation?: boolean;
+  contactResolved?: boolean;
+}
+
 export const OPPOSITE_PRACTICE_GOAL_PLANE_Z = -15.2;
 
 /**
@@ -22,26 +31,56 @@ export function resolveBallAwareCameraFocus(
   playerPosition: Readonly<Vec3>,
   ballPosition: Readonly<Vec3>,
   manualAimActive = true,
+  context: Readonly<FootballCameraContext> = {},
 ): Vec3 {
   if (manualAimActive) {
     return { x: playerPosition.x, y: playerPosition.y, z: playerPosition.z };
   }
 
-  const dx = ballPosition.x - playerPosition.x;
-  const dz = ballPosition.z - playerPosition.z;
-  const distance = Math.hypot(dx, dz);
-  if (distance <= BALL_FOCUS_DEADZONE || distance <= 1e-9) {
-    return { x: playerPosition.x, y: playerPosition.y, z: playerPosition.z };
-  }
+  const target = { x: playerPosition.x, z: playerPosition.z };
+  const addCappedBias = (point: { x: number; z: number }, weight: number, cap: number): void => {
+    const dx = point.x - playerPosition.x;
+    const dz = point.z - playerPosition.z;
+    const distance = Math.hypot(dx, dz);
+    if (distance <= 1e-9) return;
+    const amount = Math.min(cap, distance * weight);
+    target.x += dx / distance * amount;
+    target.z += dz / distance * amount;
+  };
 
-  const bias = Math.min(
-    MAX_BALL_FOCUS_BIAS,
-    (distance - BALL_FOCUS_DEADZONE) * BALL_FOCUS_GAIN,
-  );
+  const ballDx = ballPosition.x - playerPosition.x;
+  const ballDz = ballPosition.z - playerPosition.z;
+  const ballDistance = Math.hypot(ballDx, ballDz);
+  if (ballDistance > BALL_FOCUS_DEADZONE) {
+    const amount = Math.min(MAX_BALL_FOCUS_BIAS, (ballDistance - BALL_FOCUS_DEADZONE) * BALL_FOCUS_GAIN);
+    target.x += ballDx / ballDistance * amount;
+    target.z += ballDz / ballDistance * amount;
+  }
+  if (context.velocity) {
+    addCappedBias({ x: playerPosition.x + context.velocity.x * 0.18, z: playerPosition.z + context.velocity.z * 0.18 }, 0.22, 0.42);
+  }
+  const future = context.trajectory?.at(-1)?.position;
+  if (future) addCappedBias(future, 0.18, 0.5);
+  if (context.contactPoint) addCappedBias(context.contactPoint, context.actionPreparation ? 0.28 : 0.16, 0.48);
+  const plantDemand = Math.max(0, Math.min(1, context.plantDemand ?? 0));
+  if (plantDemand > 0 && future) addCappedBias(future, plantDemand * 0.16, 0.28);
+  const offset = { x: target.x - playerPosition.x, z: target.z - playerPosition.z };
+  const total = Math.hypot(offset.x, offset.z);
+  if (context.contactResolved) {
+    // The existing camera spring eases this small contact-point bias back to
+    // the normal player/ball frame without adding shake or a hard snap.
+    offset.x *= 0.72;
+    offset.z *= 0.72;
+  }
+  const maxFocusOffset = MAX_BALL_FOCUS_BIAS + 0.78;
+  if (total > maxFocusOffset) {
+    offset.x *= maxFocusOffset / total;
+    offset.z *= maxFocusOffset / total;
+  }
   return {
-    x: playerPosition.x + dx / distance * bias,
+    x: playerPosition.x + offset.x,
     y: playerPosition.y,
-    z: playerPosition.z + dz / distance * bias,
+    z: playerPosition.z + offset.z,
   };
 }
 

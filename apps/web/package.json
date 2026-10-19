@@ -5,10 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 4173",
-    "build": "vite build",
+    "build": "node ../../tools/security/check-content-mode.mjs --production && vite build && node ../../tools/security/check-public-bundle.mjs ../..",
     "preview": "vite preview --host 127.0.0.1 --port 4174"
   },
   "dependencies": {
+    "@soccershooter/content": "workspace:*",
+    "@soccershooter/progression": "workspace:*",
     "@soccershooter/physics": "workspace:*",
     "@soccershooter/sim": "workspace:*",
     "three": "0.186.1"

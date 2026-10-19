@@ -97,6 +97,6 @@ Use the gate in `docs/gates/STAGE-05-07-OWNER-CONTROL-OVERHAUL-GATE.md`. Browser
 
 The final accepted implementation must be verified at the exact documentation-inclusive branch head. Earlier green runs are supporting evidence only and are not sufficient for completion.
 
-## Stop condition
+## Integration and remaining owner review
 
-Do not merge this branch into `main` merely because CI is green. The next action after engineering verification is another owner browser playtest focused on ordinary carry retention, sharp cuts, sprint knock-ons, RMB+E, Ctrl+Q, RMB+LMB and Ctrl+LMB. If the feel is approved, decide whether to merge the integration branch as one repair or split/rebase accepted changes into stage history.
+The owner explicitly requested a push to `main` on 2026-10-19, authorizing integration after verification. The Stage 05R playtest remains a separate pending acceptance gate. When convenient, the owner can review ordinary carry retention, sharp cuts, sprint knock-ons, RMB+E, Ctrl+Q, RMB+LMB, and Ctrl+LMB and record the scorecard without treating automated green as a feel approval.

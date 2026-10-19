@@ -37,6 +37,30 @@ describe('Stage 05 owner camera feedback', () => {
     expect(Math.hypot(focus.x - 2, focus.z + 4)).toBeLessThanOrEqual(0.900001);
   });
 
+  test('passive framing anticipates the near path and contact point within a bounded offset', () => {
+    const player = { x: 0, y: 0, z: 0 };
+    const focus = resolveBallAwareCameraFocus(player, { x: 0.4, y: 0.11, z: 0.5 }, false, {
+      velocity: { x: 4, z: 0 },
+      trajectory: [{ position: { x: 0.8, z: 0.2 } }, { position: { x: 1.4, z: 0.5 } }],
+      contactPoint: { x: 0.2, z: 1.4 },
+      plantDemand: 0.8,
+      actionPreparation: true,
+    });
+    expect(focus.x).toBeGreaterThan(0.3);
+    expect(focus.z).toBeGreaterThan(0.3);
+    expect(Math.hypot(focus.x, focus.z)).toBeLessThanOrEqual(1.680001);
+  });
+
+  test('manual reticle framing ignores every football context signal', () => {
+    const player = { x: 0.3, y: 0, z: -1 };
+    expect(resolveBallAwareCameraFocus(player, { x: 8, y: 0.1, z: 6 }, true, {
+      velocity: { x: 9, z: 8 },
+      contactPoint: { x: -12, z: 14 },
+      plantDemand: 1,
+      actionPreparation: true,
+    })).toEqual(player);
+  });
+
   test('both visible goal frames become camera collision obstacles for posts and bars', () => {
     const obstacles = buildPracticeGoalCameraObstacles(STANDARD_GOAL_FRAME, -15.2);
     expect(obstacles).toHaveLength(6);

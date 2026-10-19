@@ -104,14 +104,14 @@ Every high-power technique requires:
 
 ## Implementation Task Sequence
 
-- [ ] **Task 1:** Write failing eligibility/cooldown/interruption tests for the first four techniques.
-- [ ] **Task 2:** Implement technique schema and deterministic execution interface.
-- [ ] **Task 3:** Implement the first dribble, pass/shot, and aerial technique set using existing physics primitives.
-- [ ] **Task 4:** Implement technique costs, failure states, counter windows, and recovery.
-- [ ] **Task 5:** Implement four evolution chains that alter mechanics rather than only numbers.
-- [ ] **Task 6:** Add technique debug HUD showing eligibility, timing window, and failure reason.
-- [ ] **Task 7:** Run exploit/balance tournaments and flag dominant technique contribution.
-- [ ] **Task 8:** Tune and rerun until the stage balance gate passes.
+- [x] **Task 1:** Write failing eligibility/cooldown/interruption tests for the first four techniques.
+- [x] **Task 2:** Implement technique schema and deterministic execution interface.
+- [x] **Task 3:** Implement the first dribble, pass/shot, and aerial technique set using existing physics primitives.
+- [x] **Task 4:** Implement technique costs, failure states, counter windows, and recovery.
+- [x] **Task 5:** Implement four evolution chains that alter mechanics rather than only numbers.
+- [x] **Task 6:** Add technique debug HUD showing eligibility, timing window, and failure reason.
+- [x] **Task 7:** Run exploit/balance tournaments and flag dominant technique contribution.
+- [x] **Task 8:** Tune and rerun until the stage balance gate passes.
 
 ## Tests
 - technique cannot trigger outside eligibility

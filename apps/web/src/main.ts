@@ -21,7 +21,11 @@ import { buildPracticeGoalCameraObstacles, resolveBallAwareCameraFocus } from '.
 import { MovementHud } from './debug/MovementHud';
 import { BallLab } from './dev/BallLab';
 import { FootballPractice } from './dev/FootballPractice';
-import { PLAYER_VISUAL_LAYOUT, playerVisualFootY } from './presentation/PlayerVisualLayout';
+import { playerVisualFootY } from './presentation/PlayerVisualLayout';
+import { ProceduralAthleteProxy } from './presentation/ProceduralAthleteProxy';
+import { ContactDebugOverlay } from './presentation/ContactDebugOverlay';
+import { RoadToLegendScreen } from './screens/RoadToLegend';
+import { selectContentMode } from '@soccershooter/content/contentMode';
 import './styles.css';
 
 function requireElement<T extends Element>(selector: string): T {
@@ -31,6 +35,7 @@ function requireElement<T extends Element>(selector: string): T {
 }
 
 const app = requireElement<HTMLElement>('#app');
+const contentMode = selectContentMode(import.meta.env.VITE_CONTENT_MODE, import.meta.env.PROD);
 const reference = runReferenceTrace();
 app.innerHTML = `
   <div class="movement-lab-shell">
@@ -44,8 +49,9 @@ app.innerHTML = `
         <div class="mode-switch" role="group" aria-label="Practice mode">
           <button type="button" data-mode-practice data-active="true">Football Practice</button>
           <button type="button" data-mode-ball-lab data-active="false">Ball Lab</button>
+          <button type="button" data-mode-career data-active="false">Road to Legend</button>
         </div>
-        <div class="status-pill"><span></span> FICTIONAL_PUBLIC</div>
+        <div class="status-pill" data-content-mode="${contentMode.mode}"><span></span> ${contentMode.watermark ?? contentMode.mode}</div>
       </div>
     </header>
     <section class="viewport-wrap" aria-label="SoccerShooter physical football practice">
@@ -64,6 +70,7 @@ app.innerHTML = `
         <span>LMB · hold power / release shot · RMB+LMB finesse · Ctrl+LMB chip</span>
         <span>C / B · challenge · Shift+C committed · Space aerial</span>
         <span>G · reset ball in practice only</span>
+        <span>Practice panel · select technique · T to execute within its contact window</span>
       </aside>
       <aside class="action-feedback" data-action-feedback data-action="idle" aria-live="polite">
         <strong>PLAY READY</strong>
@@ -78,10 +85,12 @@ app.innerHTML = `
     </section>
     <footer class="lab-footer">
       <span>Practice: F receive · E/Q/R passes · RMB+E driven · Ctrl+Q chipped through · RMB/Ctrl + LMB shot variants</span>
-      <span>Debug tools: F8 trace · P replay · K player reset · F1 HUD · ${PLAYER_MOVEMENT_TICK_HZ} Hz</span>
+      <span>Debug tools: F8 trace · P replay · K player reset · F1 HUD · F9 contact ghost · ${PLAYER_MOVEMENT_TICK_HZ} Hz</span>
     </footer>
     <output data-determinism-hash="${reference.hash}" data-determinism-ticks="${reference.ticks}" hidden>${reference.hash}</output>
     <output data-player-state data-x="0" data-z="${BENCHMARK_COURSE.spawn.z}" data-movement-tick-hz="${PLAYER_MOVEMENT_TICK_HZ}" data-pointer-locked="false" hidden></output>
+    <output data-athlete-proxy-state hidden></output>
+    <output class="contact-debug-readout" data-contact-debug-readout hidden></output>
   </div>
 `;
 
@@ -89,9 +98,12 @@ document.title = 'SoccerShooter Physical Football Lab';
 
 const viewport = requireElement<HTMLElement>('#game-viewport');
 const playerProbe = requireElement<HTMLOutputElement>('[data-player-state]');
+const athleteProxyProbe = requireElement<HTMLOutputElement>('[data-athlete-proxy-state]');
+const contactDebugReadout = requireElement<HTMLOutputElement>('[data-contact-debug-readout]');
 const actionFeedback = requireElement<HTMLElement>('[data-action-feedback]');
 const practiceModeButton = requireElement<HTMLButtonElement>('[data-mode-practice]');
 const ballLabModeButton = requireElement<HTMLButtonElement>('[data-mode-ball-lab]');
+const careerModeButton = requireElement<HTMLButtonElement>('[data-mode-career]');
 const captureOverlay = requireElement<HTMLElement>('[data-camera-capture]');
 const centerReticle = requireElement<HTMLElement>('[data-center-reticle]');
 
@@ -105,6 +117,7 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.domElement.dataset.gameViewport = 'true';
+renderer.domElement.dataset.proceduralAthlete = 'true';
 renderer.domElement.setAttribute('aria-label', 'Interactive SoccerShooter physical football practice');
 viewport.append(renderer.domElement);
 
@@ -205,59 +218,8 @@ const cutLine = addBox({ x: 0.08, y: 0.025, z: 3 }, { x: -4, y: 0.018, z: -5 }, 
 cutLine.rotation.y = Math.PI / 4;
 courseVisuals.push(cutLine);
 
-const playerGroup = new THREE.Group();
-const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0xd9f35b, roughness: 0.62, metalness: 0.02 });
-const accentMaterial = new THREE.MeshStandardMaterial({ color: 0x10202a, roughness: 0.75 });
-const torso = new THREE.Mesh(
-  new THREE.CylinderGeometry(
-    PLAYER_VISUAL_LAYOUT.torsoTopRadius,
-    PLAYER_VISUAL_LAYOUT.torsoBottomRadius,
-    PLAYER_VISUAL_LAYOUT.torsoHeight,
-    20,
-  ),
-  bodyMaterial,
-);
-torso.position.y = PLAYER_VISUAL_LAYOUT.torsoCenterY;
-torso.castShadow = true;
-playerGroup.add(torso);
-for (const side of [-1, 1] as const) {
-  const leg = new THREE.Mesh(
-    new THREE.CylinderGeometry(
-      PLAYER_VISUAL_LAYOUT.legRadius * 0.92,
-      PLAYER_VISUAL_LAYOUT.legRadius,
-      PLAYER_VISUAL_LAYOUT.legHeight,
-      12,
-    ),
-    bodyMaterial,
-  );
-  leg.position.set(side * PLAYER_VISUAL_LAYOUT.legOffsetX, PLAYER_VISUAL_LAYOUT.legCenterY, 0);
-  leg.castShadow = true;
-  playerGroup.add(leg);
-
-  const foot = new THREE.Mesh(
-    new THREE.BoxGeometry(
-      PLAYER_VISUAL_LAYOUT.footWidth,
-      PLAYER_VISUAL_LAYOUT.footHeight,
-      PLAYER_VISUAL_LAYOUT.footLength,
-    ),
-    accentMaterial,
-  );
-  foot.position.set(
-    side * PLAYER_VISUAL_LAYOUT.legOffsetX,
-    PLAYER_VISUAL_LAYOUT.footCenterY,
-    PLAYER_VISUAL_LAYOUT.footForward,
-  );
-  foot.castShadow = true;
-  playerGroup.add(foot);
-}
-const head = new THREE.Mesh(new THREE.SphereGeometry(PLAYER_VISUAL_LAYOUT.headRadius, 18, 14), bodyMaterial);
-head.position.y = PLAYER_VISUAL_LAYOUT.headCenterY;
-head.castShadow = true;
-playerGroup.add(head);
-const facingBar = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.78), accentMaterial);
-facingBar.position.set(0, PLAYER_VISUAL_LAYOUT.facingBarY, PLAYER_VISUAL_LAYOUT.facingBarForward);
-playerGroup.add(facingBar);
-scene.add(playerGroup);
+const athleteProxy = new ProceduralAthleteProxy(scene);
+const contactDebugOverlay = new ContactDebugOverlay(scene);
 
 const cameraObstacles: CameraObstacle[] = world.obstacles.map((obstacle) => ({ ...obstacle }));
 const practiceCameraObstacles = buildPracticeGoalCameraObstacles(STANDARD_GOAL_FRAME, -15.2);
@@ -268,6 +230,7 @@ const gamepad = new GamepadAdapter();
 const hud = new MovementHud(document.body);
 const ballLab = new BallLab({ scene, host: viewport });
 const footballPractice = new FootballPractice({ scene, host: viewport });
+const roadToLegend = new RoadToLegendScreen(document.body, () => setMode('practice'));
 
 const FIXED_DT = 1 / PLAYER_MOVEMENT_TICK_HZ;
 const ACTION_FEEDBACK_MS = 480;
@@ -278,6 +241,7 @@ const EDGE_ACTION_BITS = (
   | PlayerActionBits.ThroughPass
   | PlayerActionBits.LoftedPass
   | PlayerActionBits.Receive
+  | PlayerActionBits.Technique
   | PlayerActionBits.ShootReleased
 ) >>> 0;
 const HELD_ACTION_BITS = (
@@ -285,7 +249,6 @@ const HELD_ACTION_BITS = (
   | PlayerActionBits.Precision
   | PlayerActionBits.DrivenModifier
   | PlayerActionBits.ChipModifier
-  | PlayerActionBits.Technique
 ) >>> 0;
 let player = createPlayerState({ position: BENCHMARK_COURSE.spawn, stamina: DEFAULT_MOVEMENT_CONFIG.staminaMax });
 let previousPlayer = clonePlayerState(player);
@@ -307,6 +270,9 @@ let recordingInitial = clonePlayerState(player);
 let lastTrace: MovementTrace | null = null;
 let playbackIndex: number | null = null;
 let practiceMode = true;
+const stage05rSlowMotion = new URLSearchParams(window.location.search).get('stage05rSlowMotion') === '1';
+let sampledContactEventTick: number | null = null;
+let sampledContact: { visible: boolean; error: number; foot: string; surface: string } | null = null;
 
 function syncPointerLockUi(): void {
   const locked = document.pointerLockElement === renderer.domElement;
@@ -325,21 +291,27 @@ function setBallLabTrails(enabled: boolean): void {
   input.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
-function setMode(mode: 'practice' | 'ball-lab'): void {
+function setMode(mode: 'practice' | 'ball-lab' | 'career'): void {
   practiceMode = mode === 'practice';
   footballPractice.setVisible(practiceMode);
-  ballLab.root.hidden = practiceMode;
-  ballLab.ballVisual.visible = !practiceMode;
-  ballLab.goalVisual.visible = true;
-  setBallLabTrails(!practiceMode);
-  for (const visual of courseVisuals) visual.visible = !practiceMode;
+  const ballLabMode = mode === 'ball-lab';
+  roadToLegend.root.hidden = mode !== 'career';
+  renderer.domElement.hidden = mode === 'career';
+  ballLab.root.hidden = !ballLabMode;
+  ballLab.ballVisual.visible = ballLabMode;
+  ballLab.goalVisual.visible = ballLabMode;
+  setBallLabTrails(ballLabMode);
+  for (const visual of courseVisuals) visual.visible = ballLabMode;
+  athleteProxy.group.visible = mode !== 'career';
   practiceModeButton.dataset.active = String(practiceMode);
-  ballLabModeButton.dataset.active = String(!practiceMode);
+  ballLabModeButton.dataset.active = String(ballLabMode);
+  careerModeButton.dataset.active = String(mode === 'career');
   playerProbe.dataset.mode = mode;
 }
 
 practiceModeButton.addEventListener('click', () => setMode('practice'));
 ballLabModeButton.addEventListener('click', () => setMode('ball-lab'));
+careerModeButton.addEventListener('click', () => setMode('career'));
 setMode('practice');
 
 function resetPlayer(): void {
@@ -383,6 +355,10 @@ window.addEventListener('keydown', (event) => {
       recording = false;
       lastTrace = recordMovementTrace(recordingInitial, recordedIntents, PLAYER_MOVEMENT_TICK_HZ);
     }
+  } else if (event.code === 'F9') {
+    event.preventDefault();
+    contactDebugOverlay.setEnabled(!contactDebugOverlay.enabled);
+    contactDebugReadout.hidden = !contactDebugOverlay.enabled;
   } else if (event.code === 'KeyP' && lastTrace) {
     player = clonePlayerState(lastTrace.initialState);
     previousPlayer = clonePlayerState(player);
@@ -438,20 +414,20 @@ function renderActionFeedback(
   actionFeedback.dataset.action = mode;
   if (mode === 'jump') {
     actionFeedback.innerHTML = '<strong>AERIAL INPUT</strong><span>Header / contest window checked against the physical ball</span>';
-    bodyMaterial.emissive.setHex(0x16475a);
-    bodyMaterial.emissiveIntensity = 0.7;
+    athleteProxy.bodyMaterial.emissive.setHex(0x16475a);
+    athleteProxy.bodyMaterial.emissiveIntensity = 0.7;
   } else if (mode === 'tackle') {
     actionFeedback.innerHTML = '<strong>DEFENSIVE INPUT</strong><span>Standing challenge · sprint commits with recovery cost</span>';
-    bodyMaterial.emissive.setHex(0x6b3100);
-    bodyMaterial.emissiveIntensity = 0.65;
+    athleteProxy.bodyMaterial.emissive.setHex(0x6b3100);
+    athleteProxy.bodyMaterial.emissiveIntensity = 0.65;
   } else if (mode === 'sprint') {
     actionFeedback.innerHTML = `<strong>SPRINT ENGAGED</strong><span>Recoverable knock-on touches · target ${Math.round(DEFAULT_MOVEMENT_CONFIG.sprintSpeed * 3.6)} km/h</span>`;
-    bodyMaterial.emissive.setHex(0x233000);
-    bodyMaterial.emissiveIntensity = 0.35;
+    athleteProxy.bodyMaterial.emissive.setHex(0x233000);
+    athleteProxy.bodyMaterial.emissiveIntensity = 0.35;
   } else {
     actionFeedback.innerHTML = '<strong>PLAY READY</strong><span>F receive · E/Q/R pass lanes · RMB close control · LMB shoot through the reticle</span>';
-    bodyMaterial.emissive.setHex(0x000000);
-    bodyMaterial.emissiveIntensity = 0;
+    athleteProxy.bodyMaterial.emissive.setHex(0x000000);
+    athleteProxy.bodyMaterial.emissiveIntensity = 0;
   }
 }
 
@@ -482,7 +458,7 @@ function frame(now: number): void {
     const fps = 1 / rawDelta;
     smoothedFps += (fps - smoothedFps) * (1 - Math.exp(-rawDelta / 0.3));
   }
-  accumulator += rawDelta;
+  accumulator += rawDelta * (stage05rSlowMotion ? 0.2 : 1);
 
   const keyboardFrame = actionMap.consumeFrame();
   bufferedActionBits |= keyboardFrame.intent.actionBits & EDGE_ACTION_BITS;
@@ -553,8 +529,42 @@ function frame(now: number): void {
 
   const alpha = Math.max(0, Math.min(1, accumulator / FIXED_DT));
   const displayPlayer = interpolatedPlayer(alpha);
-  playerGroup.position.set(displayPlayer.position.x, displayPlayer.position.y, displayPlayer.position.z);
-  playerGroup.rotation.y = displayPlayer.facingYaw;
+  const contactPlan = footballPractice.activeContactPlan ?? footballPractice.lastContactPlan;
+  const athletePose = athleteProxy.update({
+    player: displayPlayer,
+    plan: contactPlan,
+    simulationTick: footballPractice.contactTick,
+    interpolationAlpha: alpha,
+  });
+  contactDebugOverlay.update(contactPlan, footballPractice.contactTick);
+  contactDebugReadout.textContent = contactDebugOverlay.label;
+  athleteProxyProbe.dataset.simulationTick = String(footballPractice.contactTick);
+  athleteProxyProbe.dataset.contactFoot = athletePose.contactFoot ?? '';
+  athleteProxyProbe.dataset.contactTick = athletePose.contactTick === null ? '' : String(athletePose.contactTick);
+  athleteProxyProbe.dataset.contactVisible = String(athletePose.contactVisible);
+  athleteProxyProbe.dataset.contactErrorMeters = athletePose.contactErrorMeters.toFixed(6);
+  const eventTick = footballPractice.lastContactEventTick;
+  const isLatestContact = eventTick !== null && athletePose.contactTick === eventTick;
+  if (eventTick === null) {
+    sampledContactEventTick = null;
+    sampledContact = null;
+  }
+  if (eventTick !== null && eventTick !== sampledContactEventTick) {
+    sampledContactEventTick = eventTick;
+    sampledContact = null;
+  }
+  if (isLatestContact && athletePose.contactVisible && sampledContact === null) {
+    sampledContact = {
+      visible: true,
+      error: athletePose.contactErrorMeters,
+      foot: athletePose.contactFoot ?? '',
+      surface: footballPractice.lastContactPlan?.surface ?? '',
+    };
+  }
+  athleteProxyProbe.dataset.lastContactVisible = String(sampledContact?.visible ?? false);
+  athleteProxyProbe.dataset.lastContactErrorM = sampledContact?.error.toFixed(6) ?? '';
+  athleteProxyProbe.dataset.lastContactFoot = sampledContact?.foot ?? '';
+  athleteProxyProbe.dataset.lastContactSurface = sampledContact?.surface ?? '';
 
   const speed = Math.hypot(player.velocity.x, player.velocity.z);
   const sprintFraction = Math.max(0, Math.min(1, (speed - DEFAULT_MOVEMENT_CONFIG.jogSpeed) /
@@ -567,6 +577,20 @@ function frame(now: number): void {
       displayPlayer.position,
       footballPractice.state.position,
       manualAimActive,
+      {
+        velocity: displayPlayer.athleticMotion.plannedVelocity,
+        trajectory: displayPlayer.athleticMotion.trajectory,
+        contactPoint: (footballPractice.activeContactPlan ?? footballPractice.lastContactPlan)
+          ? {
+            x: (footballPractice.activeContactPlan ?? footballPractice.lastContactPlan)!.expectedBallPoint.x,
+            z: (footballPractice.activeContactPlan ?? footballPractice.lastContactPlan)!.expectedBallPoint.z,
+          }
+          : null,
+        plantDemand: displayPlayer.athleticMotion.plantIntensity,
+        actionPreparation: footballPractice.activeContactPlan !== null,
+        contactResolved: footballPractice.lastContactEventTick !== null
+          && footballPractice.contactTick - footballPractice.lastContactEventTick <= 1,
+      },
     );
     cameraPlayer.position = { ...focus };
     cameraFocusBias = Math.hypot(focus.x - displayPlayer.position.x, focus.z - displayPlayer.position.z);

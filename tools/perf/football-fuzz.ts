@@ -7,6 +7,7 @@ import {
   resolveChallenge,
 } from '../../packages/sim/src/football/defending';
 import { evaluateAerialContact, type AerialContactKind } from '../../packages/sim/src/football/aerial';
+import { createFootballContactPlan, executePlannedFootballContact } from '../../packages/sim/src/football/contactPlan';
 import {
   applyBallContact,
   magnitude3,
@@ -22,6 +23,7 @@ export interface FootballFuzzOptions {
 
 export interface FootballFuzzReport {
   cases: number;
+  contactPlanStates: number;
   actionsChecked: number;
   contactsApplied: number;
   failures: number;
@@ -156,6 +158,7 @@ export function runFootballFuzz(options: FootballFuzzOptions = {}): FootballFuzz
   let maxImpulseObserved = 0;
   let maxResultSpeed = 0;
   let hash = 0x811c9dc5;
+  let contactPlanStates = 0;
 
   for (let index = 0; index < cases; index += 1) {
     const actor = actorFrom(random);
@@ -211,6 +214,83 @@ export function runFootballFuzz(options: FootballFuzzOptions = {}): FootballFuzz
       jumpRequested: random() < 0.5,
     });
 
+    // Four independent contact-plan executions per fuzz case exercise stable
+    // IDs, legal envelopes, impossible reach, and duplicate-event rejection.
+    for (let planIndex = 0; planIndex < 4; planIndex += 1) {
+      const contactTick = index * 4 + planIndex + 3;
+      const point = {
+        x: range(random, -20, 20),
+        y: range(random, 0.11, 0.7),
+        z: range(random, -20, 20),
+      };
+      const seed = {
+        sourceId: `football-fuzz-${index}-${planIndex}`,
+        kind: 'dribble' as const,
+        foot: random() < 0.5 ? 'left' as const : 'right' as const,
+        surface: choose(random, ['inside', 'outside', 'instep', 'sole', 'toe'] as const),
+        prepareTick: contactTick - 2,
+        contactTick,
+        recoveryEndTick: contactTick + 5,
+        expectedBallPoint: point,
+        expectedFootPoint: point,
+        targetBallVelocity: { x: range(random, -9, 9), y: range(random, -2, 2), z: range(random, -9, 9) },
+        maxLinearImpulse: range(random, 0.1, 5),
+        maxAngularImpulse: range(random, 0.1, 120),
+        timingWindowTicks: 1,
+        geometryTolerance: 0.28,
+        quality: range(random, 0, 1),
+        reason: 'deterministic-contact-plan-fuzz',
+      };
+      const plan = createFootballContactPlan(seed);
+      const repeatedPlan = createFootballContactPlan(seed);
+      const fuzzBall: FootballBallSnapshot = {
+        position: { ...point },
+        velocity: { x: 0, y: 0, z: 0 },
+        angularVelocity: { x: 0, y: 0, z: 0 },
+        radius: 0.11,
+        mass: 0.436,
+        grounded: true,
+      };
+      const command: BallContactCommand = {
+        kind: 'control-touch',
+        deltaVelocity: { ...seed.targetBallVelocity },
+        angularVelocityDelta: { x: 50, y: -20, z: 10 },
+        maxImpulse: seed.maxLinearImpulse,
+        diagnostic: 'contact-plan-fuzz',
+      };
+      const legal = executePlannedFootballContact({
+        plan,
+        tick: contactTick,
+        actorPosition: { ...point },
+        ball: fuzzBall,
+        command,
+      });
+      const duplicate = executePlannedFootballContact({
+        plan,
+        tick: contactTick,
+        actorPosition: { ...point },
+        ball: fuzzBall,
+        command,
+        consumedEventIds: legal.consumedEventIds,
+      });
+      const impossible = executePlannedFootballContact({
+        plan,
+        tick: contactTick,
+        actorPosition: { x: point.x + 10, y: point.y, z: point.z },
+        ball: fuzzBall,
+        command,
+      });
+      contactPlanStates += 1;
+      if (!legal.applied || repeatedPlan.eventId !== plan.eventId
+        || duplicate.applied || duplicate.reason !== 'already-consumed'
+        || impossible.applied || impossible.reason !== 'geometry-miss') failures += 1;
+      const planHash = Number.parseInt(plan.eventId.slice('contact:'.length), 16);
+      hash = hashWord(hash, planHash);
+      hash = hashWord(hash, legal.applied ? 1 : 0);
+      hash = hashWord(hash, duplicate.reason === 'already-consumed' ? 1 : 0);
+      hash = hashWord(hash, impossible.reason === 'geometry-miss' ? 1 : 0);
+    }
+
     const commands = [control.command, pass.command, shot.command, challenge.command] as const;
     for (const command of commands) {
       actionsChecked += 1;
@@ -242,6 +322,7 @@ export function runFootballFuzz(options: FootballFuzzOptions = {}): FootballFuzz
 
   return {
     cases,
+    contactPlanStates,
     actionsChecked,
     contactsApplied,
     failures,

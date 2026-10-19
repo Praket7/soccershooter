@@ -98,6 +98,7 @@ function actionBitsForCode(code: string): number {
   if (code === 'KeyQ') return PlayerActionBits.ThroughPass;
   if (code === 'KeyR') return PlayerActionBits.LoftedPass;
   if (code === 'KeyF') return PlayerActionBits.Receive;
+  if (code === 'KeyT') return PlayerActionBits.Technique;
   return 0;
 }
 

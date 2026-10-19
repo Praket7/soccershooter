@@ -2,9 +2,9 @@
 
 ## Decision
 
-**ENGINEERING PASS — OWNER VISUAL PLAYTEST PENDING — DO NOT MERGE YET**
+**ENGINEERING PASS — OWNER VISUAL PLAYTEST PENDING**
 
-Stage 06 is engineering-complete on the isolated `stage/06-tactical-bots` branch and draft PR #15. The owner explicitly requested that the branch remain unmerged until they can test it.
+Stage 06 is engineering-complete on the isolated `stage/06-tactical-bots` branch and draft PR #15. The owner later explicitly requested integration to `main` on 2026-10-19; the human visual acceptance remains pending and is not represented as passed here.
 
 The final Stage 06 exit criterion also requires a human to identify sensible support/recovery behavior without relying on the debug role overlay. That criterion cannot truthfully be self-certified by automation, so the issue and PR remain open pending owner playtest.
 
@@ -179,6 +179,4 @@ Before Stage 06 can be declared fully accepted and merged, the owner should:
 
 **Engineering: PASS.**  
 **Human visual acceptance: PENDING OWNER TEST.**  
-**Merge authorization: NOT YET GIVEN.**
-
-Do not merge PR #15 until the owner completes the requested playtest and explicitly authorizes integration.
+**Integration authorization:** The owner explicitly requested a push to `main` on 2026-10-19. The visual acceptance checklist remains pending for later owner review.

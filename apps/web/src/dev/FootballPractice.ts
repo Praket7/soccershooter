@@ -15,6 +15,10 @@ import {
   type DefenderActionState,
 } from '@soccershooter/sim/football/defending';
 import { evaluateAerialContact } from '@soccershooter/sim/football/aerial';
+import type { FootballContactPlan } from '../../../../packages/sim/src/football/contactPlan';
+import { createStrikeContactPlan, stepStrikeContact } from '@soccershooter/sim/football/strikePlanner';
+import { TECHNIQUES, TECHNIQUE_BY_ID } from '@soccershooter/content/techniques/catalog';
+import { createTechniqueState, executeTechnique, interruptTechnique, type TechniqueContactIntent, type TechniqueState } from '@soccershooter/sim/techniques/executeTechnique';
 import {
   consumeReceiveIntent,
   createFootballRuntimeState,
@@ -36,12 +40,24 @@ import {
   type FootballVec3,
 } from '@soccershooter/sim/football/types';
 import { ActionDebugHud } from '../debug/ActionDebugHud';
+import { TechniqueDebugHud } from '../debug/TechniqueDebugHud';
 import { resolveDribbleIntent, resolveTravelFacingYaw, updateShotFacingLock } from '../input/FootballControl';
 import { PLAYER_VISUAL_LAYOUT } from '../presentation/PlayerVisualLayout';
 
 export interface FootballPracticeOptions {
   scene: THREE.Scene;
   host: HTMLElement;
+}
+
+type PendingStrike =
+  | { kind: 'shot'; plan: Readonly<FootballContactPlan>; style: ShotStyle; charge: number }
+  | { kind: 'pass'; plan: Readonly<FootballContactPlan>; passType: PassType };
+
+interface PendingTechnique {
+  definition: (typeof TECHNIQUES)[number];
+  plan: Readonly<FootballContactPlan>;
+  contact: TechniqueContactIntent;
+  targetVelocity: FootballVec3;
 }
 
 const CONTROLLED_BALL_POCKET = 0.68;
@@ -247,6 +263,7 @@ export class FootballPractice {
   readonly receiverVisual: THREE.Group;
   readonly oppositeGoalVisual: THREE.Group;
   readonly debugHud: ActionDebugHud;
+  readonly techniqueDebugHud: TechniqueDebugHud;
 
   #state = createBallState({ position: PRACTICE_BALL_START, grounded: true });
   #previousState = cloneBallState(this.#state);
@@ -257,6 +274,12 @@ export class FootballPractice {
   #plannedContactCount = 0;
   #freeBallFrames = 0;
   #lastContactSurface = '';
+  #lastContactPlan: Readonly<FootballContactPlan> | null = null;
+  #lastContactEventTick: number | null = null;
+  #pendingStrike: PendingStrike | null = null;
+  #pendingTechnique: PendingTechnique | null = null;
+  #techniqueState: TechniqueState = createTechniqueState();
+  #selectedTechniqueId = 'stepover';
   #accumulator = 0;
   #elapsed = 0;
   #visible = true;
@@ -293,6 +316,7 @@ export class FootballPractice {
     this.receiverVisual = createAthleteMarker(options.scene, 0xf4c95d, 'stage05-pass-receiver');
     this.oppositeGoalVisual = createOppositeGoal(options.scene);
     this.debugHud = new ActionDebugHud(options.host);
+    this.techniqueDebugHud = new TechniqueDebugHud(options.host);
 
     this.root = document.createElement('section');
     this.root.className = 'football-practice-panel';
@@ -317,6 +341,8 @@ export class FootballPractice {
         <div class="shot-style-row" role="group" aria-label="Specialist shot contact">
           ${SPECIALIST_SHOT_STYLES.map((style) => `<button type="button" data-shot-style="${style}" data-active="${style === this.#specialistShotStyle}">${style}</button>`).join('')}
         </div>
+        <label class="technique-selector">Technique <select data-technique-select aria-label="Practice technique">${TECHNIQUES.map((item) => `<option value="${item.id}">${item.displayName}</option>`).join('')}</select></label>
+        <p>Choose a technique and press <kbd>T</kbd> in context. Defenders can punish its recovery window.</p>
       </details>
       <div class="practice-intent-status" aria-live="polite"><strong data-practice-intent>READY</strong><span data-practice-reason>point, move, receive, pass, or shoot</span></div>
       <output data-football-state data-ball-x="${this.#state.position.x}" data-ball-y="${this.#state.position.y}" data-ball-z="${this.#state.position.z}" data-goals="0" data-saves="0" data-shot-style="normal" data-shot-state="READY" data-receive-state="idle" data-selected-receiver="false" hidden></output>
@@ -328,6 +354,9 @@ export class FootballPractice {
     for (const button of this.root.querySelectorAll<HTMLButtonElement>('[data-shot-style]')) {
       button.addEventListener('click', () => this.setShotStyle(button.dataset.shotStyle as ShotStyle));
     }
+    this.root.querySelector<HTMLSelectElement>('[data-technique-select]')?.addEventListener('change', (event) => {
+      this.#selectedTechniqueId = (event.currentTarget as HTMLSelectElement).value;
+    });
     this.root.querySelector<HTMLButtonElement>('[data-football-reset]')?.addEventListener('click', () => this.resetBallNearLastPlayer());
     this.#syncVisuals();
     this.#updateHud();
@@ -337,6 +366,10 @@ export class FootballPractice {
   get tackleRecoverySeconds(): number { return this.#defenderState.recoverySeconds; }
   get shotStyle(): ShotStyle { return this.#shotStyle; }
   get visible(): boolean { return this.#visible; }
+  get activeContactPlan(): Readonly<FootballContactPlan> | null { return this.#pendingTechnique?.plan ?? this.#pendingStrike?.plan ?? this.#dribble.activePlan; }
+  get lastContactPlan(): Readonly<FootballContactPlan> | null { return this.#lastContactPlan; }
+  get contactTick(): number { return this.#contactTick; }
+  get lastContactEventTick(): number | null { return this.#lastContactEventTick; }
 
   get movementAuthority(): number {
     if (this.#defenderState.recoverySeconds >= 0.7) return 0.28;
@@ -446,6 +479,234 @@ export class FootballPractice {
       this.#recordAction('POWER', true, `${this.#shotStyle} shot charging`);
     }
 
+    if (this.#pendingStrike) {
+      if (tackle) this.#pendingStrike = null;
+      else if (runtimeStep.releasedShotCharge === null && decoded.passType === null) {
+        const pending = this.#pendingStrike;
+        const strike = stepStrikeContact(pending.plan, contactTick, actor.position, snapshot);
+        if (strike.status === 'preparing') {
+          this.#shotState = pending.kind === 'shot' ? 'GATHER' : 'PASS SETUP';
+          this.#updateHud();
+          return;
+        }
+        this.#pendingStrike = null;
+        if (strike.status === 'missed') {
+          this.#shotState = pending.kind === 'shot' ? 'CONTACT MISSED' : 'PASS MISSED';
+          this.#recordAction(this.#shotState, false, strike.reason);
+          this.#updateHud();
+          return;
+        }
+
+        let command: BallContactCommand | undefined;
+        if (pending.kind === 'shot') {
+          const shotActor: FootballActorSnapshot = shotFacing.contactFacingYaw === null
+            ? actor
+            : { ...actor, facingYaw: shotFacing.contactFacingYaw };
+          const solution = buildShot({
+            style: pending.style,
+            shooter: shotActor,
+            ball: snapshot,
+            aim,
+            ...(this.#worldAimTarget ? { aimTarget: this.#worldAimTarget } : {}),
+            charge: pending.charge,
+            spinInput: pending.style === 'finesse' ? 0.82 : pending.style === 'outside-foot' ? 0.68 : 0.18,
+            pressure: actor.pressure,
+            balance: actor.balance,
+            contactFoot: pending.plan.foot,
+            knuckleSeed: PRACTICE_KNUCKLE_SEED,
+          });
+          command = solution.command;
+          this.#shotState = command ? 'FOLLOW THROUGH' : solution.reason.toUpperCase().replaceAll('-', ' ');
+          if (command) this.#state.knuckleSeed = solution.knuckleSeed;
+        } else {
+          const receiver = this.#receiverSnapshot();
+          const selected = selectPassTarget({
+            origin: { ...this.#state.position },
+            userAim: aim,
+            aimConeDegrees: 38,
+            candidates: [{ id: 'practice-receiver', ...receiver, laneOpenness: 1 }],
+          });
+          const solution = solvePass({
+            type: pending.passType,
+            passer: actor,
+            ball: snapshot,
+            receiver: selected?.receiver ?? {
+              position: { x: this.#state.position.x + aim.x * 11, y: 0, z: this.#state.position.z + aim.z * 11 },
+              velocity: { x: 0, y: 0, z: 0 },
+            },
+            userAim: aim,
+            assist: selected ? 0.68 : 0,
+            pressure: actor.pressure,
+            allowBehindBodyTechnique: false,
+          });
+          command = solution.command;
+        }
+
+        if (command) {
+          this.#applyCommand(command);
+          this.#resetPlannedDribble(false);
+          this.#lastContactPlan = pending.plan;
+          this.#lastContactEventTick = contactTick;
+          this.#lastContactSurface = pending.plan.surface;
+          this.#recordAction('CONTACT', true, pending.kind === 'pass'
+            ? `${pending.passType}: ${pending.plan.foot} ${pending.plan.surface} · gait-timed`
+            : `shot: ${pending.plan.foot} ${pending.plan.surface} · gait-timed`);
+          this.#runtime = markKick(this.#runtime, pending.kind);
+        } else {
+          this.#recordAction('CONTACT MISSED', false, 'strike solution no longer legal');
+        }
+        this.#updateHud();
+        return;
+      }
+    }
+
+    if (this.#pendingTechnique) {
+      if (tackle || (intent.actionBits & PlayerActionBits.Technique) !== 0) {
+        this.#techniqueState = interruptTechnique(
+          this.#pendingTechnique.definition,
+          this.#techniqueState,
+          contactTick,
+        ).state;
+        this.#pendingTechnique = null;
+      } else {
+        const pending = this.#pendingTechnique;
+        const strike = stepStrikeContact(pending.plan, contactTick, actor.position, snapshot);
+        if (strike.status === 'preparing') {
+          this.techniqueDebugHud.update({
+            technique: pending.definition,
+            eligible: true,
+            timingWindowTicks: pending.contact.contactTick - pending.plan.prepareTick,
+            failureReason: '',
+            contactTick: pending.contact.contactTick,
+            counterUntilTick: pending.contact.counterUntilTick,
+          });
+          this.#updateHud();
+          return;
+        }
+        this.#pendingTechnique = null;
+        if (strike.status === 'missed') {
+          const interrupted = interruptTechnique(pending.definition, this.#techniqueState, contactTick);
+          this.#techniqueState = interrupted.state;
+          this.techniqueDebugHud.update({
+            technique: pending.definition,
+            eligible: false,
+            timingWindowTicks: pending.contact.contactTick - pending.plan.prepareTick,
+            failureReason: strike.reason,
+            contactTick: null,
+            counterUntilTick: interrupted.counterUntilTick,
+          });
+          this.#recordAction('TECHNIQUE MISSED', false, strike.reason);
+          this.#updateHud();
+          return;
+        }
+        const kind = pending.definition.family === 'aerial'
+          ? 'volley'
+          : pending.definition.family === 'pass-shot'
+            ? 'shot'
+            : 'control-touch';
+        const spin = { x: 0, y: pending.contact.spinScale * (pending.contact.surface === 'outside' ? 30 : 5), z: 0 };
+        const command = commandTowardVelocity(
+          kind,
+          snapshot,
+          pending.targetVelocity,
+          spin,
+          pending.contact.maxImpulse,
+          `technique=${pending.contact.techniqueId} surface=${pending.contact.surface} mechanic=${pending.contact.mechanic}`,
+        );
+        this.#applyCommand(command);
+        this.#resetPlannedDribble(false);
+        this.#lastContactPlan = pending.plan;
+        this.#lastContactEventTick = contactTick;
+        this.#lastContactSurface = pending.plan.surface;
+        this.#techniqueState = { ...this.#techniqueState, active: null };
+        this.techniqueDebugHud.update({
+          technique: pending.definition,
+          eligible: true,
+          timingWindowTicks: pending.plan.timingWindowTicks,
+          failureReason: '',
+          contactTick: pending.contact.contactTick,
+          counterUntilTick: pending.contact.counterUntilTick,
+        });
+        this.#recordAction('TECHNIQUE CONTACT', true, `${pending.definition.displayName} · ${pending.contact.surface}`);
+        this.#updateHud();
+        return;
+      }
+    }
+
+    if ((intent.actionBits & PlayerActionBits.Technique) !== 0) {
+      const definition = TECHNIQUE_BY_ID.get(this.#selectedTechniqueId);
+      if (!definition) return;
+      const result = executeTechnique(definition, this.#techniqueState, {
+        tick: contactTick,
+        speed: Math.hypot(actor.velocity.x, actor.velocity.z),
+        pressure: actor.pressure,
+        ballDistance: Math.hypot(snapshot.position.x - actor.position.x, snapshot.position.z - actor.position.z),
+        grounded: player.grounded,
+        stamina: player.stamina,
+        actionBits: intent.actionBits,
+      });
+      this.#techniqueState = result.state;
+      if (!result.contact) {
+        this.techniqueDebugHud.update({
+          technique: definition,
+          eligible: false,
+          timingWindowTicks: definition.timing.contactWindowTicks,
+          failureReason: result.reason,
+          contactTick: null,
+          counterUntilTick: result.counterUntilTick || null,
+        });
+        this.#recordAction('TECHNIQUE FAILED', false, result.reason);
+        this.#updateHud();
+        return;
+      }
+      const targetSpeed = definition.family === 'dribble' ? 3.4 : definition.family === 'aerial' ? 15 : 17;
+      const targetVelocity: FootballVec3 = {
+        x: aim.x * targetSpeed * result.contact.impulseScale,
+        y: definition.family === 'aerial' ? 5.2 * result.contact.impulseScale : 0,
+        z: aim.z * targetSpeed * result.contact.impulseScale,
+      };
+      const plan = createStrikeContactPlan({
+        kind: definition.family === 'pass-shot' ? 'shot' : 'pass',
+        sourceId: `technique-${definition.id}-${contactTick}`,
+        tick: contactTick,
+        gaitPhase: player.athleticMotion.gaitPhase,
+        strideSeconds: player.athleticMotion.strideSeconds,
+        actorPosition: actor.position,
+        ball: snapshot,
+        targetBallVelocity: targetVelocity,
+        preferredFoot: actor.preferredFoot,
+        balance: actor.balance,
+      });
+      if (!plan) {
+        const interrupted = interruptTechnique(definition, this.#techniqueState, contactTick);
+        this.#techniqueState = interrupted.state;
+        this.techniqueDebugHud.update({
+          technique: definition,
+          eligible: false,
+          timingWindowTicks: definition.timing.contactWindowTicks,
+          failureReason: 'no-viable-foot-contact',
+          contactTick: null,
+          counterUntilTick: interrupted.counterUntilTick,
+        });
+        this.#recordAction('TECHNIQUE FAILED', false, 'no-viable-foot-contact');
+        this.#updateHud();
+        return;
+      }
+      this.#pendingTechnique = { definition, plan, contact: result.contact, targetVelocity };
+      this.#resetPlannedDribble(false);
+      this.techniqueDebugHud.update({
+        technique: definition,
+        eligible: true,
+        timingWindowTicks: definition.timing.contactWindowTicks,
+        failureReason: '',
+        contactTick: result.contact.contactTick,
+        counterUntilTick: result.contact.counterUntilTick,
+      });
+      this.#recordAction('TECHNIQUE WINDUP', true, `${definition.displayName} · counter window ${definition.counter.windowTicks} ticks`);
+      this.#updateHud();
+      return;
+    }
+
     if (tackle) {
       const challenge = resolveChallenge({
         kind: intent.sprint ? 'committed' : 'standing',
@@ -518,12 +779,25 @@ export class FootballPractice {
         knuckleSeed: PRACTICE_KNUCKLE_SEED,
       });
       this.#shotState = shot.legal ? 'CONTACT' : shot.reason.toUpperCase().replaceAll('-', ' ');
-      this.#recordAction(this.#shotState, shot.legal, shot.reason);
-      if (shot.command) {
-        this.#applyCommand(shot.command);
+      const strikePlan = shot.command ? createStrikeContactPlan({
+        kind: 'shot',
+        sourceId: `practice-shot-${contactTick}`,
+        tick: contactTick,
+        gaitPhase: player.athleticMotion.gaitPhase,
+        strideSeconds: player.athleticMotion.strideSeconds,
+        actorPosition: actor.position,
+        ball: snapshot,
+        targetBallVelocity: shot.launchVelocity,
+        preferredFoot: actor.preferredFoot,
+        balance: actor.balance,
+      }) : null;
+      if (shot.command && strikePlan) {
+        this.#pendingStrike = { kind: 'shot', plan: strikePlan, style: releaseStyle, charge: runtimeStep.releasedShotCharge };
         this.#resetPlannedDribble(false);
-        this.#state.knuckleSeed = shot.knuckleSeed;
-        this.#runtime = markKick(this.#runtime, 'shot');
+        this.#shotState = 'GATHER';
+        this.#recordAction('SHOT SETUP', true, `plant ${strikePlan.foot} · contact in ${strikePlan.contactTick - contactTick} ticks`);
+      } else {
+        this.#recordAction(this.#shotState, shot.legal && strikePlan !== null, shot.command ? 'no viable contact beat' : shot.reason);
       }
       this.#updateHud();
       return;
@@ -560,11 +834,26 @@ export class FootballPractice {
       this.#leadPoint = selected && (this.#passType === 'through' || this.#passType === 'chipped-through')
         ? { ...solution.targetPoint }
         : selected ? { ...selected.receiver.position } : null;
-      this.#recordAction(solution.legal ? 'CONTACT' : 'PASS FAILED', solution.legal, `${this.#passType}: ${solution.reason}`);
-      if (solution.command) {
-        this.#applyCommand(solution.command);
+      const strikePlan = solution.command ? createStrikeContactPlan({
+        kind: 'pass',
+        sourceId: `practice-pass-${contactTick}`,
+        tick: contactTick,
+        gaitPhase: player.athleticMotion.gaitPhase,
+        strideSeconds: player.athleticMotion.strideSeconds,
+        actorPosition: actor.position,
+        ball: snapshot,
+        targetBallVelocity: solution.launchVelocity,
+        preferredFoot: actor.preferredFoot,
+        balance: actor.balance,
+      }) : null;
+      if (solution.command && strikePlan) {
+        this.#pendingStrike = { kind: 'pass', plan: strikePlan, passType: this.#passType };
         this.#resetPlannedDribble(false);
-        this.#runtime = markKick(this.#runtime, 'pass');
+        this.#shotState = 'PASS SETUP';
+        this.#recordAction('PASS SETUP', true, `${this.#passType}: plant ${strikePlan.foot} · contact in ${strikePlan.contactTick - contactTick} ticks`);
+      } else {
+        this.#recordAction(solution.legal ? 'PASS FAILED' : 'PASS FAILED', false,
+          solution.command ? 'no viable contact beat' : `${this.#passType}: ${solution.reason}`);
       }
       this.#updateHud();
       return;
@@ -599,6 +888,8 @@ export class FootballPractice {
         if (next.lastContact) delete next.lastContact;
         this.#state = next;
         this.#plannedContactCount += 1;
+        this.#lastContactPlan = contactPlan;
+        this.#lastContactEventTick = contactTick;
         this.#lastControlQuality = contactPlan?.quality ?? 1;
         this.#lastContactSurface = contactPlan?.surface ?? '';
         if (receiveMode) this.#runtime = consumeReceiveIntent(this.#runtime);
@@ -675,6 +966,11 @@ export class FootballPractice {
       this.#plannedContactCount = 0;
       this.#freeBallFrames = 0;
       this.#lastContactSurface = '';
+      this.#lastContactPlan = null;
+      this.#lastContactEventTick = null;
+      this.#pendingStrike = null;
+      this.#pendingTechnique = null;
+      this.#techniqueState = createTechniqueState();
     }
   }
 
@@ -849,8 +1145,11 @@ export class FootballPractice {
     this.#probe.dataset.lastContactFoot = this.#dribble.lastContactFoot ?? '';
     this.#probe.dataset.freeBallFrames = String(this.#freeBallFrames);
     this.#probe.dataset.dribbleLooseBall = String(this.#dribble.looseBall);
-    this.#probe.dataset.contactSurface = this.#dribble.activePlan?.surface ?? this.#lastContactSurface;
+    this.#probe.dataset.contactSurface = this.#pendingStrike?.plan.surface ?? this.#dribble.activePlan?.surface ?? this.#lastContactSurface;
     this.#probe.dataset.contactTick = String(this.#contactTick);
+    this.#probe.dataset.lastContactEventTick = this.#lastContactEventTick === null ? '' : String(this.#lastContactEventTick);
+    this.#probe.dataset.lastContactPlanId = this.#lastContactPlan?.eventId ?? '';
+    this.#probe.dataset.activeContactTick = this.activeContactPlan ? String(this.activeContactPlan.contactTick) : '';
     this.#probe.dataset.action = this.#lastAction;
     this.#probe.dataset.reason = this.#lastReason;
     this.#probe.dataset.ballVisualQuaternion = [

@@ -1,4 +1,5 @@
 import type { AthleticMotionState } from '../player/athleticMotion';
+import { chooseControlAssist } from './controlAssist';
 import {
   createFootballContactPlan,
   executePlannedFootballContact,
@@ -76,7 +77,10 @@ function cadenceTicks(input: Readonly<PlannedDribbleInput>): number {
   const strideTicks = Math.max(1, input.motion.strideSeconds * TICK_HZ);
   if (isEffortTurn(input)) return Math.round(clampFootball(strideTicks * 0.54, 9, 14));
   if (input.precision) return Math.round(clampFootball(strideTicks * 0.64, 12, 17));
-  if (input.sprint) return Math.round(clampFootball(strideTicks * 1.08, 20, 26));
+  // Sprint touches are deliberate knock-ons, not jog touches with a faster
+  // animation clock. Keep a longer physical free-ball interval so open-space
+  // running produces a larger recoverable pocket and fewer impulses.
+  if (input.sprint) return Math.round(clampFootball(strideTicks * 1.30, 25, 30));
   return Math.round(clampFootball(strideTicks * 0.86, 17, 24));
 }
 
@@ -90,13 +94,38 @@ function nextContactTick(input: Readonly<PlannedDribbleInput>): number {
 }
 
 function contactFoot(input: Readonly<PlannedDribbleInput>): FootballFoot {
-  if (input.state.lastContactFoot) return oppositeFoot(input.state.lastContactFoot);
-  return input.motion.nextFoot;
+  const alternating = input.state.lastContactFoot ? oppositeFoot(input.state.lastContactFoot) : input.motion.nextFoot;
+  return chooseControlAssist({
+    actorPosition: input.actor.position,
+    ballPosition: input.ball.position,
+    facingYaw: input.actor.facingYaw,
+    nextFoot: alternating,
+    preferredFoot: input.actor.preferredFoot,
+    pressure: input.pressure,
+    balance: input.actor.balance,
+    precision: input.precision,
+    turnDemand: input.motion.turnDemand,
+    skill: 'beginner',
+  }).foot;
 }
 
 function chooseSurface(input: Readonly<PlannedDribbleInput>, foot: FootballFoot): FootballContactSurface {
   if (input.receiveMode === 'kill') return 'sole';
   if (input.receiveMode === 'controlled-exit' || input.precision) return 'inside';
+  if (input.receiveMode === null || input.receiveMode === undefined) {
+    return chooseControlAssist({
+      actorPosition: input.actor.position,
+      ballPosition: input.ball.position,
+      facingYaw: input.actor.facingYaw,
+      nextFoot: foot,
+      preferredFoot: input.actor.preferredFoot,
+      pressure: input.pressure,
+      balance: input.actor.balance,
+      precision: input.precision,
+      turnDemand: input.motion.turnDemand,
+      skill: 'beginner',
+    }).surface;
+  }
   if (isEffortTurn(input)) {
     const turningRight = input.motion.turnDemand > 0;
     const outsideFoot = turningRight ? 'right' : 'left';
@@ -248,6 +277,18 @@ function planContact(
   const tolerance = geometryTolerance(input);
   const pressure = clampFootball(input.pressure, 0, 1);
   const balance = clampFootball(input.actor.balance, 0, 1);
+  const assist = chooseControlAssist({
+    actorPosition: input.actor.position,
+    ballPosition: input.ball.position,
+    facingYaw: input.actor.facingYaw,
+    nextFoot: foot,
+    preferredFoot: input.actor.preferredFoot,
+    pressure,
+    balance,
+    precision: input.precision,
+    turnDemand: input.motion.turnDemand,
+    skill: 'beginner',
+  });
   const effort = isEffortTurn(input);
   const quality = clampFootball(
     1
@@ -277,7 +318,7 @@ function planContact(
     targetBallVelocity: velocity,
     maxLinearImpulse: kind === 'trap' ? 4.6 : input.precision ? 2.8 : effort ? 4.2 : input.sprint ? 4.8 : 3.8,
     maxAngularImpulse: kind === 'trap' ? 85 : 120,
-    timingWindowTicks: 1,
+    timingWindowTicks: input.receiveMode ? 1 : assist.timingWindowTicks,
     geometryTolerance: tolerance,
     quality,
     reason: kind === 'trap'

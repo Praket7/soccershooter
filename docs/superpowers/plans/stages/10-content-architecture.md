@@ -110,14 +110,14 @@ interface TeamDefinition {
 
 ## Implementation Task Sequence
 
-- [ ] **Task 1:** Write failing production-build tests for private-mode activation and private-string leakage.
-- [ ] **Task 2:** Implement typed team, kit, roster, palette, and tactical-profile schemas.
-- [ ] **Task 3:** Create four fictional public team definitions with stable IDs.
-- [ ] **Task 4:** Create original SVG badge placeholders and original kit-layout metadata.
-- [ ] **Task 5:** Implement content-mode loader and visible private-reference watermark.
-- [ ] **Task 6:** Implement build-time guard that rejects private imports in production.
-- [ ] **Task 7:** Implement bundle text scan for private names/paths.
-- [ ] **Task 8:** Run public build and verify only fictional assets/strings are present.
+- [x] **Task 1:** Write failing production-build tests for private-mode activation and private-string leakage.
+- [x] **Task 2:** Implement typed team, kit, roster, palette, and tactical-profile schemas.
+- [x] **Task 3:** Create four fictional public team definitions with stable IDs.
+- [x] **Task 4:** Create original SVG badge placeholders and original kit-layout metadata.
+- [x] **Task 5:** Implement content-mode loader and visible private-reference watermark.
+- [x] **Task 6:** Implement build-time guard that rejects private imports in production.
+- [x] **Task 7:** Implement bundle text scan for private names/paths.
+- [x] **Task 8:** Run public build and verify only fictional assets/strings are present.
 
 ## Tests
 - every public team loads

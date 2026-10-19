@@ -101,14 +101,14 @@ After campaign victory:
 
 ## Implementation Task Sequence
 
-- [ ] **Task 1:** Write failing tests for fresh profile, reward calculation, save migration, campaign completion, and Legacy continuation.
-- [ ] **Task 2:** Implement versioned local player profile and save adapter.
-- [ ] **Task 3:** Implement campaign acts and data-driven encounter definitions.
-- [ ] **Task 4:** Implement XP, mastery, temporary run choices, medals, and anti-farming reward rules.
-- [ ] **Task 5:** Implement technique unlock/evolution integration with progression.
-- [ ] **Task 6:** Implement campaign final and postgame Legacy progression.
-- [ ] **Task 7:** Implement save export/import and migration fixtures.
-- [ ] **Task 8:** Run headless campaign simulations and human Act 1 usability test.
+- [x] **Task 1:** Write failing tests for fresh profile, reward calculation, save migration, campaign completion, and Legacy continuation.
+- [x] **Task 2:** Implement versioned local player profile and save adapter.
+- [x] **Task 3:** Implement campaign acts and data-driven encounter definitions.
+- [x] **Task 4:** Implement XP, mastery, temporary run choices, medals, and anti-farming reward rules.
+- [x] **Task 5:** Implement technique unlock/evolution integration with progression.
+- [x] **Task 6:** Implement campaign final and postgame Legacy progression.
+- [x] **Task 7:** Implement save export/import and migration fixtures.
+- [ ] **Task 8:** Headless campaign simulations pass; owner Act 1 usability test remains pending (see `docs/gates/STAGE-09-GATE.md`).
 
 ## Tests
 - fresh save starts correctly

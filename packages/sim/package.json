@@ -3,6 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "dependencies": {
+    "@soccershooter/content": "workspace:*"
+  },
   "exports": {
     ".": "./src/index.ts",
     "./fixedStep": "./src/fixedStep.ts",
@@ -17,6 +20,9 @@
     "./football/aerial": "./src/football/aerial.ts",
     "./football/runtime": "./src/football/runtime.ts",
     "./football/receive": "./src/football/receive.ts",
-    "./football/actionIntent": "./src/football/actionIntent.ts"
+    "./football/actionIntent": "./src/football/actionIntent.ts",
+    "./football/strikePlanner": "./src/football/strikePlanner.ts",
+    "./football/controlAssist": "./src/football/controlAssist.ts",
+    "./techniques/executeTechnique": "./src/techniques/executeTechnique.ts"
   }
 }

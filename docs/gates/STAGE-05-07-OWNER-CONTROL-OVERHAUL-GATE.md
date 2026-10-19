@@ -87,6 +87,6 @@ The previous owner-feedback tests remain regression coverage, but their interpre
 
 These are not, by themselves, a professional-feel certificate.
 
-## Merge status
+## Integration status
 
-**BLOCKED.** Do not merge this branch into `main` until the owner manually playtests the Stage 05R vertical slice and explicitly approves the revised feel. The preserved Stage 05/06/07 checkpoint branches remain source-of-truth history until that approval.
+The owner explicitly requested a push to `main` on 2026-10-19, authorizing that integration. This does not certify the subjective Stage 05R feel gate: the owner playtest and scorecard remain pending. Stage 05/06/07 checkpoint branches remain preserved as independent history.

@@ -12,6 +12,13 @@ interface BrowserCarrySample {
   separation: number;
   action: string;
   reason: string;
+  contactCount: number;
+  contactPlanId: string;
+  contactFoot: string;
+  contactSurface: string;
+  contactEventTick: number;
+  freeBallFrames: number;
+  controller: string;
 }
 
 interface AtomicCarryState {
@@ -24,6 +31,13 @@ interface AtomicCarryState {
   ballSpeed: number;
   action: string;
   reason: string;
+  contactCount: number;
+  contactPlanId: string;
+  contactFoot: string;
+  contactSurface: string;
+  contactEventTick: number;
+  freeBallFrames: number;
+  controller: string;
 }
 
 async function atomicCarryState(page: Page): Promise<AtomicCarryState> {
@@ -41,6 +55,13 @@ async function atomicCarryState(page: Page): Promise<AtomicCarryState> {
       ballSpeed: Number(ball.dataset.ballSpeed ?? 0),
       action: ball.dataset.action ?? '',
       reason: ball.dataset.reason ?? '',
+      contactCount: Number(ball.dataset.plannedContactCount ?? 0),
+      contactPlanId: ball.dataset.lastContactPlanId ?? '',
+      contactFoot: ball.dataset.lastContactFoot ?? '',
+      contactSurface: ball.dataset.contactSurface ?? '',
+      contactEventTick: Number(ball.dataset.lastContactEventTick ?? 0),
+      freeBallFrames: Number(ball.dataset.freeBallFrames ?? 0),
+      controller: ball.dataset.dribbleController ?? '',
     };
   });
 }
@@ -62,11 +83,11 @@ async function runBrowserCarry(page: Page, sprint: boolean, durationTicks = 90):
   if (sprint) await page.keyboard.down('Shift');
 
   const samples: BrowserCarrySample[] = [];
-  for (let index = 0; index < 80; index += 1) {
+  for (let index = 0; index < 180; index += 1) {
     const sample = await sampleCarry(page, index);
     samples.push(sample);
     if (sample.tick - initial.tick >= durationTicks) break;
-    await page.waitForTimeout(8);
+    await page.waitForTimeout(12);
   }
 
   if (sprint) await page.keyboard.up('Shift');
@@ -87,6 +108,11 @@ test('browser normal carry matches the deterministic compact possession envelope
   const maximum = Math.max(...samples.map((entry) => entry.separation));
   expect(maximum, traceMessage(samples)).toBeLessThan(1.12);
   expect(samples.some((entry) => /FIRST TOUCH FAILED/.test(entry.action)), traceMessage(samples)).toBe(false);
+  expect(samples.at(-1)?.controller).toBe('planned-contact');
+  expect(Math.max(...samples.map((entry) => entry.contactCount))).toBeGreaterThan(2);
+  expect(samples.some((entry) => entry.contactPlanId.startsWith('contact:'))).toBe(true);
+  expect(samples.some((entry) => entry.contactEventTick > 0 && entry.contactFoot && entry.contactSurface)).toBe(true);
+  expect(samples.at(-1)?.freeBallFrames).toBeGreaterThan(0);
 });
 
 test('browser sprint carry matches the deterministic recoverable knock-on envelope', async ({ page }) => {
@@ -94,4 +120,9 @@ test('browser sprint carry matches the deterministic recoverable knock-on envelo
   const maximum = Math.max(...samples.map((entry) => entry.separation));
   expect(maximum, traceMessage(samples)).toBeLessThan(1.38);
   expect(samples.some((entry) => /FIRST TOUCH FAILED/.test(entry.action)), traceMessage(samples)).toBe(false);
+  expect(samples.at(-1)?.controller).toBe('planned-contact');
+  expect(Math.max(...samples.map((entry) => entry.contactCount))).toBeGreaterThan(1);
+  expect(samples.some((entry) => entry.contactPlanId.startsWith('contact:'))).toBe(true);
+  expect(samples.some((entry) => entry.contactEventTick > 0 && entry.contactFoot && entry.contactSurface)).toBe(true);
+  expect(samples.at(-1)?.freeBallFrames).toBeGreaterThan(0);
 });

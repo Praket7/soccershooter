@@ -73,11 +73,11 @@ async function runCarryWindow(page: Page, sprint: boolean, durationTicks = 90): 
   if (sprint) await page.keyboard.down('Shift');
 
   const states: CarryState[] = [];
-  for (let sample = 0; sample < 80; sample += 1) {
+  for (let sample = 0; sample < 180; sample += 1) {
     const state = await readCarryState(page);
     states.push(state);
     if (state.tick - initial.tick >= durationTicks) break;
-    await page.waitForTimeout(8);
+    await page.waitForTimeout(12);
   }
 
   if (sprint) await page.keyboard.up('Shift');

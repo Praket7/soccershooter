@@ -2,5 +2,13 @@
   "name": "@soccershooter/progression",
   "version": "0.0.0",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "exports": {
+    ".": "./src/profile.ts",
+    "./campaign": "./src/campaign.ts",
+    "./rewards": "./src/rewards.ts",
+    "./save": "./src/save.ts",
+    "./migrations": "./src/migrations.ts",
+    "./legacy": "./src/legacy.ts"
+  }
 }

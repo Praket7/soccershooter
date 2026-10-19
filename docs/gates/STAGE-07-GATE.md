@@ -2,11 +2,11 @@
 
 ## Decision
 
-**ENGINEERING PASS — OWNER PLAYTEST PENDING — DO NOT MERGE YET**
+**ENGINEERING PASS — OWNER PLAYTEST PENDING**
 
 Stage 07 is engineering-complete on the isolated `stage/07-adaptive-bots` branch and draft PR #17, stacked directly on the unmerged Stage 06 tactical-bot branch.
 
-The automated implementation, simulation, learned-policy research, build, and browser gates all pass. The remaining exit criteria are intentionally human: novice must feel beatable without appearing broken, standard must feel like a useful teammate, elite must force tactical adaptation without physical cheating, personality differences must be legible, and teammate usefulness must reach the planned human threshold.
+The automated implementation, simulation, learned-policy research, build, and browser gates all pass. The remaining exit criteria are intentionally human: novice must feel beatable without appearing broken, standard must feel like a useful teammate, elite must force tactical adaptation without physical cheating, personality differences must be legible, and teammate usefulness must reach the planned human threshold. The owner later explicitly requested integration to `main` on 2026-10-19; these feel criteria remain pending.
 
 Those criteria cannot be fabricated by simulation, so this gate records an engineering PASS and manual HOLD exactly as requested by the owner.
 
@@ -330,13 +330,11 @@ Use:
 
 The browser now exposes both **Tactical Bot Lab** and **Adaptive Bot Lab** for the Stage 06/07 comparison.
 
-## Merge decision
+## Integration decision
 
-**HOLD.**
-
-Do not merge Stage 06 or Stage 07 until the owner has tested the bot feel and either:
+The owner's explicit push request authorizes integrating the engineering-complete branch. The owner may still:
 
 1. explicitly accepts the remaining human criteria, or
 2. reports concrete defects that are converted into RED regressions and repaired.
 
-Do not promote the learned smoke policy to production merely because its machine benchmark passes. Do not begin Stage 08 as if the human gate had passed.
+Do not promote the learned smoke policy to production merely because its machine benchmark passes. Stage 07 owner feel acceptance remains pending.
