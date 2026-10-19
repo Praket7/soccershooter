@@ -1,4 +1,12 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator } from '@playwright/test';
+
+async function setRange(input: Locator, value: string): Promise<void> {
+  await input.evaluate((element, nextValue) => {
+    const range = element as HTMLInputElement;
+    range.value = String(nextValue);
+    range.dispatchEvent(new Event('input', { bubbles: true }));
+  }, value);
+}
 
 test('gameplay settings persist and apply without reloading authoritative simulation', async ({ page }) => {
   await page.goto('/');
@@ -15,7 +23,7 @@ test('gameplay settings persist and apply without reloading authoritative simula
   const reducedMotion = page.getByLabel('Reduce camera motion');
   const showHints = page.getByLabel('Show control hints');
 
-  await fov.fill('68');
+  await setRange(fov, '68');
   await invertY.check();
   await reducedMotion.check();
   await showHints.uncheck();
@@ -38,8 +46,8 @@ test('gameplay settings persist and apply without reloading authoritative simula
 test('reset defaults restores the shipped professional control feel', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Settings' }).click();
-  await page.getByLabel('Mouse sensitivity').fill('200');
-  await page.getByLabel('Camera distance').fill('8.8');
+  await setRange(page.getByLabel('Mouse sensitivity'), '200');
+  await setRange(page.getByLabel('Camera distance'), '8.8');
   await page.getByRole('button', { name: 'Reset defaults' }).click();
 
   await expect(page.getByLabel('Mouse sensitivity')).toHaveValue('100');
