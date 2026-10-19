@@ -30,9 +30,9 @@ export const DEFAULT_MOVEMENT_CONFIG: Readonly<MovementConfig> = Object.freeze({
   walkSpeed: 2.35,
   jogSpeed: 5.2,
   sprintSpeed: 8.8,
-  // Straight-line acceleration remains bounded, but the controller now gives
-  // low-speed launches and directional redirection their own response instead
-  // of spending one shared velocity budget cancelling old momentum first.
+  // Straight-line launch keeps the established football sprint envelope. The
+  // directional controller below can combine braking with re-acceleration on a
+  // cut instead of pretending both must share one scalar velocity budget.
   acceleration: 11,
   braking: 13,
   lowSpeedTurnRate: 12,
@@ -121,7 +121,7 @@ const EPSILON = 1e-9;
 const PLANT_CUT_ENTER_ANGLE = (120 * Math.PI) / 180;
 const PLANT_CUT_EXIT_ANGLE = (42 * Math.PI) / 180;
 const PLANT_CUT_MIN_SPEED = 6.1;
-const RESPONSIVE_LAUNCH_ACCELERATION = 16;
+const MAX_DIRECTION_CHANGE_PROPULSION = 16;
 const MIN_DIRECTIONAL_BRAKING = 13;
 const MAX_DIRECTIONAL_BRAKING = 18;
 
@@ -274,13 +274,16 @@ function directionalVelocity(
   desiredZ: number,
   targetSpeed: number,
   currentSpeed: number,
+  turnDelta: number,
   plantCut: boolean,
   deltaSeconds: number,
   config: Readonly<MovementConfig>,
 ): { x: number; z: number } {
   const speedFraction = clamp(currentSpeed / Math.max(0.1, config.sprintSpeed), 0, 1);
-  const launchAcceleration = RESPONSIVE_LAUNCH_ACCELERATION
-    + (config.acceleration - RESPONSIVE_LAUNCH_ACCELERATION) * speedFraction;
+  const turnSeverity = clamp(Math.abs(turnDelta) / (Math.PI / 2), 0, 1);
+  const turnPropulsionBoost = turnSeverity * (1 - 0.25 * speedFraction);
+  const launchAcceleration = config.acceleration
+    + (MAX_DIRECTION_CHANGE_PROPULSION - config.acceleration) * turnPropulsionBoost;
   const directionalBraking = MAX_DIRECTIONAL_BRAKING
     + (MIN_DIRECTIONAL_BRAKING - MAX_DIRECTIONAL_BRAKING) * speedFraction;
 
@@ -382,6 +385,7 @@ export function stepPlayerMovement(
       desiredZ,
       requestedTargetSpeed,
       currentSpeed,
+      turnDelta,
       plantCut,
       deltaSeconds,
       config,
