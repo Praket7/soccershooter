@@ -494,7 +494,7 @@ export class FootballPractice {
         shooter: shotActor,
         ball: snapshot,
         aim,
-        aimTarget: this.#worldAimTarget ?? undefined,
+        ...(this.#worldAimTarget ? { aimTarget: this.#worldAimTarget } : {}),
         charge: runtimeStep.releasedShotCharge,
         spinInput: releaseStyle === 'finesse' ? 0.82 : releaseStyle === 'outside-foot' ? 0.68 : 0.18,
         pressure: actor.pressure,
