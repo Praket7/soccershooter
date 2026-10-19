@@ -7,14 +7,20 @@ test('Stage 05R records a rendered input acknowledgement latency distribution', 
     if (!probe) throw new Error('missing player telemetry probe');
     const samples: number[] = [];
     const frameDeltas: number[] = [];
+    const responseDistances: number[] = [];
     const pendingInput = { renderFrameId: null as number | null };
+    const pendingInputZ = { value: null as number | null };
     const inputFrame = (event: KeyboardEvent) => {
       if (event.key.toLowerCase() !== 'w') return;
       pendingInput.renderFrameId = Number((probe as HTMLElement).dataset.renderFrameId);
+      pendingInputZ.value = Number((probe as HTMLElement).dataset.z);
     };
     document.addEventListener('keydown', inputFrame, true);
-    document.addEventListener('keyup', inputFrame, true);
-    Object.assign(window, { __stage05rRenderLatencySamples: samples, __stage05rFrameDeltas: frameDeltas });
+    Object.assign(window, {
+      __stage05rRenderLatencySamples: samples,
+      __stage05rFrameDeltas: frameDeltas,
+      __stage05rResponseDistances: responseDistances,
+    });
     new MutationObserver((records) => {
       for (const record of records) {
         if (record.attributeName !== 'data-input-render-ack-frame') continue;
@@ -24,7 +30,12 @@ test('Stage 05R records a rendered input acknowledgement latency distribution', 
         const ackFrame = Number(element.dataset.inputAckRenderFrame);
         if (pendingInput.renderFrameId !== null && Number.isFinite(ackFrame)) {
           frameDeltas.push(ackFrame - pendingInput.renderFrameId);
+          const acknowledgedZ = Number(element.dataset.z);
+          if (pendingInputZ.value !== null && Number.isFinite(acknowledgedZ)) {
+            responseDistances.push(acknowledgedZ - pendingInputZ.value);
+          }
           pendingInput.renderFrameId = null;
+          pendingInputZ.value = null;
         }
       }
     }).observe(probe, { attributes: true, attributeFilter: ['data-input-render-ack-frame'] });
@@ -32,11 +43,13 @@ test('Stage 05R records a rendered input acknowledgement latency distribution', 
 
   for (let index = 0; index < 24; index += 1) {
     await page.keyboard.down('w');
-    await page.waitForTimeout(24);
+    await expect.poll(() => page.evaluate(() =>
+      (window as typeof window & { __stage05rFrameDeltas: number[] }).__stage05rFrameDeltas.length,
+    ), { timeout: 1500 }).toBeGreaterThanOrEqual(index + 1);
     await page.keyboard.up('w');
     await expect.poll(() => page.evaluate(() =>
       (window as typeof window & { __stage05rRenderLatencySamples: number[] }).__stage05rRenderLatencySamples.length,
-    ), { timeout: 1500 }).toBeGreaterThanOrEqual(index + 1);
+    ), { timeout: 1500 }).toBeGreaterThanOrEqual((index + 1) * 2);
   }
 
   const samples = await page.evaluate(() =>
@@ -44,6 +57,9 @@ test('Stage 05R records a rendered input acknowledgement latency distribution', 
   );
   const frameDeltas = await page.evaluate(() =>
     (window as typeof window & { __stage05rFrameDeltas: number[] }).__stage05rFrameDeltas,
+  );
+  const responseDistances = await page.evaluate(() =>
+    (window as typeof window & { __stage05rResponseDistances: number[] }).__stage05rResponseDistances,
   );
   const acknowledgementFrame = Number(await page.locator('[data-player-state]').getAttribute('data-input-render-ack-frame'));
   const ordered = [...samples].sort((a, b) => a - b);
@@ -56,6 +72,8 @@ test('Stage 05R records a rendered input acknowledgement latency distribution', 
     frameDeltaSamples: frameDeltas.length,
     p90Frames: [...frameDeltas].sort((a, b) => a - b)[Math.floor((frameDeltas.length - 1) * 0.9)],
     maxFrames: Math.max(...frameDeltas),
+    responseSamples: responseDistances.length,
+    minForwardMovementMeters: Math.min(...responseDistances),
   };
   console.log('Stage 05R rendered input-to-visible latency:', JSON.stringify(distribution));
   await testInfo.attach('stage-05r-input-to-visible-latency.json', {
@@ -64,12 +82,14 @@ test('Stage 05R records a rendered input acknowledgement latency distribution', 
   });
   expect(distribution.samples).toBeGreaterThanOrEqual(24);
   expect(distribution.frameDeltaSamples).toBeGreaterThanOrEqual(24);
+  expect(distribution.responseSamples).toBeGreaterThanOrEqual(24);
   expect(acknowledgementFrame).toBeGreaterThan(0);
   expect(ordered.every((value) => Number.isFinite(value) && value >= 0)).toBe(true);
   // Assert the plan's frame-count requirement directly; wall-clock timing is
   // retained as telemetry because browser scheduling differs by runner.
   expect(distribution.p90Frames).toBeLessThanOrEqual(1);
   expect(distribution.maxFrames).toBeLessThanOrEqual(1);
+  expect(responseDistances.every((distance) => distance > 0)).toBe(true);
 });
 
 test('Stage 03 movement remains controllable inside the physical football lab', async ({ page }) => {
