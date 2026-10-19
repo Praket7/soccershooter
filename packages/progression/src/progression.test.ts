@@ -71,4 +71,10 @@ describe('Road to Legend progression', () => {
     expect(resolveRunUpgradeModifiers({ ...technical.profile, runChoices: ['first-touch'] }).contactTimingTicks)
       .not.toBe(resolveRunUpgradeModifiers({ ...technical.profile, runChoices: ['recovery'] }).contactTimingTicks);
   });
+
+  it('runs authored acts against their distinct tactical opponent archetypes', () => {
+    const campaign = simulateSkilledCampaign('technical', 1234);
+    expect(campaign.opponentArchetypes).toEqual(CAMPAIGN_ACTS.flatMap((act) => act.encounters.map(() => act.opponentArchetype)));
+    expect(new Set(campaign.opponentArchetypes).size).toBeGreaterThan(1);
+  });
 });

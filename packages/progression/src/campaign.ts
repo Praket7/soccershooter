@@ -1,5 +1,6 @@
 import { awardEncounter, createFreshProfile, selectArchetype, type PlayerArchetype, type PlayerProfile } from './profile';
 import { createPhysicalScrimmage, stepPhysicalScrimmage } from '../../bots/src/physicalScrimmage';
+import type { BotPersonalityId } from '../../bots/src/personalities';
 
 export interface CampaignEncounter {
   id: string;
@@ -27,6 +28,7 @@ export interface LegacyGauntlet {
 export interface CampaignSimulationReport {
   profile: PlayerProfile;
   encounterIds: readonly string[];
+  opponentArchetypes: readonly string[];
   highlights: readonly string[];
   archetype: PlayerArchetype;
   wins: number;
@@ -116,7 +118,16 @@ const ENCOUNTER_START_Z: Readonly<Record<CampaignEncounter['tacticalProblem'], n
 
 const CAMPAIGN_MATCH_TICKS = 90 * 60;
 
-function simulateEncounter(seed: number, encounter: Readonly<CampaignEncounter>): { goal: boolean; ticks: number; contacts: number; checksum: string } {
+const OPPONENT_PERSONALITIES: Readonly<Record<string, Readonly<Record<string, BotPersonalityId>>>> = Object.freeze({
+  'street-press': Object.freeze({ 'a-1': 'aggressive-presser', 'a-2': 'winger', 'a-gk': 'calm-keeper' }),
+  'academy-possession': Object.freeze({ 'a-1': 'playmaker', 'a-2': 'anchor', 'a-gk': 'calm-keeper' }),
+  'regional-deep-block': Object.freeze({ 'a-1': 'anchor', 'a-2': 'calm-keeper', 'a-gk': 'calm-keeper' }),
+  'continental-counter': Object.freeze({ 'a-1': 'winger', 'a-2': 'poacher', 'a-gk': 'calm-keeper' }),
+  'elite-aerial': Object.freeze({ 'a-1': 'poacher', 'a-2': 'aggressive-presser', 'a-gk': 'calm-keeper' }),
+  'legend-possession-overload': Object.freeze({ 'a-1': 'playmaker', 'a-2': 'aggressive-presser', 'a-gk': 'calm-keeper' }),
+});
+
+function simulateEncounter(seed: number, encounter: Readonly<CampaignEncounter>, opponentArchetype: string): { goal: boolean; ticks: number; contacts: number; checksum: string } {
   let state = createPhysicalScrimmage(seed);
   const attacker = state.players.find((player) => player.id === 'h-1');
   if (!attacker) throw new Error('physical campaign scenario is missing its attacker');
@@ -134,7 +145,7 @@ function simulateEncounter(seed: number, encounter: Readonly<CampaignEncounter>)
 
   const initialContacts = state.contactCount;
   for (let tick = 0; tick < CAMPAIGN_MATCH_TICKS; tick += 1) {
-    state = stepPhysicalScrimmage(state, 1 / 60, 'standard');
+    state = stepPhysicalScrimmage(state, 1 / 60, 'standard', OPPONENT_PERSONALITIES[opponentArchetype] ?? OPPONENT_PERSONALITIES['street-press']!);
     const scored = state.ball.position.z > state.field.halfLength
       && Math.abs(state.ball.position.x) < state.field.goalHalfWidth
       && state.ball.position.y < 2.44;
@@ -149,6 +160,7 @@ function simulateEncounter(seed: number, encounter: Readonly<CampaignEncounter>)
 export function simulateSkilledCampaign(archetype: PlayerArchetype = 'technical', seed = 0x51a6): CampaignSimulationReport {
   let profile = selectArchetype(createFreshProfile(), archetype);
   const encounterIds: string[] = [];
+  const opponentArchetypes: string[] = [];
   const highlights: string[] = [];
   let checksum = 0x811c9dc5;
   let wins = 0;
@@ -159,7 +171,7 @@ export function simulateSkilledCampaign(archetype: PlayerArchetype = 'technical'
   for (const act of CAMPAIGN_ACTS) {
     for (const [index, encounter] of act.encounters.entries()) {
       const encounterSeed = (Math.imul(seed ^ index ^ act.id.length, 1664525) + 1013904223) >>> 0;
-      const simulation = simulateEncounter(encounterSeed, encounter);
+      const simulation = simulateEncounter(encounterSeed, encounter, act.opponentArchetype);
       simulatedTicks += simulation.ticks;
       physicalContacts += simulation.contacts;
       goalsScored += Number(simulation.goal);
@@ -174,13 +186,15 @@ export function simulateSkilledCampaign(archetype: PlayerArchetype = 'technical'
       });
       profile = reward.profile;
       encounterIds.push(encounter.id);
-      const highlight = `${encounter.id}:seed-${encounterSeed}:score-${goalsFor}-${goalsAgainst}:ticks-${simulation.ticks}:contacts-${simulation.contacts}:physics-${simulation.checksum}`;
+      opponentArchetypes.push(act.opponentArchetype);
+      const highlight = `${encounter.id}:opponent-${act.opponentArchetype}:seed-${encounterSeed}:score-${goalsFor}-${goalsAgainst}:ticks-${simulation.ticks}:contacts-${simulation.contacts}:physics-${simulation.checksum}`;
       highlights.push(highlight);
       profile.highlights = [...profile.highlights, highlight].slice(-256);
       checksum = (Math.imul(checksum ^ encounterSeed ^ goalsFor ^ goalsAgainst ^ simulation.ticks ^ simulation.contacts, 0x01000193) ^ Number.parseInt(simulation.checksum, 16)) >>> 0;
       if (!simulation.goal) return {
         profile,
         encounterIds,
+        opponentArchetypes,
         highlights,
         archetype,
         wins,
@@ -194,5 +208,5 @@ export function simulateSkilledCampaign(archetype: PlayerArchetype = 'technical'
     }
   }
 
-  return { profile, encounterIds, highlights, archetype, wins, simulatedTicks, physicalContacts, goalsScored, checksum: checksum.toString(16).padStart(8, '0') };
+  return { profile, encounterIds, opponentArchetypes, highlights, archetype, wins, simulatedTicks, physicalContacts, goalsScored, checksum: checksum.toString(16).padStart(8, '0') };
 }
