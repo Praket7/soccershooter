@@ -164,7 +164,7 @@ function runJogCut(turnDegrees: number) {
 }
 
 describe('Stage 05R sprint dribbling and effort-turn integration', () => {
-  test('late 90 and 120 degree jog cuts retarget while a full reversal remains committed', () => {
+  test('late jog cuts retarget responsively while a precommit full reversal stays physically moderated', () => {
     for (const degrees of [90, 120]) {
       const cut = runJogCut(degrees);
       expect(cut.looseRate).toBeLessThanOrEqual(0.2);
@@ -174,7 +174,12 @@ describe('Stage 05R sprint dribbling and effort-turn integration', () => {
 
     const reversal = runJogCut(180);
     expect(reversal.lastContactBeat).not.toBeNull();
-    expect(reversal.lastContactBeat!.after).toEqual(reversal.lastContactBeat!.before);
+    // Before the contact is committed, a full reversal may branch into a real
+    // pull-back touch. It must be slower than the incoming carry rather than an
+    // instantaneous full-speed sign flip. The late-commit test below still
+    // proves that a committed contact cannot snap to the reversal.
+    expect(reversal.lastContactBeat!.after.z).toBeLessThan(0);
+    expect(Math.abs(reversal.lastContactBeat!.after.z)).toBeLessThan(Math.abs(reversal.lastContactBeat!.before.z));
   });
 
   test('sprint creates fewer longer contacts than precision over the same elapsed time', () => {
