@@ -187,7 +187,11 @@ describe('Stage 05R sprint dribbling and effort-turn integration', () => {
     expect(sawEffortPlan).toBe(true);
     expect(sawContact).toBe(true);
     expect(minSpeed).toBeLessThan(entrySpeed * 0.72);
-    expect(exitSpeed).toBeGreaterThan(minSpeed + 1.5);
+    // Sprint was released for the cut, so authoritative jog speed is capped at
+    // 5.2 m/s. Require visible re-acceleration without demanding an impossible
+    // speed above that configured movement ceiling.
+    expect(exitSpeed).toBeGreaterThan(minSpeed + 0.6);
+    expect(exitSpeed).toBeGreaterThan(5.0);
   });
 
   test('a full-speed 180 degree reversal contains a plant then recovery beat before normal propulsion returns', () => {
