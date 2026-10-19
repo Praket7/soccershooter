@@ -5,7 +5,6 @@ import { BALL_SUBSTEP_DT, STANDARD_GOAL_FRAME, crossedGoalPlane, stepBall } from
 import type { InputIntent } from '@soccershooter/sim';
 import { PlayerActionBits, type PlayerState } from '@soccershooter/sim/player/PlayerState';
 import { decodeFootballActionIntent } from '@soccershooter/sim/football/actionIntent';
-import { buildControlTouch } from '@soccershooter/sim/football/controlEnvelope';
 import { selectPassTarget, solvePass, type PassType } from '@soccershooter/sim/football/passing';
 import { resolveReceiveMode } from '@soccershooter/sim/football/receive';
 import { buildShot, type ShotStyle } from '@soccershooter/sim/football/shooting';
@@ -20,7 +19,6 @@ import {
   consumeReceiveIntent,
   createFootballRuntimeState,
   createPlannedDribbleState,
-  markControlTouch,
   markKick,
   stepFootballRuntime,
   stepPlannedDribble,
@@ -301,10 +299,10 @@ export class FootballPractice {
     this.root.dataset.footballPractice = 'true';
     this.root.innerHTML = `
       <div class="football-practice-heading">
-        <div><span>Stage 05R contact slice</span><strong>Football Practice</strong></div>
+        <div><span>Stage 05R sprint + turn slice</span><strong>Football Practice</strong></div>
         <span class="football-practice-live"><i></i> independent physical ball</span>
       </div>
-      <p>WASD now drives gait-timed physical foot contacts with a free ball between touches. RMB shortens the stride and lowers exit speed for close control. Sprint remains on the legacy knock-on path until the next owner gate. F is receive/trap: F alone kills the ball; F + WASD takes the first touch out. Aim through the center reticle.</p>
+      <p>WASD drives gait-timed physical foot contacts with a free ball between touches. RMB keeps a short relative control pocket. Shift creates longer planned knock-ons, and hard cuts brake and plant before effort contacts. F is receive/trap: F alone kills the ball; F + WASD takes the first touch out. Aim through the center reticle.</p>
       <div class="practice-actions">
         <button type="button" data-football-reset>Reset ball <kbd>G</kbd></button>
         <span><kbd>E</kbd> ground · <kbd>Q</kbd> through · <kbd>R</kbd> lofted · <kbd>RMB+E</kbd> driven · <kbd>Ctrl+Q</kbd> chipped through</span>
@@ -576,7 +574,7 @@ export class FootballPractice {
     const receiveMode = receiveArmed ? resolveReceiveMode(dribbleIntent.magnitude) : null;
     const controlAvailable = this.#runtime.kickCooldown <= 0 && this.#defenderState.recoverySeconds <= 0.08;
 
-    if (!intent.sprint && controlAvailable) {
+    if (controlAvailable) {
       const contactPlan = this.#dribble.activePlan;
       const planned = stepPlannedDribble({
         tick: contactTick,
@@ -586,7 +584,7 @@ export class FootballPractice {
         ball: snapshot,
         desiredDirection: dribbleIntent.direction,
         precision,
-        sprint: false,
+        sprint: intent.sprint,
         pressure: actor.pressure,
         moveIntentMagnitude: dribbleIntent.magnitude,
         receiveMode,
@@ -604,13 +602,18 @@ export class FootballPractice {
         this.#lastControlQuality = contactPlan?.quality ?? 1;
         this.#lastContactSurface = contactPlan?.surface ?? '';
         if (receiveMode) this.#runtime = consumeReceiveIntent(this.#runtime);
+        const planReason = contactPlan?.reason ?? '';
         const action = contactPlan?.kind === 'trap'
           ? 'CUSHION TOUCH'
           : receiveMode === 'controlled-exit'
             ? 'CONTROLLED EXIT'
-            : precision
-              ? 'PRECISION CONTACT'
-              : 'PLANNED TOUCH';
+            : planReason.startsWith('effort-')
+              ? 'EFFORT CONTACT'
+              : planReason.startsWith('sprint-')
+                ? 'SPRINT KNOCK-ON'
+                : precision
+                  ? 'PRECISION CONTACT'
+                  : 'PLANNED TOUCH';
         this.#recordAction(
           action,
           true,
@@ -621,40 +624,6 @@ export class FootballPractice {
         if (receiveArmed && (planned.reason === 'loose-ball-chase' || planned.reason === 'no-viable-intercept')) {
           this.#recordAction('TRAP ARMED', true, 'waiting for legal foot contact');
         }
-      }
-    } else if (intent.sprint && this.#runtime.controlTouchCooldown <= 0 && controlAvailable) {
-      // Task 4 migrates sprint knock-ons and effort turns. Until the owner has
-      // approved this normal/RMB slice, keep sprint behavior isolated on the
-      // previously verified path rather than half-migrating it here.
-      this.#resetPlannedDribble(false);
-      const touch = buildControlTouch({
-        actor,
-        ball: snapshot,
-        desiredDirection: dribbleIntent.direction,
-        precision,
-        sprint: true,
-        pressure: actor.pressure,
-        moveIntentMagnitude: dribbleIntent.magnitude,
-        receiveMode,
-      });
-      this.#lastControlQuality = touch.quality;
-      if (touch.eligible && touch.command) {
-        this.#applyCommand(touch.command);
-        this.#runtime = markControlTouch(this.#runtime, true, touch.touchMode);
-        if (receiveMode) this.#runtime = consumeReceiveIntent(this.#runtime);
-        const action = touch.touchMode === 'trap'
-          ? 'CUSHION TOUCH'
-          : touch.touchMode === 'receive-exit'
-            ? 'CONTROLLED EXIT'
-            : touch.touchMode === 'effort-turn'
-              ? 'EFFORT TURN'
-              : `${touch.touchMode.toUpperCase()} TOUCH`;
-        this.#recordAction(action, true, touch.touchMode);
-      } else if (receiveArmed) {
-        const readableReason = touch.reason === 'out-of-reach' ? 'waiting for legal contact' : touch.reason;
-        this.#recordAction('TRAP ARMED', touch.reason === 'out-of-reach', readableReason);
-      } else if (touch.reason !== 'out-of-reach' && touch.reason !== 'idle-no-touch') {
-        this.#recordAction('FIRST TOUCH FAILED', false, touch.reason);
       }
     }
 
