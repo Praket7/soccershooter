@@ -1,4 +1,5 @@
 import type { InputIntent } from '../index';
+import { stepAthleticMotion } from './athleticMotion';
 import { PlayerActionBits, clonePlayerState, type LocomotionState, type PlayerState, type Vec3 } from './PlayerState';
 
 export interface MovementConfig {
@@ -388,6 +389,21 @@ export function stepPlayerMovement(
   state.locomotion = grounded
     ? chooseLocomotion(Math.hypot(nextVelocityX, nextVelocityZ), move.magnitude, sprinting, plantCut)
     : 'airborne';
+  state.athleticMotion = stepAthleticMotion(previous.athleticMotion, {
+    position: { x: nextX, z: nextZ },
+    currentVelocity: { x: nextVelocityX, z: nextVelocityZ },
+    desiredDirection: { x: desiredX, z: desiredZ },
+    moveMagnitude: move.magnitude,
+    sprinting,
+    grounded,
+    plantCut,
+    turnDelta,
+    deltaSeconds,
+    jogSpeed: config.jogSpeed,
+    sprintSpeed: config.sprintSpeed,
+    acceleration: config.acceleration,
+    braking: config.braking,
+  });
   state.actionHooks = {
     jumpRequested: (intent.actionBits & PlayerActionBits.Jump) !== 0,
     tackleRequested: (intent.actionBits & PlayerActionBits.Tackle) !== 0,
