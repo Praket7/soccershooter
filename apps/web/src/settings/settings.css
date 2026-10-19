@@ -1,0 +1,209 @@
+:root {
+  --game-hud-scale: 1;
+}
+
+.gameplay-settings-button {
+  min-height: 34px;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 9px;
+  color: #eaf0f3;
+  background: rgba(255, 255, 255, .045);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  transition: border-color 120ms ease, background 120ms ease, transform 120ms ease;
+}
+
+.gameplay-settings-button:hover,
+.gameplay-settings-button:focus-visible {
+  border-color: rgba(217, 243, 91, .46);
+  background: rgba(217, 243, 91, .08);
+  outline: none;
+}
+
+.gameplay-settings-button:active { transform: translateY(1px); }
+
+.gameplay-settings-dialog {
+  width: min(720px, calc(100vw - 32px));
+  max-height: min(780px, calc(100vh - 32px));
+  margin: auto;
+  padding: 0;
+  overflow: auto;
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 16px;
+  color: #edf3f7;
+  background: #0b1219;
+  box-shadow: 0 34px 110px rgba(0,0,0,.62), inset 0 1px rgba(255,255,255,.035);
+}
+
+.gameplay-settings-dialog::backdrop {
+  background: rgba(0, 4, 8, .74);
+  backdrop-filter: blur(8px);
+}
+
+.gameplay-settings-form {
+  display: grid;
+  gap: 14px;
+  padding: clamp(18px, 3vw, 28px);
+}
+
+.gameplay-settings-form > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+
+.gameplay-settings-form h2 {
+  margin: 0;
+  font-size: clamp(24px, 4vw, 34px);
+  letter-spacing: -.025em;
+}
+
+.gameplay-settings-form header p:last-child {
+  max-width: 570px;
+  margin: 8px 0 0;
+  color: #99aab4;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.settings-close-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  flex: 0 0 auto;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 9px;
+  color: #c8d2d8;
+  background: rgba(255,255,255,.04);
+  cursor: pointer;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.gameplay-settings-form section {
+  display: grid;
+  gap: 9px;
+  padding: 14px;
+  border: 1px solid rgba(255,255,255,.075);
+  border-radius: 12px;
+  background: rgba(255,255,255,.018);
+}
+
+.gameplay-settings-form h3 {
+  margin: 0 0 3px;
+  color: #e9eff2;
+  font-size: 12px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.gameplay-setting-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) auto;
+  gap: 6px 14px;
+  align-items: center;
+  color: #c5d0d6;
+  font-size: 12px;
+}
+
+.gameplay-setting-row output {
+  min-width: 54px;
+  color: #e9f4a6;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.gameplay-setting-row input[type="range"] {
+  grid-column: 1 / -1;
+  width: 100%;
+  accent-color: #d9f35b;
+  cursor: ew-resize;
+}
+
+.gameplay-setting-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  min-height: 34px;
+  color: #c5d0d6;
+  font-size: 12px;
+}
+
+.gameplay-setting-toggle input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: #d9f35b;
+}
+
+.gameplay-settings-form input:focus-visible,
+.gameplay-settings-form button:focus-visible {
+  outline: 2px solid #d9f35b;
+  outline-offset: 2px;
+}
+
+.gameplay-settings-form > footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.settings-primary,
+.settings-secondary {
+  min-height: 38px;
+  padding: 8px 14px;
+  border-radius: 9px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .04em;
+}
+
+.settings-primary {
+  border: 1px solid rgba(217,243,91,.5);
+  color: #0b1118;
+  background: #d9f35b;
+}
+
+.settings-secondary {
+  border: 1px solid rgba(255,255,255,.12);
+  color: #d4dde2;
+  background: rgba(255,255,255,.04);
+}
+
+/* Player-facing overlays scale without changing world-space simulation. */
+.control-card,
+.course-card,
+.action-feedback,
+.football-practice-panel {
+  font-size: calc(11px * var(--game-hud-scale));
+}
+
+[data-movement-hud="true"] {
+  font-size: calc(12px * var(--game-hud-scale)) !important;
+}
+
+body[data-reduced-motion="true"] *,
+body[data-reduced-motion="true"] *::before,
+body[data-reduced-motion="true"] *::after {
+  scroll-behavior: auto !important;
+  animation-duration: .001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: .001ms !important;
+}
+
+@media (max-width: 720px) {
+  .gameplay-settings-form { padding: 16px; }
+  .gameplay-settings-form > footer { flex-direction: column-reverse; }
+  .settings-primary, .settings-secondary { width: 100%; }
+}
