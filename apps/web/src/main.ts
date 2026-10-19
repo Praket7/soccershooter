@@ -116,7 +116,7 @@ const camera = new THREE.PerspectiveCamera(55, 1, 0.05, 100);
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = THREE.PCFShadowMap;
 renderer.domElement.dataset.gameViewport = 'true';
 renderer.domElement.dataset.proceduralAthlete = 'true';
 renderer.domElement.setAttribute('aria-label', 'Interactive SoccerShooter physical football practice');

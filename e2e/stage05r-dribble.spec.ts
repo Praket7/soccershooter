@@ -127,7 +127,11 @@ test('a late 90 degree jog cut in the live game retains contact without attachin
   expect(tickSamples.length, 'cut telemetry should include the full 36 simulation ticks').toBeGreaterThanOrEqual(36);
   expect(firstObservedTick).toBe(startTick + 1);
   expect(maximumObservedTickGap, JSON.stringify({ sampleTicks: tickSamples.map((state) => state.tick) })).toBeLessThanOrEqual(1);
-  expect(cutInputAckTick, JSON.stringify({ baselineInputAckSimTick, contactCountdown, samples: tickSamples.map((state) => ({ tick: state.tick, inputAckSimTick: state.inputAckSimTick })) })).toBeLessThan(startTick + contactCountdown);
+  // The fixed-step loop applies tickIntent to movement and FootballPractice
+  // before it stamps inputAcknowledgedSimTick. Equality therefore means the
+  // cut was consumed in the contact step, before that step's contact update.
+  expect(cutInputAckTick, JSON.stringify({ baselineInputAckSimTick, contactCountdown, samples: tickSamples.map((state) => ({ tick: state.tick, inputAckSimTick: state.inputAckSimTick })) }))
+    .toBeLessThanOrEqual(startTick + contactCountdown);
 });
 
 test('RMB close control stays on planned contacts instead of falling back to the cooldown corridor', async ({ page }) => {
