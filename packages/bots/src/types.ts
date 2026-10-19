@@ -24,6 +24,8 @@ export interface BotFieldGeometry {
   halfWidth: number;
   halfLength: number;
   goalHalfWidth: number;
+  /** Optional for legacy fixtures; regulation-size default is used when absent. */
+  goalHeight?: number;
 }
 
 export type MatchPhase = 'live' | 'restart' | 'stopped';
