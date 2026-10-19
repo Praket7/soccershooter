@@ -178,7 +178,8 @@ export function runDribbleCalibration(): { version: 1; seed: number; tickRateHz:
     brakingDistanceMeters: summarize(scenarios.map(({ metrics }) => metrics.brakingDistanceMeters)),
     plantDurationTicks: summarize(scenarios.map(({ metrics }) => metrics.plantDurationTicks)),
     lostControlRate: summarize(scenarios.map(({ metrics }) => metrics.lostControlRate)),
-    inputToMotionResponseLatencyTicks: summarize(scenarios.map(({ metrics }) => metrics.inputToMotionResponseLatencyTicks ?? 0)),
+    inputToMotionResponseLatencyTicks: summarize(scenarios.flatMap(({ metrics }) =>
+      metrics.inputToMotionResponseLatencyTicks === null ? [] : [metrics.inputToMotionResponseLatencyTicks])),
     leftFootUsage: summarize(scenarios.map(({ metrics }) => metrics.footUsage.left)),
     rightFootUsage: summarize(scenarios.map(({ metrics }) => metrics.footUsage.right)),
   };

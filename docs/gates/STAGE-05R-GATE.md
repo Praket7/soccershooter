@@ -31,6 +31,6 @@ The prescribed Task 3 micro-playtest before migrating sprint/skills has no recor
 - Exit ball-speed / incoming ball-speed ratio: median 1.0908 (p90 1.4970, max 11.4785; the max is a low-speed pickup and shows this ratio should be interpreted as an impulse diagnostic, not a retention score).
 - Turn braking: plant duration p50 0, p90 13, max 20 ticks; braking distance p50 0.4706 m, p90 1.9225 m, max 2.1324 m.
 - Loose-ball fraction: p90 0.6444, max 0.6500 in the 90/120/180-degree jog cuts; all sprint cut cases are at or below 0.0389. This is a measured control-quality issue to tune, not a passing target.
-- Input-to-motion direction response (simulated, not rendered): median 11 ticks, p90 20, max 24. Browser input-to-visible latency is not yet sampled as a distribution.
+- Input-to-motion direction response (simulated, not rendered): 10 measured turn scenarios; p10 4 ticks, median 12, p90 20, max 24. The other six scenarios have no turn response and are excluded rather than reported as zero. Browser input-to-visible latency is not yet sampled as a distribution.
 
 The plan's pass/shot transition calibration and live rendered input-latency distribution are still missing. The sharp jog-cut loose-ball fraction is exposed in the distribution and remains a feel/playability point for tuning and owner review. Stage 05R remains blocked on those engineering checks as well as the owner sequencing and feel gates.

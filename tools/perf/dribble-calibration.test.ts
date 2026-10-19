@@ -10,6 +10,11 @@ describe('Stage 05R dribble calibration matrix', () => {
     expect(report.distributions.exitSpeedRetention.count).toBeGreaterThan(40);
     expect(report.distributions.plantDurationTicks.max).toBeGreaterThan(0);
     expect(report.distributions.inputToMotionResponseLatencyTicks.max).toBeGreaterThan(0);
+    const measuredResponseScenarios = report.scenarios
+      .map(({ metrics }) => metrics.inputToMotionResponseLatencyTicks)
+      .filter((latency): latency is number => latency !== null);
+    expect(report.distributions.inputToMotionResponseLatencyTicks.count).toBe(measuredResponseScenarios.length);
+    expect(report.distributions.inputToMotionResponseLatencyTicks.p10).toBeGreaterThan(0);
     expect(report.scenarios.find(({ scenario }) => scenario === 'pressure-from-left')?.metrics.footUsage.left).toBeGreaterThan(0);
     expect(report.scenarios.find(({ scenario }) => scenario === 'pressure-from-right')?.metrics.footUsage.right).toBeGreaterThan(0);
     expect(report.scenarios.find(({ scenario }) => scenario === 'trap-to-controlled-exit')?.metrics.contacts).toBeGreaterThan(0);
