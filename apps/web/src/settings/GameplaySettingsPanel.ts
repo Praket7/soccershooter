@@ -124,10 +124,12 @@ function settingRow(
     </label>`;
 }
 
-function setupPanel(): void {
+function setupPanel(): boolean {
   applyPagePreferences(currentGameplayPreferences());
+  if (document.querySelector('[data-gameplay-settings-button]')) return true;
+
   const headerActions = document.querySelector<HTMLElement>('.header-actions');
-  if (!headerActions || document.querySelector('[data-gameplay-settings-button]')) return;
+  if (!headerActions) return false;
 
   const button = document.createElement('button');
   button.type = 'button';
@@ -206,10 +208,20 @@ function setupPanel(): void {
     syncForm(dialog, currentGameplayPreferences());
     if (!dialog.open) dialog.showModal();
   });
+  return true;
+}
+
+function bootstrap(): void {
+  if (setupPanel()) return;
+  const observer = new MutationObserver(() => {
+    if (!setupPanel()) return;
+    observer.disconnect();
+  });
+  observer.observe(document.documentElement, { childList: true, subtree: true });
 }
 
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', setupPanel, { once: true });
+  document.addEventListener('DOMContentLoaded', bootstrap, { once: true });
 } else {
-  setupPanel();
+  bootstrap();
 }
