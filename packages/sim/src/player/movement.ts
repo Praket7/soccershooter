@@ -446,16 +446,11 @@ export function stepPlayerMovement(
   state.stamina = stamina;
   state.sprintLocked = sprintLocked;
 
-  // The camera/reticle owns aimYaw. The lower body owns facingYaw. Coupling
-  // those two was the source of the sideways-body glitch: the root travelled
-  // laterally while the hips and procedural gait still faced the camera.
+  // Authoritative facing remains tied to action/aim intent. Rendered locomotion
+  // may align hips and gait to travel direction, but that presentation concern
+  // must not silently alter pass/shot body-angle legality or bot tactics.
   const locomotionSpeed = Math.hypot(nextVelocityX, nextVelocityZ);
-  const facingTarget = locomotionSpeed > 0.22
-    ? Math.atan2(nextVelocityX, nextVelocityZ)
-    : aimYaw;
-  const facingSpeedFraction = clamp(locomotionSpeed / Math.max(0.1, config.sprintSpeed), 0, 1);
-  const facingRate = config.facingTurnRate * (1.35 - 0.35 * facingSpeedFraction);
-  state.facingYaw = moveAngleToward(state.facingYaw, facingTarget, facingRate * deltaSeconds);
+  state.facingYaw = moveAngleToward(state.facingYaw, aimYaw, config.facingTurnRate * deltaSeconds);
 
   state.locomotion = grounded
     ? chooseLocomotion(locomotionSpeed, move.magnitude, sprinting, plantCut)
