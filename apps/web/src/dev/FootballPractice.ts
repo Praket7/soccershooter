@@ -705,6 +705,7 @@ export class FootballPractice {
         speed: Math.hypot(actor.velocity.x, actor.velocity.z),
         pressure: actor.pressure,
         ballDistance: Math.hypot(snapshot.position.x - actor.position.x, snapshot.position.z - actor.position.z),
+        ballHeight: snapshot.position.y,
         grounded: player.grounded,
         stamina: player.stamina,
         actionBits: intent.actionBits,
