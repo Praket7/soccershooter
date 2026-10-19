@@ -13,6 +13,7 @@ export interface TechniqueContext {
   speed: number;
   pressure: number;
   ballDistance: number;
+  ballHeight: number;
   grounded: boolean;
   stamina: number;
   actionBits: number;
@@ -131,8 +132,10 @@ export function executeTechnique(
   if (context.tick < state.cooldownUntilTick) return failed(state, 'cooldown', 'cooldown-active');
   if (state.active) return failed(state, 'recovery', 'technique-already-active');
   if ((context.actionBits & (1 << 6)) === 0) return failed(state, 'ineligible', 'technique-input-missing');
-  if (!technique.eligibility.requiresGrounded && context.grounded) return failed(state, 'ineligible', 'airborne-technique-required');
   if (technique.eligibility.requiresGrounded && !context.grounded) return failed(state, 'ineligible', 'ground-contact-required');
+  if (context.ballHeight < technique.eligibility.minimumBallHeight || context.ballHeight > technique.eligibility.maximumBallHeight) {
+    return failed(state, 'ineligible', 'wrong-ball-height');
+  }
   if (
     context.speed < technique.eligibility.minimumSpeed
     || context.speed > technique.eligibility.maximumSpeed

@@ -42,10 +42,10 @@ const TUNING: Readonly<Record<string, Readonly<TechniqueTuning>>> = Object.freez
   'lofted-through': { cost: { stamina: 4, cooldownTicks: 54 }, timing: { anticipationTicks: 5, recoveryTicks: 14 }, contact: { targetSpeed: 18, launchElevationDegrees: 28, spinAxis: 'back', spinRate: 34, impulseScale: 0.82, maxImpulse: 11.5, spinScale: 0.9 }, counter: { windowTicks: 9 } },
   'threaded-ball': { cost: { stamina: 5, cooldownTicks: 58 }, timing: { anticipationTicks: 5, recoveryTicks: 15 }, contact: { targetSpeed: 21, launchElevationDegrees: 7, spinAxis: 'top', spinRate: 11, impulseScale: 0.95, maxImpulse: 12.6, spinScale: 0.42 }, counter: { windowTicks: 10 } },
 
-  volley: { eligibility: { minimumSpeed: 0.4, maximumPressure: 0.84, maximumBallDistance: 0.72 }, cost: { stamina: 6, cooldownTicks: 60 }, timing: { anticipationTicks: 4, recoveryTicks: 22 }, contact: { targetSpeed: 22, launchElevationDegrees: 10, spinAxis: 'top', spinRate: 24, impulseScale: 1, maxImpulse: 13.5, spinScale: 0.72 }, counter: { windowTicks: 10 } },
-  scissor: { eligibility: { maximumPressure: 0.72, maximumBallDistance: 0.68 }, cost: { stamina: 8, cooldownTicks: 78 }, timing: { anticipationTicks: 7, recoveryTicks: 28 }, movement: { speedScale: 0.54 }, contact: { targetSpeed: 23, launchElevationDegrees: 15, spinAxis: 'top', spinRate: 28, impulseScale: 1.08, maxImpulse: 14, spinScale: 0.8 }, counter: { windowTicks: 15 } },
-  bicycle: { eligibility: { maximumPressure: 0.62, maximumBallDistance: 0.64 }, cost: { stamina: 10, cooldownTicks: 96 }, timing: { anticipationTicks: 9, recoveryTicks: 34 }, movement: { speedScale: 0.46 }, contact: { targetSpeed: 24, launchElevationDegrees: 18, spinAxis: 'back', spinRate: 30, impulseScale: 1.12, maxImpulse: 14.5, spinScale: 0.88 }, counter: { windowTicks: 18 } },
-  'diving-header': { eligibility: { maximumPressure: 0.8, maximumBallDistance: 0.7 }, cost: { stamina: 5, cooldownTicks: 62 }, timing: { anticipationTicks: 5, recoveryTicks: 26 }, contact: { targetSpeed: 15, launchElevationDegrees: 7, spinAxis: 'none', spinRate: 0, impulseScale: 0.78, maxImpulse: 9.5, spinScale: 0 }, counter: { windowTicks: 12 }, mechanic: 'air-redirection' },
+  volley: { eligibility: { minimumSpeed: 0.4, maximumPressure: 0.84, maximumBallDistance: 0.72, minimumBallHeight: 0.34, maximumBallHeight: 1.28 }, cost: { stamina: 6, cooldownTicks: 60 }, timing: { anticipationTicks: 4, recoveryTicks: 22 }, contact: { targetSpeed: 22, launchElevationDegrees: 10, spinAxis: 'top', spinRate: 24, impulseScale: 1, maxImpulse: 13.5, spinScale: 0.72 }, counter: { windowTicks: 10 } },
+  scissor: { eligibility: { maximumPressure: 0.72, maximumBallDistance: 0.68, minimumBallHeight: 0.55, maximumBallHeight: 1.5 }, cost: { stamina: 8, cooldownTicks: 78 }, timing: { anticipationTicks: 7, recoveryTicks: 28 }, movement: { speedScale: 0.54 }, contact: { targetSpeed: 23, launchElevationDegrees: 15, spinAxis: 'top', spinRate: 28, impulseScale: 1.08, maxImpulse: 14, spinScale: 0.8 }, counter: { windowTicks: 15 } },
+  bicycle: { eligibility: { maximumPressure: 0.62, maximumBallDistance: 0.64, minimumBallHeight: 0.75, maximumBallHeight: 1.7 }, cost: { stamina: 10, cooldownTicks: 96 }, timing: { anticipationTicks: 9, recoveryTicks: 34 }, movement: { speedScale: 0.46 }, contact: { targetSpeed: 24, launchElevationDegrees: 18, spinAxis: 'back', spinRate: 30, impulseScale: 1.12, maxImpulse: 14.5, spinScale: 0.88 }, counter: { windowTicks: 18 } },
+  'diving-header': { eligibility: { maximumPressure: 0.8, maximumBallDistance: 0.7, minimumBallHeight: 0.9, maximumBallHeight: 1.8 }, cost: { stamina: 5, cooldownTicks: 62 }, timing: { anticipationTicks: 5, recoveryTicks: 26 }, contact: { targetSpeed: 15, launchElevationDegrees: 7, spinAxis: 'none', spinRate: 0, impulseScale: 0.78, maxImpulse: 9.5, spinScale: 0 }, counter: { windowTicks: 12 }, mechanic: 'air-redirection' },
 });
 
 function defaultContact(family: TechniqueDefinition['family'], surface: TechniqueDefinition['contact']['surface']): Contact {
@@ -79,6 +79,8 @@ function technique(
     maximumSpeed: family === 'aerial' ? 8.5 : 9,
     maximumPressure: 0.82,
     maximumBallDistance: 0.76,
+    minimumBallHeight: 0,
+    maximumBallHeight: family === 'aerial' ? 1.8 : 0.45,
     requiresGrounded: family !== 'aerial',
   };
   const defaultCost: Cost = { stamina: family === 'aerial' ? 7 : 4, cooldownTicks: family === 'dribble' ? 48 : 72 };

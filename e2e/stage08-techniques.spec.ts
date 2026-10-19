@@ -17,7 +17,7 @@ test('Stage 08 techniques expose an eligible windup, counter window, and physica
     .toBeGreaterThan(0.8);
 });
 
-test('Stage 08 aerial techniques reject a grounded attempt instead of faking an airborne contact', async ({ page }) => {
+test('Stage 08 aerial techniques reject a settled ground ball instead of faking an aerial contact', async ({ page }) => {
   await page.goto('/');
   const practice = page.locator('[data-football-state]');
   await page.locator('.practice-technique-panel summary').click();
@@ -29,5 +29,5 @@ test('Stage 08 aerial techniques reject a grounded attempt instead of faking an 
   await expect(debug).toBeVisible();
   await expect(debug).toHaveAttribute('data-technique', 'volley');
   await expect(debug).toHaveAttribute('data-eligible', 'false');
-  await expect(debug).toHaveAttribute('data-failure-reason', 'airborne-technique-required');
+  await expect(debug).toHaveAttribute('data-failure-reason', 'wrong-ball-height');
 });

@@ -15,6 +15,8 @@ export interface TechniqueDefinition {
     maximumSpeed: number;
     maximumPressure: number;
     maximumBallDistance: number;
+    minimumBallHeight: number;
+    maximumBallHeight: number;
     requiresGrounded: boolean;
   };
   cost: { stamina: number; cooldownTicks: number };
@@ -50,6 +52,8 @@ export function validateTechnique(technique: TechniqueDefinition): void {
     technique.eligibility.maximumSpeed,
     technique.eligibility.maximumPressure,
     technique.eligibility.maximumBallDistance,
+    technique.eligibility.minimumBallHeight,
+    technique.eligibility.maximumBallHeight,
     technique.cost.stamina,
     technique.cost.cooldownTicks,
     technique.timing.anticipationTicks,
@@ -70,6 +74,7 @@ export function validateTechnique(technique: TechniqueDefinition): void {
     || technique.contact.launchElevationDegrees < -5
     || technique.contact.launchElevationDegrees > 55) throw new RangeError(`${technique.id} has invalid launch elevation`);
   if (technique.eligibility.maximumSpeed < technique.eligibility.minimumSpeed) throw new RangeError(`${technique.id} speed range is inverted`);
+  if (technique.eligibility.maximumBallHeight < technique.eligibility.minimumBallHeight) throw new RangeError(`${technique.id} ball-height range is inverted`);
   if (technique.eligibility.maximumPressure > 1 || technique.movement.speedScale > 1.2) throw new RangeError(`${technique.id} exceeds its bounded envelope`);
   if (technique.contact.impulseScale > 1.5 || technique.contact.maxImpulse > 18) throw new RangeError(`${technique.id} exceeds the technique impulse envelope`);
   if (technique.contact.targetSpeed > 36 || technique.contact.spinRate > 120) throw new RangeError(`${technique.id} exceeds the physical ball contact envelope`);

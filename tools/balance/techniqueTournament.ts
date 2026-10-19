@@ -31,7 +31,8 @@ export function runTechniqueTournament(seed = 0x8a11ce, trialsPerTechnique = 512
         speed,
         pressure,
         ballDistance: ((trial * 7 + seed) % 76) / 100,
-        grounded: technique.family !== 'aerial',
+        ballHeight: technique.family === 'aerial' ? 0.3 + (((trial * 17 + seed) % 151) / 100) : 0.11,
+        grounded: true,
         stamina: 100,
         actionBits: 1 << 6,
       });

@@ -3,7 +3,7 @@ import { TECHNIQUE_BY_ID } from '@soccershooter/content/techniques/catalog';
 import * as techniqueExecution from './executeTechnique';
 import { createTechniqueState, executeTechnique, interruptTechnique } from './executeTechnique';
 
-const context = { tick: 100, speed: 4, pressure: 0.2, ballDistance: 0.35, grounded: true, stamina: 80, actionBits: 1 << 6 };
+const context = { tick: 100, speed: 4, pressure: 0.2, ballDistance: 0.35, ballHeight: 0.11, grounded: true, stamina: 80, actionBits: 1 << 6 };
 
 describe('deterministic technique execution', () => {
   it('rejects ineligible input without charging stamina or starting cooldown', () => {
@@ -31,13 +31,25 @@ describe('deterministic technique execution', () => {
     expect(interrupted.counterUntilTick).toBe(started.contact!.counterUntilTick);
   });
 
-  it('requires aerial techniques to be airborne rather than grounded', () => {
+  it('keys aerial technique eligibility to ball height rather than forcing the whole player airborne', () => {
     const volley = TECHNIQUE_BY_ID.get('volley')!;
-    const grounded = executeTechnique(volley, createTechniqueState(), { ...context, grounded: true });
-    const airborne = executeTechnique(volley, createTechniqueState(), { ...context, grounded: false });
-    expect(grounded.status).toBe('ineligible');
-    expect(grounded.reason).toBe('airborne-technique-required');
-    expect(airborne.status).toBe('windup');
+    const settledBall = executeTechnique(volley, createTechniqueState(), { ...context, grounded: true, ballHeight: 0.11 });
+    const plantedVolley = executeTechnique(volley, createTechniqueState(), { ...context, grounded: true, ballHeight: 0.82 });
+    const jumpingVolley = executeTechnique(volley, createTechniqueState(), { ...context, grounded: false, ballHeight: 1.05 });
+    expect(settledBall.status).toBe('ineligible');
+    expect(settledBall.reason).toBe('wrong-ball-height');
+    expect(plantedVolley.status).toBe('windup');
+    expect(jumpingVolley.status).toBe('windup');
+  });
+
+  it('gives acrobatic aerial techniques distinct vertical contact windows', () => {
+    const scissor = TECHNIQUE_BY_ID.get('scissor')!;
+    const bicycle = TECHNIQUE_BY_ID.get('bicycle')!;
+    const header = TECHNIQUE_BY_ID.get('diving-header')!;
+    expect(executeTechnique(scissor, createTechniqueState(), { ...context, ballHeight: 0.7 }).status).toBe('windup');
+    expect(executeTechnique(bicycle, createTechniqueState(), { ...context, ballHeight: 0.6 }).reason).toBe('wrong-ball-height');
+    expect(executeTechnique(bicycle, createTechniqueState(), { ...context, ballHeight: 1.2 }).status).toBe('windup');
+    expect(executeTechnique(header, createTechniqueState(), { ...context, ballHeight: 1.35 }).status).toBe('windup');
   });
 
   it('carries declarative launch and spin geometry into the authoritative contact intent', () => {
