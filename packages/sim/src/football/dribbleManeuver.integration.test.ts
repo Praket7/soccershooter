@@ -130,6 +130,13 @@ function straightThenTurn(turnDegrees: number, sprint: boolean): ManeuverFrame[]
   ];
 }
 
+function sprintReleasePlant(turnDegrees: number): ManeuverFrame[] {
+  return [
+    ...Array.from({ length: 90 }, () => ({ direction: direction(0), sprint: true })),
+    ...Array.from({ length: 150 }, () => ({ direction: direction(turnDegrees), sprint: false })),
+  ];
+}
+
 function repeatedSlalom(): ManeuverFrame[] {
   const frames: ManeuverFrame[] = Array.from({ length: 60 }, () => ({ direction: direction(0), sprint: false }));
   for (let repeat = 0; repeat < 5; repeat += 1) {
@@ -150,6 +157,13 @@ describe('physical dribble maneuver quality', () => {
     const result = runManeuver(straightThenTurn(120, true));
     expect(result.failures).toEqual([]);
     expect(result.maxSeparation).toBeLessThan(1.55);
+  });
+
+  test('releasing sprint into a 150 degree plant can recover a ball that crosses just behind the stride', () => {
+    const result = runManeuver(sprintReleasePlant(150));
+    expect(result.behindBodyFailures).toBe(0);
+    expect(result.outOfReachFailures).toBe(0);
+    expect(result.maxSeparation).toBeLessThan(1.3);
   });
 
   test('repeated ordinary 45 degree changes stay playable without behind-body or out-of-reach lockout', () => {
