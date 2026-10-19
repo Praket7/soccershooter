@@ -46,15 +46,23 @@ test('player can keep running while charging and completing a shot', async ({ pa
   await page.keyboard.down('w');
   await expect.poll(async () => Number(await player.getAttribute('data-speed')), { timeout: 2200 }).toBeGreaterThan(3.2);
 
+  await page.evaluate(() => {
+    const output = document.querySelector<HTMLOutputElement>('[data-football-state]');
+    if (!output) throw new Error('missing football practice probe');
+    const observer = new MutationObserver(() => {
+      if (output.dataset.reason?.startsWith('shot:')) output.dataset.runningShotContactSeen = 'true';
+    });
+    observer.observe(output, { attributes: true, attributeFilter: ['data-reason'] });
+  });
+
   const beforeContact = Number(await football.getAttribute('data-last-contact-event-tick'));
   await page.mouse.down({ button: 'left' });
   await page.waitForTimeout(150);
   await page.mouse.up({ button: 'left' });
 
-  await expect.poll(async () => (await football.getAttribute('data-reason')) ?? '', { timeout: 1800 })
-    .toMatch(/^shot:/);
-  const afterContact = Number(await football.getAttribute('data-last-contact-event-tick'));
-  expect(afterContact).toBeGreaterThan(beforeContact);
+  await expect(football).toHaveAttribute('data-running-shot-contact-seen', 'true', { timeout: 1800 });
+  await expect.poll(async () => Number(await football.getAttribute('data-last-contact-event-tick')), { timeout: 1800 })
+    .toBeGreaterThan(beforeContact);
   expect(Number(await player.getAttribute('data-speed'))).toBeGreaterThan(2.5);
   await page.keyboard.up('w');
 });
