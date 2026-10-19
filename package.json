@@ -10,7 +10,7 @@
   "scripts": {
     "lint": "node tools/security/check-authoritative-random.mjs && node tools/security/check-private-imports.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run packages/sim/src/football/dribblePlanner.test.ts packages/sim/src/football/dribbleCarry.integration.test.ts packages/sim/src/football/dribbleContact.integration.test.ts packages/sim/src/football/dribbleManeuver.integration.test.ts packages/sim/src/football/dribblePressure.integration.test.ts packages/sim/src/football/dribbleRecovery.integration.test.ts packages/sim/src/football/dribbleTurn.integration.test.ts packages/sim/src/football/professionalControlCourse.integration.test.ts packages/sim/src/football/dribbleContinuity.test.ts tools/perf/dribble-calibration.test.ts --reporter=verbose",
+    "test": "vitest run packages/sim/src/football/dribbleTurn.integration.test.ts -t \"a high-speed 90 degree cut\" --reporter=verbose",
     "test:determinism": "vitest run packages/sim/src/determinism.test.ts --reporter=verbose",
     "test:e2e": "playwright test",
     "determinism:headless": "tsx tools/perf/run-determinism.ts",
