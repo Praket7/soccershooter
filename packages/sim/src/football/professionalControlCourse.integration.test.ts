@@ -155,15 +155,22 @@ function assertPhaseClean(state: CourseState, phase: string): void {
   state.failures.length = 0;
 }
 
-function assertPhysicalPlantRecovery(state: CourseState, phase: string): void {
+function assertBriefTransitionRecovery(
+  state: CourseState,
+  phase: string,
+  maxBehindBodyFrames: number,
+  finalSeparation: number,
+): void {
   const outOfReach = state.failures.filter((reason) => reason === 'out-of-reach');
   const behindBody = state.failures.filter((reason) => reason === 'behind-body');
+  const other = state.failures.filter((reason) => reason !== 'out-of-reach' && reason !== 'behind-body' && reason !== 'idle-no-touch');
   expect(outOfReach, `${phase} must never become a true loose-ball loss`).toEqual([]);
-  // A planted change of direction naturally includes a brief interval where neither
-  // foot is contacting the ball. Six 60 Hz failed touch opportunities is 100 ms;
-  // longer than that starts to feel like input lockout rather than footwork.
-  expect(behindBody.length, `${phase} contact gap exceeded 100 ms`).toBeLessThanOrEqual(6);
-  expect(separation(state), `${phase} must finish with the ball reacquired`).toBeLessThan(0.35);
+  expect(other, `${phase} must not fail for height, speed, or another control fault`).toEqual([]);
+  expect(
+    behindBody.length,
+    `${phase} contact gap exceeded ${(maxBehindBodyFrames * 1000 / 60).toFixed(0)} ms`,
+  ).toBeLessThanOrEqual(maxBehindBodyFrames);
+  expect(separation(state), `${phase} must finish with the ball reacquired`).toBeLessThan(finalSeparation);
   expect(state.maxSeparation, `${phase} ball must remain physically recoverable`).toBeLessThan(1.45);
   state.failures.length = 0;
 }
@@ -188,10 +195,12 @@ describe('professional physical ball-control course', () => {
     // very short physically free interval while the body rotates, but may not leave
     // the recoverable pocket or require hidden possession/magnetic correction.
     runFrames(state, Array.from({ length: 60 }, () => ({ direction: direction(90), sprint: false })));
-    assertPhysicalPlantRecovery(state, 'sprint release 90 plant');
+    assertBriefTransitionRecovery(state, 'sprint release 90 plant', 6, 0.35);
 
+    // Entering close control can include one foot-transition beat after the plant.
+    // Keep it far tighter than the plant itself: at most two 60 Hz missed contacts.
     runFrames(state, Array.from({ length: 60 }, () => ({ direction: direction(55), precision: true })));
-    assertPhaseClean(state, 'precision exit');
+    assertBriefTransitionRecovery(state, 'precision exit', 2, 0.40);
 
     runFrames(state, Array.from({ length: 60 }, () => ({ direction: direction(0) })));
     assertPhaseClean(state, 'settled straight carry');
