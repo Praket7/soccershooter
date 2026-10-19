@@ -495,6 +495,7 @@ function frame(now: number): void {
   let stepped = false;
   let jumpAcknowledgedThisFrame = false;
   let tackleAcknowledgedThisFrame = false;
+  let inputAcknowledgedSimTick: number | null = null;
   while (accumulator + 1e-12 >= FIXED_DT) {
     previousPlayer = clonePlayerState(player);
     let tickIntent = intent;
@@ -534,6 +535,7 @@ function frame(now: number): void {
       lastAppliedInputTimestamp = keyboardFrame.inputTimestamp;
       inputToSimulationMs = Math.max(0, performance.now() - keyboardFrame.inputTimestamp);
       pendingRenderAckTimestamp = keyboardFrame.inputTimestamp;
+      inputAcknowledgedSimTick = simTick;
     }
   }
 
@@ -677,12 +679,15 @@ function frame(now: number): void {
   playerProbe.dataset.renderFrameId = String(renderedFrameId);
   renderer.render(scene, camera);
   if (renderAckTimestamp !== null) {
+    const acknowledgedRenderFrame = renderedFrameId;
+    const acknowledgedSimTick = inputAcknowledgedSimTick ?? simTick;
     requestAnimationFrame((acknowledgedAt) => {
       // The prior frame has now completed its render and crossed a browser
       // frame boundary, giving the browser a chance to present the response.
       inputToRenderMs = Math.max(0, acknowledgedAt - renderAckTimestamp);
       inputRenderAckFrame += 1;
-      playerProbe.dataset.inputAckRenderFrame = String(renderedFrameId);
+      playerProbe.dataset.inputAckRenderFrame = String(acknowledgedRenderFrame);
+      playerProbe.dataset.inputAckSimTick = String(acknowledgedSimTick);
       playerProbe.dataset.inputToRenderMs = inputToRenderMs.toFixed(3);
       playerProbe.dataset.inputRenderAckFrame = String(inputRenderAckFrame);
     });

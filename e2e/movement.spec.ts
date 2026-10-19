@@ -7,18 +7,21 @@ test('Stage 05R records a rendered input acknowledgement latency distribution', 
     if (!probe) throw new Error('missing player telemetry probe');
     const samples: number[] = [];
     const frameDeltas: number[] = [];
+    const simTickDeltas: number[] = [];
     const responseDistances: number[] = [];
-    const pendingInput = { renderFrameId: null as number | null };
+    const pendingInput = { renderFrameId: null as number | null, simTick: null as number | null };
     const pendingInputZ = { value: null as number | null };
     const inputFrame = (event: KeyboardEvent) => {
       if (event.key.toLowerCase() !== 'w') return;
       pendingInput.renderFrameId = Number((probe as HTMLElement).dataset.renderFrameId);
+      pendingInput.simTick = Number((probe as HTMLElement).dataset.tick);
       pendingInputZ.value = Number((probe as HTMLElement).dataset.z);
     };
     document.addEventListener('keydown', inputFrame, true);
     Object.assign(window, {
       __stage05rRenderLatencySamples: samples,
       __stage05rFrameDeltas: frameDeltas,
+      __stage05rSimTickDeltas: simTickDeltas,
       __stage05rResponseDistances: responseDistances,
     });
     new MutationObserver((records) => {
@@ -30,11 +33,16 @@ test('Stage 05R records a rendered input acknowledgement latency distribution', 
         const ackFrame = Number(element.dataset.inputAckRenderFrame);
         if (pendingInput.renderFrameId !== null && Number.isFinite(ackFrame)) {
           frameDeltas.push(ackFrame - pendingInput.renderFrameId);
+          const ackSimTick = Number(element.dataset.inputAckSimTick);
+          if (pendingInput.simTick !== null && Number.isFinite(ackSimTick)) {
+            simTickDeltas.push(ackSimTick - pendingInput.simTick);
+          }
           const acknowledgedZ = Number(element.dataset.z);
           if (pendingInputZ.value !== null && Number.isFinite(acknowledgedZ)) {
             responseDistances.push(acknowledgedZ - pendingInputZ.value);
           }
           pendingInput.renderFrameId = null;
+          pendingInput.simTick = null;
           pendingInputZ.value = null;
         }
       }
@@ -58,6 +66,9 @@ test('Stage 05R records a rendered input acknowledgement latency distribution', 
   const frameDeltas = await page.evaluate(() =>
     (window as typeof window & { __stage05rFrameDeltas: number[] }).__stage05rFrameDeltas,
   );
+  const simTickDeltas = await page.evaluate(() =>
+    (window as typeof window & { __stage05rSimTickDeltas: number[] }).__stage05rSimTickDeltas,
+  );
   const responseDistances = await page.evaluate(() =>
     (window as typeof window & { __stage05rResponseDistances: number[] }).__stage05rResponseDistances,
   );
@@ -72,6 +83,9 @@ test('Stage 05R records a rendered input acknowledgement latency distribution', 
     frameDeltaSamples: frameDeltas.length,
     p90Frames: [...frameDeltas].sort((a, b) => a - b)[Math.floor((frameDeltas.length - 1) * 0.9)],
     maxFrames: Math.max(...frameDeltas),
+    simTickSamples: simTickDeltas.length,
+    p90SimTicks: [...simTickDeltas].sort((a, b) => a - b)[Math.floor((simTickDeltas.length - 1) * 0.9)],
+    maxSimTicks: Math.max(...simTickDeltas),
     responseSamples: responseDistances.length,
     minForwardMovementMeters: Math.min(...responseDistances),
   };
@@ -82,13 +96,13 @@ test('Stage 05R records a rendered input acknowledgement latency distribution', 
   });
   expect(distribution.samples).toBeGreaterThanOrEqual(24);
   expect(distribution.frameDeltaSamples).toBeGreaterThanOrEqual(24);
+  expect(distribution.simTickSamples).toBeGreaterThanOrEqual(24);
   expect(distribution.responseSamples).toBeGreaterThanOrEqual(24);
   expect(acknowledgementFrame).toBeGreaterThan(0);
   expect(ordered.every((value) => Number.isFinite(value) && value >= 0)).toBe(true);
-  // Assert the plan's frame-count requirement directly; wall-clock timing is
-  // retained as telemetry because browser scheduling differs by runner.
-  expect(distribution.p90Frames).toBeLessThanOrEqual(1);
-  expect(distribution.maxFrames).toBeLessThanOrEqual(1);
+  // The plan's response target is a simulation tick, not a display-frame count.
+  expect(distribution.p90SimTicks).toBeLessThanOrEqual(1);
+  expect(distribution.maxSimTicks).toBeLessThanOrEqual(1);
   expect(responseDistances.every((distance) => distance > 0)).toBe(true);
 });
 
