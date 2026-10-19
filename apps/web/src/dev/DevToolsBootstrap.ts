@@ -7,11 +7,11 @@ async function loadDeveloperLabs(): Promise<void> {
   if (typeof window === 'undefined') return;
   if (!shouldLoadDevLabs(import.meta.env.DEV, window.location.search)) return;
 
-  await Promise.all([
-    import('./BotTacticalLab'),
-    import('./AdaptiveBotLab'),
-    import('./PhysicalBotScrimmage'),
-  ]);
+  // Preserve the original install order because later labs attach deactivation
+  // listeners to mode buttons created by earlier labs.
+  await import('./BotTacticalLab');
+  await import('./AdaptiveBotLab');
+  await import('./PhysicalBotScrimmage');
 }
 
 void loadDeveloperLabs();
