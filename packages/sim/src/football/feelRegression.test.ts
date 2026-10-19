@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import type { AthleticMotionState } from '../player/athleticMotion';
 import { createPlannedDribbleState, stepPlannedDribble } from './dribblePlanner';
-import { createStrikeContactPlan } from './strikePlanner';
+import { createStrikeContactPlan, stepStrikeContact } from './strikePlanner';
 import type { FootballActorSnapshot, FootballBallSnapshot, FootballVec3 } from './types';
 
 function actorAt(z: number, speed = 4.7): FootballActorSnapshot {
@@ -111,5 +111,36 @@ describe('football feel regressions', () => {
     // Presentation must begin acknowledging the requested strike immediately;
     // the physical impulse can still wait for the selected gait/contact beat.
     expect(plan!.prepareTick).toBe(request.tick);
+  });
+
+  test('a strike request during a normal knock-on is buffered without granting impossible contact reach', () => {
+    const actorPosition: FootballVec3 = { x: 0, y: 0, z: -13 };
+    const sourceBall = ballAt(-11.95, 0);
+    const request = {
+      kind: 'pass' as const,
+      sourceId: 'knock-on-pass',
+      tick: 40,
+      gaitPhase: 0.18,
+      strideSeconds: 0.42,
+      actorPosition,
+      ball: sourceBall,
+      targetBallVelocity: { x: 0, y: 0.4, z: 13 },
+      preferredFoot: 'right' as const,
+      balance: 1,
+    };
+
+    // ~1.05 m is outside instantaneous foot-contact reach but still inside a
+    // normal dribble/approach pocket. The button press should create a pending
+    // setup rather than disappear before the next legal step can reach it.
+    const plan = createStrikeContactPlan(request);
+    expect(plan).not.toBeNull();
+    expect(plan!.prepareTick).toBe(request.tick);
+
+    // Buffering intent is not magnetic reach. If the player never closes the
+    // gap, the strict contact-time geometry check must still miss.
+    expect(stepStrikeContact(plan!, plan!.contactTick, actorPosition, sourceBall).status).toBe('missed');
+
+    const tooFar = createStrikeContactPlan({ ...request, sourceId: 'too-far-pass', ball: ballAt(-11.35, 0) });
+    expect(tooFar).toBeNull();
   });
 });
