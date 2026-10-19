@@ -164,7 +164,7 @@ function runJogCut(turnDegrees: number) {
 }
 
 describe('Stage 05R sprint dribbling and effort-turn integration', () => {
-  test('late 90 and 120 degree jog cuts retarget while a full reversal remains committed', () => {
+  test('late jog cuts retarget responsively while a precommit full reversal stays physically moderated', () => {
     for (const degrees of [90, 120]) {
       const cut = runJogCut(degrees);
       expect(cut.looseRate).toBeLessThanOrEqual(0.2);
@@ -174,7 +174,12 @@ describe('Stage 05R sprint dribbling and effort-turn integration', () => {
 
     const reversal = runJogCut(180);
     expect(reversal.lastContactBeat).not.toBeNull();
-    expect(reversal.lastContactBeat!.after).toEqual(reversal.lastContactBeat!.before);
+    // Before the contact is committed, a full reversal may branch into a real
+    // pull-back touch. It must be slower than the incoming carry rather than an
+    // instantaneous full-speed sign flip. The late-commit test below still
+    // proves that a committed contact cannot snap to the reversal.
+    expect(reversal.lastContactBeat!.after.z).toBeLessThan(0);
+    expect(Math.abs(reversal.lastContactBeat!.after.z)).toBeLessThan(Math.abs(reversal.lastContactBeat!.before.z));
   });
 
   test('sprint creates fewer longer contacts than precision over the same elapsed time', () => {
@@ -191,7 +196,7 @@ describe('Stage 05R sprint dribbling and effort-turn integration', () => {
     expect(sprint.maxSeparation).toBeLessThan(2.2);
   });
 
-  test('a high-speed 90 degree cut visibly brakes before an effort contact and re-acceleration', () => {
+  test('a high-speed 90 degree cut shows an effort plant and settles at jog pace without a sluggish undershoot', () => {
     let player = createPlayerState({ position: { x: 0, y: 0, z: 0 }, facingYaw: 0 });
     let ball = createBallState({ position: { x: 0, y: BALL_CONSTANTS.radius, z: 0.68 }, grounded: true });
     let planner = createPlannedDribbleState();
@@ -252,12 +257,11 @@ describe('Stage 05R sprint dribbling and effort-turn integration', () => {
     expect(sawPlant).toBe(true);
     expect(sawEffortPlan).toBe(true);
     expect(sawContact).toBe(true);
-    expect(minSpeed).toBeLessThan(entrySpeed * 0.72);
-    // Sprint was released for the cut, so authoritative jog speed is capped at
-    // 5.2 m/s. Require visible re-acceleration without demanding an impossible
-    // speed above that configured movement ceiling.
-    expect(exitSpeed).toBeGreaterThan(minSpeed + 0.6);
-    expect(exitSpeed).toBeGreaterThan(5.0);
+    // Sprint is released during the 90-degree cut. The rebuilt controller must
+    // redirect cleanly to the 5.2 m/s jog ceiling without the old deep speed
+    // trough that made lateral movement feel sticky and unresponsive.
+    expect(minSpeed).toBeGreaterThanOrEqual(DEFAULT_MOVEMENT_CONFIG.jogSpeed - 0.05);
+    expect(exitSpeed).toBeCloseTo(DEFAULT_MOVEMENT_CONFIG.jogSpeed, 6);
   });
 
   test('a full-speed 180 degree reversal contains a plant then recovery beat before normal propulsion returns', () => {

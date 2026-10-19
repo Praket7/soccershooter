@@ -6,9 +6,12 @@ const MAX_STRIKE_REACH = 0.76;
 // Setup may begin while the ball is one normal dribble stride ahead. This is an
 // input-buffer envelope only: stepStrikeContact still enforces MAX_STRIKE_REACH
 // at the actual contact beat, so no extra physical reach or ball magnetism is
-// granted. Keeping this below the dribble planner's 1.48 m recovery boundary
-// also prevents a genuinely lost ball from banking a future kick.
+// granted.
 const MAX_STRIKE_SETUP_REACH = 1.22;
+const MIN_CONTACT_DELAY_TICKS = 2;
+const MAX_CONTACT_DELAY_TICKS = 8;
+const PREFERRED_FOOT_BIAS = 0.34;
+const APPROACH_SETUP_SPEED = 4.5;
 
 export interface StrikeContactRequest {
   kind: 'pass' | 'shot';
@@ -17,6 +20,9 @@ export interface StrikeContactRequest {
   gaitPhase: number;
   strideSeconds: number;
   actorPosition: Readonly<FootballVec3>;
+  /** Optional live root velocity. Older callers remain valid, but live player
+   * control should provide it so the planner searches the moving intercept. */
+  actorVelocity?: Readonly<FootballVec3>;
   ball: Readonly<FootballBallSnapshot>;
   targetBallVelocity: Readonly<FootballVec3>;
   preferredFoot: Exclude<FootballFoot, 'both'>;
@@ -36,9 +42,96 @@ function finiteUnit(value: number): number {
   return Math.min(1, Math.max(0, Number.isFinite(value) ? value : 0));
 }
 
+function oppositeFoot(foot: Exclude<FootballFoot, 'both'>): Exclude<FootballFoot, 'both'> {
+  return foot === 'left' ? 'right' : 'left';
+}
+
+function wrappedPhaseDistance(a: number, b: number): number {
+  const raw = Math.abs(a - b) % 1;
+  return Math.min(raw, 1 - raw);
+}
+
+function predictPoint(
+  position: Readonly<FootballVec3>,
+  velocity: Readonly<FootballVec3> | undefined,
+  seconds: number,
+): FootballVec3 {
+  return {
+    x: position.x + (velocity?.x ?? 0) * seconds,
+    y: position.y + (velocity?.y ?? 0) * seconds,
+    z: position.z + (velocity?.z ?? 0) * seconds,
+  };
+}
+
+interface ContactCandidate {
+  foot: Exclude<FootballFoot, 'both'>;
+  delayTicks: number;
+  expectedBallPoint: FootballVec3;
+  score: number;
+}
+
+function inferredActorVelocity(input: Readonly<StrikeContactRequest>): FootballVec3 {
+  if (input.actorVelocity) return { ...input.actorVelocity };
+  const setupDistance = distance(input.actorPosition, input.ball.position);
+  // Compatibility bridge for callers created before actorVelocity became part
+  // of the strike contract. A ball already in the carry pocket is usually
+  // co-moving with the athlete, so use its horizontal velocity for *planning*.
+  if (setupDistance <= 0.95) {
+    return { x: input.ball.velocity.x, y: 0, z: input.ball.velocity.z };
+  }
+  // A ball inside the wider input-buffer envelope may be one stride ahead. Let
+  // planning assume the athlete continues approaching it, but do not grant the
+  // contact: stepStrikeContact still checks the real root-to-ball distance.
+  if (setupDistance <= MAX_STRIKE_SETUP_REACH) {
+    const dx = input.ball.position.x - input.actorPosition.x;
+    const dz = input.ball.position.z - input.actorPosition.z;
+    const horizontal = Math.hypot(dx, dz);
+    if (horizontal > 1e-6) {
+      return {
+        x: dx / horizontal * APPROACH_SETUP_SPEED,
+        y: 0,
+        z: dz / horizontal * APPROACH_SETUP_SPEED,
+      };
+    }
+  }
+  return { x: 0, y: 0, z: 0 };
+}
+
+function chooseContactCandidate(input: Readonly<StrikeContactRequest>, strideTicks: number): ContactCandidate | null {
+  const phase = ((input.gaitPhase % 1) + 1) % 1;
+  const actorVelocity = inferredActorVelocity(input);
+  let best: ContactCandidate | null = null;
+
+  for (const foot of [input.preferredFoot, oppositeFoot(input.preferredFoot)] as const) {
+    const footOffset = foot === 'left' ? 0.5 : 0;
+    for (let delayTicks = MIN_CONTACT_DELAY_TICKS; delayTicks <= MAX_CONTACT_DELAY_TICKS; delayTicks += 1) {
+      const seconds = delayTicks / TICK_HZ;
+      const expectedActorPoint = predictPoint(input.actorPosition, actorVelocity, seconds);
+      const expectedBallPoint = predictPoint(input.ball.position, input.ball.velocity, seconds);
+      expectedBallPoint.y = Math.max(input.ball.radius, expectedBallPoint.y);
+      const reach = distance(expectedActorPoint, expectedBallPoint);
+      if (reach > MAX_STRIKE_REACH) continue;
+
+      const contactPhase = (phase + delayTicks / strideTicks + footOffset) % 1;
+      const swingPhaseError = wrappedPhaseDistance(contactPhase, 0.72);
+      // Prefer the declared strong foot when both are feasible, but allow the
+      // alternate foot immediately when it is the only physically reachable
+      // one. This retains skill identity without reintroducing input latency.
+      const nonPreferredPenalty = foot === input.preferredFoot ? 0 : PREFERRED_FOOT_BIAS;
+      const score = swingPhaseError * 0.65 + delayTicks * 0.018 + nonPreferredPenalty + reach * 0.035;
+      if (!best || score < best.score) {
+        best = { foot, delayTicks, expectedBallPoint, score };
+      }
+    }
+  }
+
+  return best;
+}
+
 /**
- * Plans an interruptible strike beat from gait timing. The plan schedules
- * presentation and contact provenance only; it never owns or moves the ball.
+ * Plans an interruptible strike beat from gait timing and the live moving
+ * player/ball intercept. The ball remains completely free; planning only picks
+ * the next physically reachable foot beat.
  */
 export function createStrikeContactPlan(
   input: Readonly<StrikeContactRequest>,
@@ -47,40 +140,33 @@ export function createStrikeContactPlan(
   if (!Number.isFinite(input.gaitPhase) || !Number.isFinite(input.strideSeconds) || input.strideSeconds <= 0) {
     throw new TypeError('gait phase and stride duration must be finite');
   }
+  if (input.actorVelocity && ![input.actorVelocity.x, input.actorVelocity.y, input.actorVelocity.z].every(Number.isFinite)) {
+    throw new TypeError('actor velocity must be finite');
+  }
+
+  if (distance(input.actorPosition, input.ball.position) > MAX_STRIKE_SETUP_REACH) return null;
 
   const strideTicks = Math.max(12, Math.round(input.strideSeconds * TICK_HZ));
-  const phase = ((input.gaitPhase % 1) + 1) % 1;
-  const preferredOffset = input.preferredFoot === 'left' ? 0.5 : 0;
-  const footPhase = (phase + preferredOffset) % 1;
-  const untilSwing = ((0.72 - footPhase + 1) % 1) * strideTicks;
-  const contactDelay = Math.max(5, Math.min(18, Math.ceil(untilSwing)));
-  const contactTick = input.tick + contactDelay;
-  // A legal action must be visible immediately even though the actual impulse
-  // still waits for the gait-timed contact beat. Presentation can start the
-  // support/setup motion now without granting ball ownership or teleporting it.
-  const prepareTick = input.tick;
-  const seconds = contactDelay / TICK_HZ;
-  const expectedBallPoint = {
-    x: input.ball.position.x + input.ball.velocity.x * seconds,
-    y: Math.max(input.ball.radius, input.ball.position.y + input.ball.velocity.y * seconds),
-    z: input.ball.position.z + input.ball.velocity.z * seconds,
-  };
-  const expectedFootPoint = { ...expectedBallPoint, y: Math.max(0.06, expectedBallPoint.y - input.ball.radius * 0.22) };
+  const candidate = chooseContactCandidate(input, strideTicks);
+  if (!candidate) return null;
 
-  // Accept a short approach setup so pass/shot input during a normal knock-on
-  // is not discarded before the next gait beat. This does NOT authorize the
-  // strike itself; contact-time geometry below remains at MAX_STRIKE_REACH.
-  if (distance(input.actorPosition, input.ball.position) > MAX_STRIKE_SETUP_REACH) return null;
+  const contactTick = input.tick + candidate.delayTicks;
+  const prepareTick = input.tick;
+  const expectedBallPoint = candidate.expectedBallPoint;
+  const expectedFootPoint = {
+    ...expectedBallPoint,
+    y: Math.max(0.06, expectedBallPoint.y - input.ball.radius * 0.22),
+  };
 
   const balance = finiteUnit(input.balance);
   return createFootballContactPlan({
     sourceId: input.sourceId,
     kind: input.kind,
-    foot: input.preferredFoot,
+    foot: candidate.foot,
     surface: input.kind === 'shot' ? 'instep' : 'inside',
     prepareTick,
     contactTick,
-    recoveryEndTick: contactTick + Math.max(5, Math.round(strideTicks * 0.2)),
+    recoveryEndTick: contactTick + Math.max(4, Math.round(strideTicks * 0.18)),
     expectedBallPoint,
     expectedFootPoint,
     targetBallVelocity: { ...input.targetBallVelocity },
@@ -89,11 +175,15 @@ export function createStrikeContactPlan(
     timingWindowTicks: 1,
     geometryTolerance: 0.24,
     quality: 0.55 + balance * 0.45,
-    reason: balance < 0.45 ? 'rushed-off-balance-strike' : 'gait-planned-strike',
+    reason: balance < 0.45 ? 'rushed-off-balance-strike' : 'running-intercept-strike',
   });
 }
 
-/** Revalidates the moving ball and actor reach on the planned contact tick. */
+/**
+ * Revalidates the actual free ball against the actual actor on the contact
+ * beat. Prediction error never invalidates an otherwise legal foot-ball
+ * geometry; the planner is guidance, not a second ball authority.
+ */
 export function stepStrikeContact(
   plan: Readonly<FootballContactPlan>,
   tick: number,
@@ -102,9 +192,8 @@ export function stepStrikeContact(
 ): StrikeContactStep {
   if (tick < plan.contactTick - plan.timingWindowTicks) return { status: 'preparing', plan };
   if (tick > plan.contactTick + plan.timingWindowTicks) return { status: 'missed', plan, reason: 'expired' };
-  if (
-    distance(ball.position, plan.expectedBallPoint) > plan.geometryTolerance
-    || distance(actorPosition, plan.expectedFootPoint) > MAX_STRIKE_REACH
-  ) return { status: 'missed', plan, reason: 'geometry-miss' };
+  if (distance(actorPosition, ball.position) > MAX_STRIKE_REACH) {
+    return { status: 'missed', plan, reason: 'geometry-miss' };
+  }
   return { status: 'contact', plan };
 }
