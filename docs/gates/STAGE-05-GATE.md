@@ -2,83 +2,108 @@
 
 ## Decision
 
-**ENGINEERING PASS — OWNER SHOOTING RE-PLAYTEST REQUIRED BEFORE FINAL FEEL ACCEPTANCE**
+**ENGINEERING PASS — FINAL OWNER FEEL RE-PLAYTEST REQUIRED**
 
-Stage 05's deterministic engineering requirements are green on the current integrated branch. The owner subsequently found a real human-playtest defect: normal shots worked, but finesse/chip selection was too order-sensitive and the shooting rules were not clear enough in the practice UI. That feedback reopened the human feel portion of the gate.
+Stage 05 now passes its deterministic engineering gate after the latest owner playtest exposed three concrete feel defects: ball/athlete visual penetration during close control, directional-control loss during ordinary changes of direction, and clunky shooting caused by camera/reticle disagreement plus order-sensitive shot modifiers.
 
-The defect has now been reproduced, repaired, regression-tested, and verified on the exact source head listed below. This document deliberately does **not** invent a new human score or claim final feel acceptance before the owner plays the repaired build.
+Those defects were reproduced, repaired at their responsible layers, converted into regressions, and verified on the exact source head below. This document deliberately does **not** invent the Stage 05 human feel score. The final subjective acceptance remains the owner's next playtest, as required by the project execution contract.
 
-The current branch is an integration branch containing later Stage 06/07 work as well. This gate records the Stage 05 subsystem status only; it does not re-accept or redefine later-stage gates.
+The current branch also contains later Stage 06/07 integration work. This report accepts the Stage 05 subsystem only and does not redefine later-stage gates.
 
-## Latest owner shooting regression repair
+## Final owner-feel repair
 
-### Reported failure
+### Camera and center-reticle aim
 
-During owner testing, the practical result was that shots kept coming out normal. Two contributing problems were identified:
+The practice camera previously allowed loose-ball framing to translate the camera anchor while the center reticle remained visually fixed. Because the reticle ray used the actual camera view while locomotion/body intent used separately accumulated yaw, a moving loose ball could make the world-space aim drift even when the player supplied no look input.
 
-1. shot technique was latched too early, so beginning a charge with plain LMB and adding RMB or Ctrl afterward did not reliably change the pending strike;
-2. the practice UI showed compact chord notation but did not explain the actual sequence clearly enough for a first-time player.
+Repair:
 
-The Stage 05 plan explicitly requires testers to intentionally produce straight, curve, and chip shots, so this was a gate defect rather than cosmetic polish.
+- manual center-reticle mode keeps the player as the stable camera anchor;
+- loose-ball bias remains available only for passive framing;
+- direct mouse look remains immediate;
+- goal-frame camera collision remains active;
+- regression coverage proves a moving loose ball cannot translate the center-reticle goal-plane target without user look input.
 
-### Runtime repair
+### Reticle-driven shooting
 
-The held-shot runtime now supports forgiving, deterministic technique promotion during the charge:
+The reticle height previously behaved mostly as presentation because the shot builder used fixed style elevation. The live practice shot now passes the actual 3D center-reticle world target into the authoritative shot solution.
 
-- plain LMB starts a normal shot charge;
-- pressing RMB at any point while LMB remains held upgrades the pending shot to finesse;
-- pressing Ctrl at any point while LMB remains held upgrades normal or finesse to chip;
-- chip has precedence when both modifier families appear;
-- once a technique is selected for that charge, releasing the modifier before LMB does not silently revert the strike;
+Result:
+
+- horizontal direction is resolved from the physical ball toward the reticle target;
+- reticle height materially changes launch elevation;
+- each shot family still has a bounded football-specific elevation envelope;
+- AI/legacy callers without a world target retain the deterministic fallback path.
+
+### Forgiving shot selection
+
+The owner reported that shots kept coming out normal because technique selection was too sensitive to button order.
+
+The held-shot runtime now behaves as follows:
+
+- hold LMB to charge a normal shot;
+- press RMB at any point before LMB release to promote that charge to finesse;
+- press Ctrl at any point before LMB release to promote normal or finesse to chip;
+- chip has precedence if both modifier families appear;
+- releasing a modifier before LMB does not silently revert the selected technique;
 - modifier-first input still works;
-- short pointer-lock/focus taps remain below the minimum-shot threshold and do not create accidental weak shots;
-- losing the held-shot state without a release cancels stale charge and technique state.
+- short pointer-lock focus clicks remain below the minimum-shot threshold and cannot create accidental weak shots.
 
-### Aiming repair
+Football Practice also exposes a visible shooting guide explaining the sequence instead of relying on terse chord notation.
 
-The live Football Practice shot call now passes the actual center-reticle 3D world target into the authoritative shot builder when such a target exists. Horizontal aim and reticle height therefore influence the real shot solution, while each technique retains bounded elevation limits.
+### Ball/athlete penetration repair
 
-The optional target is omitted entirely when unavailable so the strict `exactOptionalPropertyTypes` contract remains intact.
+The apparent ball-inside-player defect was not a welded-possession bug. The physical ball remained independent, but close-control target geometry could command the ball center too close to the rendered boot volume.
 
-### Readability repair
+Measured geometry:
 
-Football Practice now exposes a dedicated visible shooting guide:
+- rendered boot front is approximately 0.25 m in front of the player root;
+- regulation ball radius is approximately 0.11 m;
+- therefore a deliberate front-foot target needs approximately 0.36 m of center distance to avoid visible boot/ball penetration.
 
-- aim with the center reticle;
-- hold LMB for power;
-- LMB only = NORMAL;
-- RMB anytime while charging = FINESSE;
-- Ctrl anytime while charging = CHIP;
-- release LMB to strike.
+The old precision/trap targets were approximately 0.27–0.30 m. They are now bounded to a shared `0.36 m` close-control contact distance for:
 
-Practice-only knuckle and outside-foot contacts remain separate specialist experiments rather than hidden normal-match hotkeys.
+- precision carry;
+- trap/kill touch;
+- precision receive-exit;
+- precision effort-turn minimum distance.
+
+Normal carry (`0.52 m`) and sprint knock-on distances remain unchanged. The change does not enlarge physical possession reach, snap position, or attach the ball. It only moves the intended bounded-impulse contact pocket outside the rendered boot face.
+
+### Directional-loss repair preserved
+
+The final regression suite also preserves the earlier control fixes:
+
+- ordinary eight-direction WASD changes produce no out-of-reach loss cascade;
+- repeated 45-degree changes stay playable;
+- 90/120/150-degree difficult cuts remain physical and recoverable rather than magnetic;
+- an actively chased nearby loose ball can be recovered while body orientation catches up;
+- a genuinely dropped ball remains free until the player physically closes the gap;
+- pressure, imbalance, speed, stretch, and difficult turns create deterministic bounded error;
+- clean centered carry does not invent random lateral jitter.
 
 ## RED → GREEN evidence
 
-### RED behavior proof
-
-Regression tests were added before the visible guide was implemented.
+### Shooting readability RED
 
 On commit `136b4fa54cbcf5329455a4c861f3b614fecc3331`:
 
-- the new runtime technique-upgrade tests passed;
+- the new runtime technique-promotion tests passed;
 - browser behavior reached **39 / 40 PASS**;
-- the single expected browser failure was the deliberately missing `[data-shot-controls-guide]` element.
+- the sole expected failure was the deliberately missing `[data-shot-controls-guide]` element.
 
 CI run: `39184619848`.
 
-This isolated the remaining failure to control explanation/readability rather than masking it with unrelated changes.
+### Final GREEN source head
 
-### GREEN source head
+Exact verified source head before this gate-document update:
 
-Exact source head:
-
-- `df27ab6e4fbe69b402f959664c22819d5bcd6630`
+- `7fcf6dd8a8bc1531b1b3baa4ff4d883ab0bffe9d`
 
 CI:
 
-- run `39185295667`
-- job `117846338742`
+- run `39185768143`
+- job `117847769155`
 
 Results:
 
@@ -86,107 +111,105 @@ Results:
 - authoritative randomness guard: PASS
 - private reference-content guard: PASS
 - strict TypeScript: PASS
-- unit/contract/integration suite: **280 / 280 PASS across 58 files**
-- explicit LMB → RMB finesse upgrade regression: PASS
-- explicit LMB → Ctrl chip upgrade and latch regression: PASS
+- unit/contract/integration suite: **281 / 281 PASS across 58 files**
+- camera no-drift owner regression: PASS
+- rendered boot-volume close-control regression: PASS
+- eight-direction no-loss-cascade regression: PASS
+- LMB → RMB finesse promotion regression: PASS
+- LMB → Ctrl chip promotion/latch regression: PASS
 - center-reticle vertical-shot regressions: PASS
+- professional physical control course: PASS
 - Stage 04 deterministic ball fuzz: **1,000,000 launches / 4,000,000 states / 0 failures**
 - Stage 04 fuzz checksum: `e0afd3f7`
 - Stage 05 football fuzz: **250,000 cases / 1,000,000 actions / 0 failures**
-- Stage 05 football fuzz checksum: `8d66a0ce`
+- Stage 05 football fuzz checksum: `7b44b28b`
+- maximum observed football contact impulse: `15.500000000000005`
+- maximum observed football result speed: `34.9018646963763`
 - exploit-bot balance gate: PASS
-- sprint-only, shot-spam, tackle-spam, and dribble-circle do not dominate their reference policies
+- sprint-only, shot-spam, tackle-spam, and dribble-circle do not dominate their varied/timed reference policies
 - canonical deterministic trace: `d55b2d0b968372a5`
 - FICTIONAL_PUBLIC web/server production build: PASS
 - server health endpoint: PASS
 - Chromium/browser parity and full E2E: **40 / 40 PASS**
 
-## Professional control-course evidence preserved
-
-The same exact integrated branch also preserves the post-owner-feedback physical control regressions:
-
-- clean carry, slalom, sprint, planted 90-degree cut, close-control exit, and settled carry remain one learnable physical sequence;
-- a nearby loose ball can be physically recovered when the player actively turns back toward it;
-- a genuinely dropped ball remains free until the player closes the real physical gap;
-- pressure creates bounded deterministic heavy-touch error while clean carry stays precise;
-- no control contact teleports or welds the ball to the player.
-
 ## Accepted Stage 05 engineering functionality
 
 ### First touch and dribbling
 
-- physical control envelope with no welded possession or ball teleport;
+- free physical ball with no welded possession and no position teleport;
 - controlled, precision, sprint, effort-turn, trap, and receive-exit contacts;
-- clean carry is beginner-friendly while high-speed hard cuts, imbalance, pressure, and stretch create a mastery ceiling;
-- active nearby turn-back recovery avoids orientation lockouts without widening the true possession radius;
-- genuinely loose balls remain physically independent.
+- close-control targets remain outside the visible boot volume;
+- clean carry is beginner-friendly;
+- pressure, imbalance, speed, stretch, and severe turns preserve a mastery ceiling through readable deterministic error;
+- nearby turn-back recovery avoids orientation lockouts without widening true possession reach;
+- genuinely loose balls stay independent until the player physically closes the gap.
 
 ### Passing
 
-- ground, driven, lofted, and through/lead pass families;
+- ground, driven, lofted, and through/lead families;
 - receiver lead prediction;
-- bounded assistance inside a readable aim cone;
+- bounded aim assistance inside a readable cone;
 - body orientation remains a legality constraint;
-- keyboard/gamepad pass inputs are one-shot edges.
+- keyboard/gamepad pass actions remain one-shot edges.
 
 ### Shooting
 
-- normal, finesse, chip, knuckle, outside-foot, plus the existing bounded shot-contact families;
-- charge, aim, body alignment, balance, pressure, contact foot, spin signature, and reticle target affect contact;
-- normal, finesse, and chip are intentionally selectable with forgiving modifier timing during one LMB charge;
-- moving the center reticle higher on the goal materially raises the launch within technique bounds;
-- pointer-lock focus taps do not emit accidental weak shots;
-- deterministic knuckle state is explicit and cleared by non-knuckle strikes.
+- normal, finesse, chip, knuckle, outside-foot, and existing bounded contact families;
+- charge, 3D reticle aim, body alignment, balance, pressure, contact foot, and spin affect the result;
+- normal, finesse, and chip are intentionally selectable regardless of whether the modifier is pressed before or during the LMB charge;
+- reticle vertical placement affects real launch elevation within technique limits;
+- visible shooting instructions describe the actual sequence;
+- pointer-lock capture taps cannot fire accidental weak shots;
+- deterministic knuckle state is explicit and cleared by non-knuckle contacts.
 
 ### Defense and aerial core
 
 - standing and committed challenges;
-- meaningful recovery cost for mistimed commitment;
-- moving interception geometry compares ball and defender at the same predicted time;
+- meaningful mistimed-commitment recovery cost;
+- moving interception geometry compares defender and ball at the same predicted time;
 - header and volley eligibility windows;
-- simple tackle/shot/sprint/dribble spam does not dominate deterministic references.
+- simple spam policies do not dominate the deterministic references.
 
 ### Practice loop
 
-- Football Practice mode plus preserved Stage 04 Ball Lab;
+- Football Practice plus preserved Stage 04 Ball Lab;
 - independent physical live ball;
-- moving pass receiver;
+- moving receiver;
 - greybox keeper and goals;
 - swept-time keeper saves;
 - whole-ball goal detection;
 - goal/save counters;
 - action diagnostics HUD;
 - grounded player marker;
-- ball-aware camera focus and goal-frame camera collision;
-- world-space reticle target drives live shot direction/elevation;
-- explicit shooting instructions expose normal, finesse, and chip controls.
+- stable manual-aim camera with passive ball-aware framing;
+- goal-frame camera collision;
+- world-space center reticle drives live shot direction and elevation;
+- explicit normal/finesse/chip shooting guide.
 
-## Earlier owner-feedback repairs preserved
+## Owner-feedback regressions now locked
 
-The earlier owner recording identified and the branch repaired:
+Across the Stage 05 owner playtests, the branch now protects against:
 
-1. stale ball direction during dribble cuts;
+1. stale ball direction during cuts;
 2. sprint-dribble runaway;
-3. no deliberate physical trap/stop;
+3. missing deliberate trap/stop;
 4. confusing shot aim and pointer-lock behavior;
-5. visible player grounding;
+5. visible player grounding problems;
 6. poor loose-ball readability during cuts;
-7. camera clipping through goal members.
-
-The later owner playtest added:
-
+7. camera clipping through goal members;
 8. turn-back recovery lockout on nearby loose balls;
-9. excessive control slop during ordinary direction changes;
-10. shot modifiers being too order-sensitive in real play;
-11. insufficiently explicit shooting-control instructions;
-12. the visible 3D reticle target not being fully consumed by the live shot builder.
-
-These are now covered by deterministic or browser regressions where automatable. Human feel remains the final owner gate.
+9. ordinary-direction control loss cascades;
+10. random clean-carry lateral jitter;
+11. shot modifiers being too order-sensitive;
+12. unclear normal/finesse/chip controls;
+13. reticle height not affecting the real shot;
+14. loose-ball camera framing fighting the center reticle;
+15. close-control/trap targets entering the visible boot volume.
 
 ## Non-blocking note
 
-The current web bundle is about `713 kB` minified / `189 kB` gzip and still triggers Vite's >500 kB chunk warning. It does not block this Stage 05 correctness/playtest repair, but code splitting should be addressed before later client growth materially increases the initial payload.
+The production web bundle is approximately `713.35 kB` minified / `189.21 kB` gzip and still triggers Vite's >500 kB chunk warning. This does not block Stage 05 correctness or the owner feel re-test, but code splitting should be handled before later client growth materially increases the initial payload.
 
 ## Final gate rule
 
-The repaired implementation is ready for owner playtest. Final Stage 05 feel acceptance requires the owner to confirm that normal, finesse, and chip are intentionally producible and that shooting/control no longer feels confusing or broken. No merge is implied by this gate update; merge requires an explicit owner instruction and a green exact-head verification at that time.
+The Stage 05 implementation is engineering-complete and ready for the owner feel re-test. Final Stage 05 human acceptance requires the owner to confirm that the repaired build is fun and refined enough in actual play, especially camera/aim consistency, deliberate normal/finesse/chip selection, and close-control ball handling. No merge is implied by this report; merging still requires explicit owner authorization.
