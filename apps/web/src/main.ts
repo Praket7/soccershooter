@@ -220,6 +220,36 @@ const torso = new THREE.Mesh(
 torso.position.y = PLAYER_VISUAL_LAYOUT.torsoCenterY;
 torso.castShadow = true;
 playerGroup.add(torso);
+for (const side of [-1, 1] as const) {
+  const leg = new THREE.Mesh(
+    new THREE.CylinderGeometry(
+      PLAYER_VISUAL_LAYOUT.legRadius * 0.92,
+      PLAYER_VISUAL_LAYOUT.legRadius,
+      PLAYER_VISUAL_LAYOUT.legHeight,
+      12,
+    ),
+    bodyMaterial,
+  );
+  leg.position.set(side * PLAYER_VISUAL_LAYOUT.legOffsetX, PLAYER_VISUAL_LAYOUT.legCenterY, 0);
+  leg.castShadow = true;
+  playerGroup.add(leg);
+
+  const foot = new THREE.Mesh(
+    new THREE.BoxGeometry(
+      PLAYER_VISUAL_LAYOUT.footWidth,
+      PLAYER_VISUAL_LAYOUT.footHeight,
+      PLAYER_VISUAL_LAYOUT.footLength,
+    ),
+    accentMaterial,
+  );
+  foot.position.set(
+    side * PLAYER_VISUAL_LAYOUT.legOffsetX,
+    PLAYER_VISUAL_LAYOUT.footCenterY,
+    PLAYER_VISUAL_LAYOUT.footForward,
+  );
+  foot.castShadow = true;
+  playerGroup.add(foot);
+}
 const head = new THREE.Mesh(new THREE.SphereGeometry(PLAYER_VISUAL_LAYOUT.headRadius, 18, 14), bodyMaterial);
 head.position.y = PLAYER_VISUAL_LAYOUT.headCenterY;
 head.castShadow = true;
@@ -532,9 +562,15 @@ function frame(now: number): void {
   const cameraPlayer = clonePlayerState(displayPlayer);
   let cameraFocusBias = 0;
   if (practiceMode) {
-    const focus = resolveBallAwareCameraFocus(displayPlayer.position, footballPractice.state.position);
+    const manualAimActive = document.pointerLockElement === renderer.domElement;
+    const focus = resolveBallAwareCameraFocus(
+      displayPlayer.position,
+      footballPractice.state.position,
+      manualAimActive,
+    );
     cameraPlayer.position = { ...focus };
     cameraFocusBias = Math.hypot(focus.x - displayPlayer.position.x, focus.z - displayPlayer.position.z);
+    playerProbe.dataset.manualAimActive = String(manualAimActive);
   }
   const cameraState = cameraController.update(
     cameraPlayer,
