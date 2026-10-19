@@ -1,3 +1,9 @@
+import {
+  cloneAthleticMotionState,
+  createAthleticMotionState,
+  type AthleticMotionState,
+} from './athleticMotion';
+
 export interface Vec3 {
   x: number;
   y: number;
@@ -12,6 +18,11 @@ export const PlayerActionBits = Object.freeze({
   ShootReleased: 1 << 4,
   Precision: 1 << 5,
   Technique: 1 << 6,
+  ThroughPass: 1 << 7,
+  LoftedPass: 1 << 8,
+  Receive: 1 << 9,
+  DrivenModifier: 1 << 10,
+  ChipModifier: 1 << 11,
 });
 
 export type LocomotionState =
@@ -37,6 +48,7 @@ export interface PlayerState {
   grounded: boolean;
   groundHeight: number;
   locomotion: LocomotionState;
+  athleticMotion: AthleticMotionState;
   actionHooks: PlayerActionHooks;
 }
 
@@ -49,6 +61,7 @@ export interface PlayerStateInit {
   grounded?: boolean;
   groundHeight?: number;
   locomotion?: LocomotionState;
+  athleticMotion?: AthleticMotionState;
   actionHooks?: Partial<PlayerActionHooks>;
 }
 
@@ -76,6 +89,9 @@ export function createPlayerState(init: PlayerStateInit = {}): PlayerState {
     grounded: init.grounded ?? true,
     groundHeight: finiteOr(init.groundHeight, init.position?.y ?? 0, 'groundHeight'),
     locomotion: init.locomotion ?? 'idle',
+    athleticMotion: init.athleticMotion
+      ? cloneAthleticMotionState(init.athleticMotion)
+      : createAthleticMotionState(),
     actionHooks: {
       jumpRequested: init.actionHooks?.jumpRequested ?? false,
       tackleRequested: init.actionHooks?.tackleRequested ?? false,
@@ -88,6 +104,7 @@ export function clonePlayerState(state: Readonly<PlayerState>): PlayerState {
     ...state,
     position: { ...state.position },
     velocity: { ...state.velocity },
+    athleticMotion: cloneAthleticMotionState(state.athleticMotion),
     actionHooks: { ...state.actionHooks },
   };
 }

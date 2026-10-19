@@ -1,6 +1,98 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
-test('Stage 05 practice starts physical, idle, non-magnetic, and visually grounded', async ({ page }) => {
+async function installPointerLockHarness(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    let locked: Element | null = null;
+    Object.defineProperty(Document.prototype, 'pointerLockElement', {
+      configurable: true,
+      get: () => locked,
+    });
+    Object.defineProperty(HTMLElement.prototype, 'requestPointerLock', {
+      configurable: true,
+      value: function requestPointerLockMock() {
+        locked = this;
+        document.dispatchEvent(new Event('pointerlockchange'));
+        return Promise.resolve();
+      },
+    });
+    Object.defineProperty(Document.prototype, 'exitPointerLock', {
+      configurable: true,
+      value: function exitPointerLockMock() {
+        locked = null;
+        document.dispatchEvent(new Event('pointerlockchange'));
+      },
+    });
+  });
+}
+
+async function capturePointerWithoutNativePlaywrightLock(page: Page): Promise<void> {
+  const canvas = page.locator('[data-game-viewport]');
+  await canvas.dispatchEvent('mousedown', {
+    button: 0,
+    buttons: 1,
+    clientX: 320,
+    clientY: 220,
+  });
+}
+
+interface CarryState {
+  tick: number;
+  playerX: number;
+  playerZ: number;
+  ballX: number;
+  ballZ: number;
+  ballSpeed: number;
+  action: string;
+}
+
+async function readCarryState(page: Page): Promise<CarryState> {
+  // Read player and ball in one browser task. Separate Playwright getAttribute
+  // awaits let the live simulation advance between the player and ball reads on
+  // slow CI machines and fabricate a separation that never existed at one tick.
+  return page.evaluate(() => {
+    const player = document.querySelector<HTMLOutputElement>('[data-player-state]');
+    const ball = document.querySelector<HTMLOutputElement>('[data-football-state]');
+    if (!player || !ball) throw new Error('missing football carry probes');
+    return {
+      tick: Number(player.dataset.tick ?? 0),
+      playerX: Number(player.dataset.x ?? 0),
+      playerZ: Number(player.dataset.z ?? 0),
+      ballX: Number(ball.dataset.ballX ?? 0),
+      ballZ: Number(ball.dataset.ballZ ?? 0),
+      ballSpeed: Number(ball.dataset.ballSpeed ?? 0),
+      action: ball.dataset.action ?? '',
+    };
+  });
+}
+
+async function runCarryWindow(page: Page, sprint: boolean, durationTicks = 90): Promise<CarryState[]> {
+  await page.goto('/');
+  await page.keyboard.press('g');
+  const initial = await readCarryState(page);
+  await page.keyboard.down('w');
+  if (sprint) await page.keyboard.down('Shift');
+
+  const states: CarryState[] = [];
+  for (let sample = 0; sample < 80; sample += 1) {
+    const state = await readCarryState(page);
+    states.push(state);
+    if (state.tick - initial.tick >= durationTicks) break;
+    await page.waitForTimeout(8);
+  }
+
+  if (sprint) await page.keyboard.up('Shift');
+  await page.keyboard.up('w');
+  if ((states.at(-1)?.tick ?? initial.tick) - initial.tick < durationTicks) {
+    throw new Error(`carry window did not reach ${durationTicks} simulation ticks`);
+  }
+  return states;
+}
+
+function separation(state: CarryState): number {
+  return Math.hypot(state.ballX - state.playerX, state.ballZ - state.playerZ);
+}
+
+test('Stage 05 practice starts physical, idle, non-magnetic, visually grounded, and explains shooting clearly', async ({ page }) => {
   await page.goto('/');
 
   const practice = page.locator('[data-football-practice]');
@@ -9,6 +101,23 @@ test('Stage 05 practice starts physical, idle, non-magnetic, and visually ground
   await expect(practice).toBeVisible();
   await expect(page.getByRole('button', { name: 'Football Practice', exact: true })).toHaveAttribute('data-active', 'true');
   await expect(page.locator('[data-ball-lab]')).toBeHidden();
+
+  const controls = page.locator('.control-card');
+  await expect(controls).toContainText('RMB+E');
+  await expect(controls).toContainText('Ctrl+Q');
+  await expect(controls).toContainText('RMB+LMB');
+  await expect(controls).toContainText('Ctrl+LMB');
+  await expect(controls).not.toContainText('Z+');
+  await expect(controls).not.toContainText('X chip');
+
+  const shootingGuide = page.locator('[data-shot-controls-guide]');
+  await expect(shootingGuide).toBeVisible();
+  await expect(shootingGuide).toContainText('SHOOTING');
+  await expect(shootingGuide).toContainText('Aim with the center reticle');
+  await expect(shootingGuide).toContainText('LMB only = NORMAL');
+  await expect(shootingGuide).toContainText('RMB anytime while charging = FINESSE');
+  await expect(shootingGuide).toContainText('Ctrl anytime while charging = CHIP');
+  await expect(shootingGuide).toContainText('Release LMB to strike');
 
   const before = {
     x: Number(await probe.getAttribute('data-ball-x')),
@@ -30,38 +139,169 @@ test('Stage 05 practice starts physical, idle, non-magnetic, and visually ground
   expect(visualFootY).toBeCloseTo(playerY, 5);
 });
 
-test('Stage 05 first LMB hold charges immediately and exposes a readable physical aim guide', async ({ page }) => {
+test('ordinary multi-second dribbling keeps a competent carry compact instead of flirting with loss', async ({ page }) => {
+  const states = await runCarryWindow(page, false);
+  const maximumSeparation = Math.max(...states.map(separation));
+  const maximumLateralError = Math.max(...states.map((state) => Math.abs(state.ballX - state.playerX)));
+  const final = states.at(-1)!;
+
+  expect(maximumSeparation).toBeLessThan(1.12);
+  expect(maximumLateralError).toBeLessThan(0.45);
+  expect(final.ballSpeed).toBeGreaterThan(2.5);
+  expect(states.some((state) => /FIRST TOUCH FAILED/.test(state.action))).toBe(false);
+});
+
+test('sprinting uses recoverable knock-ons and does not simply run away from the player', async ({ page }) => {
+  const states = await runCarryWindow(page, true);
+  const maximumSeparation = Math.max(...states.map(separation));
+  const final = states.at(-1)!;
+
+  expect(maximumSeparation).toBeLessThan(1.38);
+  expect(final.ballSpeed).toBeGreaterThan(3.5);
+  expect(states.some((state) => /FIRST TOUCH FAILED/.test(state.action))).toBe(false);
+});
+
+async function probeAction(probe: ReturnType<Page['locator']>): Promise<string> {
+  return (await probe.getAttribute('data-action')) ?? '';
+}
+
+test('first click captures camera only, then locked LMB charges through the permanent reticle', async ({ page }) => {
+  await installPointerLockHarness(page);
   await page.goto('/');
   const probe = page.locator('[data-football-state]');
+  const playerProbe = page.locator('[data-player-state]');
   const canvas = page.locator('[data-game-viewport]');
+  const capture = page.locator('[data-camera-capture]');
+  const reticle = page.locator('[data-center-reticle]');
+
+  await expect(capture).toBeVisible();
+  await expect(reticle).toBeHidden();
+  expect(Number(await probe.getAttribute('data-shot-charge'))).toBe(0);
+
+  await capturePointerWithoutNativePlaywrightLock(page);
+  await expect(playerProbe).toHaveAttribute('data-pointer-locked', 'true');
+  await expect(capture).toBeHidden();
+  await expect(reticle).toBeVisible();
+  expect(Number(await probe.getAttribute('data-shot-charge'))).toBe(0);
+
   const box = await canvas.boundingBox();
   expect(box).not.toBeNull();
   if (!box) return;
-
   await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
   await page.mouse.down({ button: 'left' });
-  await expect.poll(async () => Number(await probe.getAttribute('data-shot-charge')), { timeout: 2000 })
-    .toBeGreaterThan(0.03);
+  await expect.poll(async () => Number(await probe.getAttribute('data-shot-charge')), { timeout: 2000 }).toBeGreaterThan(0.03);
+  await expect(probe).toHaveAttribute('data-shot-state', 'POWER');
   await expect(probe).toHaveAttribute('data-aim-guide-visible', 'true');
   await page.mouse.up({ button: 'left' });
 });
 
-test('Stage 05 pass contact moves the free ball without teleporting it', async ({ page }) => {
+test('F is an explicit buffered receive and no longer depends on RMB plus zero movement', async ({ page }) => {
   await page.goto('/');
   const probe = page.locator('[data-football-state]');
 
   await page.keyboard.press('g');
   await page.waitForTimeout(80);
+  await page.keyboard.press('f');
+  await expect.poll(async () => await probe.getAttribute('data-action'), { timeout: 1800 })
+    .toMatch(/CUSHION TOUCH|TRAP ARMED/);
+  const receiveState = await probe.getAttribute('data-receive-state');
+  expect(receiveState).toMatch(/armed|consumed/);
+});
+
+test('dedicated E pass contact moves the free ball and exposes lane intent without teleporting it', async ({ page }) => {
+  await page.goto('/');
+  const probe = page.locator('[data-football-state]');
+
+  await page.keyboard.press('g');
+  await page.waitForTimeout(100);
+  await expect(probe).toHaveAttribute('data-pass-guide-visible', 'true');
   const beforeZ = Number(await probe.getAttribute('data-ball-z'));
   await page.keyboard.press('e');
 
-  await expect.poll(async () => Number(await probe.getAttribute('data-ball-z')), { timeout: 2500 })
-    .toBeGreaterThan(beforeZ + 1.5);
-  await expect(probe).toHaveAttribute('data-action', /pass/);
+  await expect.poll(async () => Math.abs(Number(await probe.getAttribute('data-ball-z')) - beforeZ), { timeout: 2500 })
+    .toBeGreaterThan(1.5);
+  await expect(probe).toHaveAttribute('data-reason', /ground:/);
   expect(Number(await probe.getAttribute('data-ball-speed'))).toBeGreaterThan(2);
 });
 
-test('Stage 05 practice ball visual rotation advances from physics steps, never idle render frames', async ({ page }) => {
+test('RMB+E drives the ground pass and Ctrl+Q chips the through ball', async ({ page }) => {
+  await installPointerLockHarness(page);
+  await page.goto('/');
+  const probe = page.locator('[data-football-state]');
+  const canvas = page.locator('[data-game-viewport]');
+
+  await capturePointerWithoutNativePlaywrightLock(page);
+  await expect(page.locator('[data-player-state]')).toHaveAttribute('data-pointer-locked', 'true');
+  const box = await canvas.boundingBox();
+  expect(box).not.toBeNull();
+  if (!box) return;
+  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
+
+  await page.keyboard.press('g');
+  await page.waitForTimeout(80);
+  await page.mouse.down({ button: 'right' });
+  await page.keyboard.press('e');
+  await page.mouse.up({ button: 'right' });
+  await expect(probe).toHaveAttribute('data-reason', /driven:/);
+
+  await page.keyboard.press('g');
+  await page.waitForTimeout(80);
+  await page.keyboard.down('Control');
+  await page.keyboard.press('q');
+  await page.keyboard.up('Control');
+  await expect(probe).toHaveAttribute('data-reason', /chipped-through:/);
+});
+
+test('finesse and chip can be selected before or during LMB charge and remain latched through release', async ({ page }) => {
+  await installPointerLockHarness(page);
+  await page.goto('/');
+  const probe = page.locator('[data-football-state]');
+  const canvas = page.locator('[data-game-viewport]');
+  await capturePointerWithoutNativePlaywrightLock(page);
+  await expect(page.locator('[data-player-state]')).toHaveAttribute('data-pointer-locked', 'true');
+
+  const box = await canvas.boundingBox();
+  expect(box).not.toBeNull();
+  if (!box) return;
+  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
+
+  // Modifier-first remains valid.
+  await page.keyboard.press('g');
+  await page.waitForTimeout(80);
+  await page.mouse.down({ button: 'right' });
+  await page.mouse.down({ button: 'left' });
+  await expect(probe).toHaveAttribute('data-shot-style', 'finesse');
+  await page.mouse.up({ button: 'right' });
+  await page.waitForTimeout(50);
+  await expect(probe).toHaveAttribute('data-shot-style', 'finesse');
+  await page.mouse.up({ button: 'left' });
+
+  // Beginner-friendly order: start charging, then add RMB.
+  await page.keyboard.press('g');
+  await page.waitForTimeout(80);
+  await page.mouse.down({ button: 'left' });
+  await expect(probe).toHaveAttribute('data-shot-style', 'normal');
+  await page.mouse.down({ button: 'right' });
+  await expect(probe).toHaveAttribute('data-shot-style', 'finesse');
+  await page.mouse.up({ button: 'right' });
+  await page.waitForTimeout(50);
+  await expect(probe).toHaveAttribute('data-shot-style', 'finesse');
+  await page.mouse.up({ button: 'left' });
+
+  // Ctrl can upgrade an already-started charge all the way to chip.
+  await page.keyboard.press('g');
+  await page.waitForTimeout(80);
+  await page.mouse.down({ button: 'left' });
+  await expect(probe).toHaveAttribute('data-shot-style', 'normal');
+  await page.keyboard.down('Control');
+  await expect(probe).toHaveAttribute('data-shot-style', 'chip');
+  await page.keyboard.up('Control');
+  await page.waitForTimeout(50);
+  await expect(probe).toHaveAttribute('data-shot-style', 'chip');
+  await page.mouse.up({ button: 'left' });
+});
+
+test('practice ball visual rotation advances from physics steps, never idle render frames', async ({ page }) => {
   await page.goto('/');
   const probe = page.locator('[data-football-state]');
 
@@ -73,17 +313,12 @@ test('Stage 05 practice ball visual rotation advances from physics steps, never 
   expect(await probe.getAttribute('data-ball-visual-quaternion')).toBe(idleQuaternion);
 
   await page.keyboard.press('e');
-  await expect.poll(async () => await probe.getAttribute('data-ball-visual-quaternion'), { timeout: 2500 })
-    .not.toBe(idleQuaternion);
+  await expect.poll(async () => await probe.getAttribute('data-ball-visual-quaternion'), { timeout: 2500 }).not.toBe(idleQuaternion);
 });
 
-test('Stage 05 exposes shot-style mastery and tackle commitment recovery', async ({ page }) => {
+test('committed challenge still creates an explicit recovery cost', async ({ page }) => {
   await page.goto('/');
   const probe = page.locator('[data-football-state]');
-
-  await page.keyboard.press('3');
-  await expect(probe).toHaveAttribute('data-shot-style', 'finesse');
-  await expect(page.locator('button[data-shot-style="finesse"]')).toHaveAttribute('data-active', 'true');
 
   await page.keyboard.press('g');
   await page.waitForTimeout(60);
@@ -91,11 +326,11 @@ test('Stage 05 exposes shot-style mastery and tackle commitment recovery', async
   await page.keyboard.press('c');
   await page.keyboard.up('Shift');
 
-  await expect(probe).toHaveAttribute('data-action', /committed tackle/);
+  await expect(probe).toHaveAttribute('data-action', /COMMITTED TACKLE/);
   expect(Number(await probe.getAttribute('data-recovery'))).toBeGreaterThan(0);
 });
 
-test('Stage 05 mode switch preserves the Stage 04 Ball Lab as a separate instrument', async ({ page }) => {
+test('Stage 04 Ball Lab remains a separate instrument', async ({ page }) => {
   await page.goto('/');
   const practice = page.locator('[data-football-practice]');
   const lab = page.locator('[data-ball-lab]');

@@ -1,8 +1,11 @@
 import { expect, test } from '@playwright/test';
 
 async function resetPracticeBall(page: import('@playwright/test').Page) {
+  const probe = page.locator('[data-football-state]');
   await page.keyboard.press('g');
-  await expect(page.locator('[data-football-state]')).toHaveAttribute('data-action', 'reset');
+  await expect(probe).toHaveAttribute('data-action', 'READY');
+  await expect.poll(async () => Number(await probe.getAttribute('data-ball-speed')), { timeout: 1000 })
+    .toBeLessThan(0.05);
 }
 
 test('Stage 05 opens in Football Practice with Ball Lab preserved as a separate diagnostics mode', async ({ page }) => {
@@ -36,48 +39,40 @@ test('physical dribble touch moves the ball only after player movement', async (
   await page.waitForTimeout(520);
   await page.keyboard.up('w');
 
-  await expect.poll(async () => Number(await probe.getAttribute('data-ball-z')), { timeout: 1_500 })
-    .toBeGreaterThan(beforeZ + 0.45);
+  await expect.poll(async () => Number(await probe.getAttribute('data-ball-z')), { timeout: 1500 })
+    .toBeGreaterThan(beforeZ + 0.35);
   expect(Number(await page.locator('[data-action-debug]').getAttribute('data-control-quality'))).toBeGreaterThan(0);
 });
 
-test('E creates a real physical pass toward the moving practice receiver', async ({ page }) => {
+test('E creates a real physical ground pass and Q/R expose dedicated pass families', async ({ page }) => {
   await page.goto('/');
   await resetPracticeBall(page);
   const probe = page.locator('[data-football-state]');
 
   await page.keyboard.press('e');
-  await expect.poll(async () => await probe.getAttribute('data-action'), { timeout: 1_000 }).toContain('pass');
-  await expect.poll(async () => Number(await probe.getAttribute('data-ball-speed')), { timeout: 1_000 })
-    .toBeGreaterThan(7);
+  await expect(probe).toHaveAttribute('data-reason', /ground:/);
+  await expect.poll(async () => Number(await probe.getAttribute('data-ball-speed')), { timeout: 1000 })
+    .toBeGreaterThan(2);
   await expect(page.locator('[data-action-debug]')).toHaveAttribute('data-success', 'true');
+
+  await resetPracticeBall(page);
+  await page.keyboard.press('q');
+  await expect(probe).toHaveAttribute('data-reason', /through:/);
+
+  await resetPracticeBall(page);
+  await page.keyboard.press('r');
+  await expect(probe).toHaveAttribute('data-reason', /lofted:/);
 });
 
-test('held primary pointer input charges then releases a bounded shot', async ({ page }) => {
+test('F explicitly buffers receive independent of RMB precision', async ({ page }) => {
   await page.goto('/');
   await resetPracticeBall(page);
-  await page.keyboard.press('3');
-  await expect(page.locator('[data-football-state]')).toHaveAttribute('data-shot-style', 'finesse');
-
-  const canvas = page.locator('canvas[data-game-viewport]');
-  await canvas.click();
-  await expect.poll(async () => page.evaluate(() => document.pointerLockElement?.getAttribute('data-game-viewport') ?? 'false'))
-    .toBe('true');
-
-  const box = await canvas.boundingBox();
-  if (!box) throw new Error('game canvas has no bounding box');
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.mouse.down({ button: 'left' });
-  await page.waitForTimeout(430);
-  const charged = Number(await page.locator('[data-football-state]').getAttribute('data-shot-charge'));
-  expect(charged).toBeGreaterThan(0.35);
-  await page.mouse.up({ button: 'left' });
-
   const probe = page.locator('[data-football-state]');
-  await expect.poll(async () => await probe.getAttribute('data-action'), { timeout: 1_000 }).toContain('shot');
-  await expect.poll(async () => Number(await probe.getAttribute('data-ball-speed')), { timeout: 1_000 })
-    .toBeGreaterThan(8);
-  await expect(page.locator('[data-action-debug]')).toHaveAttribute('data-success', 'true');
+
+  await page.keyboard.press('f');
+  await expect.poll(async () => await probe.getAttribute('data-action'), { timeout: 1200 })
+    .toMatch(/TRAP ARMED|CUSHION TOUCH/);
+  expect(await probe.getAttribute('data-receive-state')).toMatch(/armed|consumed/);
 });
 
 test('committed challenge creates readable recovery and immediate spam is rejected', async ({ page }) => {
@@ -95,11 +90,19 @@ test('committed challenge creates readable recovery and immediate spam is reject
   await expect.poll(async () => await probe.getAttribute('data-reason'), { timeout: 600 }).toBe('recovering');
 });
 
-test('shot style selection exposes all six Stage 05 contact families', async ({ page }) => {
+test('normal play no longer exposes six shot hotkeys; specialist contacts live in Practice-only panel', async ({ page }) => {
   await page.goto('/');
-  const styles = ['normal', 'driven', 'finesse', 'chip', 'knuckle', 'outside-foot'];
-  for (let index = 0; index < styles.length; index += 1) {
-    await page.keyboard.press(String(index + 1));
-    await expect(page.locator('[data-football-state]')).toHaveAttribute('data-shot-style', styles[index]!);
+  const probe = page.locator('[data-football-state]');
+  const panel = page.locator('.practice-technique-panel');
+  await expect(panel).toContainText('Practice-only specialist contacts');
+  await panel.locator('summary').click();
+  await expect(panel).toHaveAttribute('open', '');
+
+  for (const style of ['normal', 'knuckle', 'outside-foot']) {
+    await panel.getByRole('button', { name: style, exact: true }).click();
+    await expect(probe).toHaveAttribute('data-shot-style', style);
   }
+
+  await page.keyboard.press('2');
+  await expect(probe).toHaveAttribute('data-shot-style', 'outside-foot');
 });

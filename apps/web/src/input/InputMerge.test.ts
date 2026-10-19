@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'vitest';
 import type { InputIntent } from '@soccershooter/sim';
+import { PlayerActionBits } from '@soccershooter/sim/player/PlayerState';
 import type { GamepadFrame } from './GamepadAdapter';
+import { CLOSE_CONTROL_MOVE_SCALE } from './FootballControl';
 import { mergeInputSources } from './InputMerge';
 
 const keyboardIntent: InputIntent = {
@@ -11,7 +13,7 @@ const keyboardIntent: InputIntent = {
   actionBits: 1,
 };
 
-describe('Stage 03 mixed-device input integration', () => {
+describe('mixed-device football input integration', () => {
   test('gamepad camera look does not erase active keyboard movement or sprint', () => {
     const gamepad: GamepadFrame = {
       active: true,
@@ -45,5 +47,19 @@ describe('Stage 03 mixed-device input integration', () => {
     expect(merged.intent.moveY).toBeCloseTo(0.2, 10);
     expect(merged.intent.actionBits).toBe(3);
     expect(merged.intent.sprint).toBe(true);
+  });
+
+  test('RMB or LT close-control precision is applied after keyboard/gamepad merge', () => {
+    const precisionKeyboard = {
+      ...keyboardIntent,
+      actionBits: PlayerActionBits.Precision,
+    };
+    const merged = mergeInputSources(
+      { intent: precisionKeyboard, look: { yawDelta: 0, pitchDelta: 0 }, inputTimestamp: 10, zoomDelta: 0 },
+      null,
+      0,
+    );
+    expect(merged.intent.sprint).toBe(false);
+    expect(merged.intent.moveY).toBeCloseTo(CLOSE_CONTROL_MOVE_SCALE, 10);
   });
 });

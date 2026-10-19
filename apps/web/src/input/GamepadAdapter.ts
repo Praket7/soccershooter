@@ -31,6 +31,12 @@ export const DEFAULT_GAMEPAD_YAW_RATE = 3.5;
 export const DEFAULT_GAMEPAD_PITCH_RATE = 2.7;
 
 const TAU = Math.PI * 2;
+const GAMEPAD_EDGE_ACTION_BITS = (
+  PlayerActionBits.Pass
+  | PlayerActionBits.ThroughPass
+  | PlayerActionBits.LoftedPass
+  | PlayerActionBits.Receive
+) >>> 0;
 
 function wrapYaw(yaw: number): number {
   const wrapped = ((yaw + Math.PI) % TAU + TAU) % TAU - Math.PI;
@@ -70,9 +76,12 @@ export function gamepadSnapshotToFrame(
   if (button(snapshot, 0)) actionBits |= PlayerActionBits.Jump;
   if (button(snapshot, 1)) actionBits |= PlayerActionBits.Tackle;
   if (button(snapshot, 2)) actionBits |= PlayerActionBits.Pass;
-  if (button(snapshot, 5)) actionBits |= PlayerActionBits.Technique;
+  if (button(snapshot, 3)) actionBits |= PlayerActionBits.ThroughPass;
+  if (button(snapshot, 4)) actionBits |= PlayerActionBits.LoftedPass;
+  if (button(snapshot, 5)) actionBits |= PlayerActionBits.DrivenModifier;
   if (button(snapshot, 6)) actionBits |= PlayerActionBits.Precision;
   if (button(snapshot, 7)) actionBits |= PlayerActionBits.ShootHeld;
+  if (button(snapshot, 8)) actionBits |= PlayerActionBits.Receive;
   const intent: InputIntent = {
     moveX: move.x,
     moveY: move.y,
@@ -87,7 +96,7 @@ export function gamepadSnapshotToFrame(
 export class GamepadAdapter {
   readonly #options: GamepadOptions;
   #shootWasHeld = false;
-  #passWasHeld = false;
+  #edgeWasHeldBits = 0;
 
   constructor(options: GamepadOptions = {}) {
     this.#options = options;
@@ -96,8 +105,7 @@ export class GamepadAdapter {
   read(currentAimYaw: number, deltaSeconds: number): GamepadFrame | null {
     const pads = navigator.getGamepads?.() ?? [];
     for (const pad of pads) {
-      if (!pad || !pad.connected) continue;
-      if (pad.mapping !== 'standard') continue;
+      if (!pad || !pad.connected || pad.mapping !== 'standard') continue;
       const frame = gamepadSnapshotToFrame(
         {
           axes: [...pad.axes],
@@ -108,17 +116,21 @@ export class GamepadAdapter {
         deltaSeconds,
         this.#options,
       );
+
       const shootHeld = (frame.intent.actionBits & PlayerActionBits.ShootHeld) !== 0;
       if (this.#shootWasHeld && !shootHeld) frame.intent.actionBits |= PlayerActionBits.ShootReleased;
       this.#shootWasHeld = shootHeld;
 
-      const passHeld = (frame.intent.actionBits & PlayerActionBits.Pass) !== 0;
-      if (passHeld && this.#passWasHeld) frame.intent.actionBits &= ~PlayerActionBits.Pass;
-      this.#passWasHeld = passHeld;
+      const edgeHeldBits = frame.intent.actionBits & GAMEPAD_EDGE_ACTION_BITS;
+      frame.intent.actionBits = (
+        (frame.intent.actionBits & ~GAMEPAD_EDGE_ACTION_BITS)
+        | (edgeHeldBits & ~this.#edgeWasHeldBits)
+      ) >>> 0;
+      this.#edgeWasHeldBits = edgeHeldBits;
       return frame;
     }
     this.#shootWasHeld = false;
-    this.#passWasHeld = false;
+    this.#edgeWasHeldBits = 0;
     return null;
   }
 }

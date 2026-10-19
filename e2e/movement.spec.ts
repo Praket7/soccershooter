@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test';
 
-test('Stage 03 movement lab is controllable in the browser', async ({ page }) => {
+test('Stage 03 movement remains controllable inside the physical football lab', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'SoccerShooter Movement Lab' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'SoccerShooter Physical Football Lab' })).toBeVisible();
   await expect(page.locator('canvas[data-game-viewport]')).toBeVisible();
 
   const probe = page.locator('[data-player-state]');

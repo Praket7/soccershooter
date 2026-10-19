@@ -45,6 +45,12 @@
   background: linear-gradient(180deg, rgba(9,16,20,.94), rgba(7,12,16,.88));
   box-shadow: 0 18px 48px rgba(0,0,0,.34), inset 0 1px rgba(255,255,255,.04);
   backdrop-filter: blur(14px);
+  pointer-events: none;
+}
+
+.football-practice-panel button,
+.football-practice-panel summary {
+  pointer-events: auto;
 }
 
 .football-practice-heading {
