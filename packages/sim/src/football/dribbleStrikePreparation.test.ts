@@ -41,26 +41,29 @@ const motion: AthleticMotionState = {
   ],
 };
 
+function ordinaryCarry() {
+  const base = {
+    ...createPlannedDribbleState(),
+    lastContactTick: 100,
+    lastContactFoot: 'left' as const,
+  };
+  return stepPlannedDribble({
+    tick: 101,
+    state: base,
+    actor,
+    motion,
+    ball,
+    desiredDirection: { x: 0, z: 1 },
+    precision: false,
+    sprint: false,
+    pressure: 0,
+    moveIntentMagnitude: 1,
+  });
+}
+
 describe('running-shot dribble preparation', () => {
   test('charging a shot converts a distant carry touch into a near setup touch without welding the ball', () => {
-    const base = {
-      ...createPlannedDribbleState(),
-      lastContactTick: 100,
-      lastContactFoot: 'left' as const,
-    };
-
-    const ordinary = stepPlannedDribble({
-      tick: 101,
-      state: base,
-      actor,
-      motion,
-      ball,
-      desiredDirection: { x: 0, z: 1 },
-      precision: false,
-      sprint: false,
-      pressure: 0,
-      moveIntentMagnitude: 1,
-    });
+    const ordinary = ordinaryCarry();
     expect(ordinary.state.activePlan).not.toBeNull();
     expect(ordinary.state.activePlan!.contactTick - 101).toBeGreaterThan(8);
 
@@ -88,5 +91,25 @@ describe('running-shot dribble preparation', () => {
       preparing.state.activePlan!.targetBallVelocity.x,
       preparing.state.activePlan!.targetBallVelocity.z,
     )).toBeLessThanOrEqual(Math.hypot(actor.velocity.x, actor.velocity.z) + 0.05);
+  });
+
+  test('live athletic motion carries held-shot preparation into the planner without a browser-only override', () => {
+    const ordinary = ordinaryCarry();
+    const preparing = stepPlannedDribble({
+      tick: 102,
+      state: ordinary.state,
+      actor,
+      motion: { ...motion, strikePreparation: true },
+      ball,
+      desiredDirection: { x: 0, z: 1 },
+      precision: false,
+      sprint: false,
+      pressure: 0,
+      moveIntentMagnitude: 1,
+    });
+
+    expect(preparing.state.activePlan).not.toBeNull();
+    expect(preparing.state.activePlan!.contactTick - 102).toBeLessThanOrEqual(5);
+    expect(preparing.state.activePlan!.reason).toMatch(/^strike-setup-/);
   });
 });
