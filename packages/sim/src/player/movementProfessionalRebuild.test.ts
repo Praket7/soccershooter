@@ -25,7 +25,7 @@ describe('professional movement rebuild regressions', () => {
     expect(state.position.z).toBeLessThan(0.78);
   });
 
-  test('lower-body facing follows locomotion during a camera-facing strafe', () => {
+  test('authoritative facing stays on action aim during a camera-facing strafe', () => {
     const world = createFlatMovementWorld();
     let state = createPlayerState();
 
@@ -34,7 +34,7 @@ describe('professional movement rebuild regressions', () => {
     }
 
     const travelYaw = Math.atan2(state.velocity.x, state.velocity.z);
-    expect(Math.abs(yawDelta(state.facingYaw, travelYaw))).toBeLessThan(0.16);
-    expect(Math.abs(yawDelta(state.facingYaw, RIGHT.aimYaw))).toBeGreaterThan(1.1);
+    expect(Math.abs(yawDelta(state.facingYaw, RIGHT.aimYaw))).toBeLessThan(0.01);
+    expect(Math.abs(yawDelta(state.facingYaw, travelYaw))).toBeGreaterThan(1.1);
   });
 });
