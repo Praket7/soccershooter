@@ -15,14 +15,30 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Package exact source tree
-        run: |
-          tar --exclude=.git --exclude=node_modules --exclude='**/node_modules' -czf /tmp/soccershooter-source.tgz .
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
 
-      - name: Upload source archive
+      - name: Install exact pnpm
+        run: npm install --global pnpm@12.9.1
+
+      - name: Install exact workspace
+        run: pnpm install --frozen-lockfile
+
+      - name: Package sandbox runtime
+        run: |
+          mkdir -p /tmp/soccershooter-runtime/repo /tmp/soccershooter-runtime/bin /tmp/soccershooter-runtime/pnpm
+          tar --exclude=.git -cf - . | tar -xf - -C /tmp/soccershooter-runtime/repo
+          cp "$(command -v node)" /tmp/soccershooter-runtime/bin/node
+          cp -a "$(dirname "$(readlink -f "$(command -v pnpm)")")/.." /tmp/soccershooter-runtime/pnpm/package
+          tar -C /tmp -czf /tmp/soccershooter-runtime.tgz soccershooter-runtime
+
+      - name: Upload runtime archive
         uses: actions/upload-artifact@v4
         with:
-          name: soccershooter-source
-          path: /tmp/soccershooter-source.tgz
+          name: soccershooter-runtime
+          path: /tmp/soccershooter-runtime.tgz
           if-no-files-found: error
           retention-days: 1
