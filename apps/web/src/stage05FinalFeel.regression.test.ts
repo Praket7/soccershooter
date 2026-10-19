@@ -14,6 +14,7 @@ import { intersectAimRayWithPlaneZ } from './input/WorldAim';
 
 const DT = 1 / 60;
 const WORLD = createFlatMovementWorld();
+const MIN_LOWER_BODY_BALL_CLEARANCE = 0.24;
 
 function direction(degrees: number): FootballHorizontalDirection {
   const radians = degrees * Math.PI / 180;
@@ -152,6 +153,6 @@ describe('Stage 05 final owner-feel regressions', () => {
     expect(failures.filter((reason) => reason === 'out-of-reach')).toHaveLength(0);
     expect(maxConsecutiveFailures).toBeLessThanOrEqual(2);
     expect(maxSeparation).toBeLessThan(1.42);
-    expect(minSeparation).toBeGreaterThan(0.16);
+    expect(minSeparation).toBeGreaterThanOrEqual(MIN_LOWER_BODY_BALL_CLEARANCE);
   });
 });
