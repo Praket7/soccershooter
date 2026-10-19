@@ -48,13 +48,15 @@ test('a late 90 degree jog cut in the live game retains contact without attachin
   const startX = Number(await player.getAttribute('data-x') ?? 0);
   const startZ = Number(await player.getAttribute('data-z') ?? 0);
   const startTick = Number(await player.getAttribute('data-tick') ?? 0);
+  const startingFreeBallFrames = Number(await probe.getAttribute('data-free-ball-frames') ?? 0);
   let maximumSeparation = 0;
   let maximumSeparationState: Record<string, unknown> = {};
-  let looseSamples = 0;
+  const tickSamples: Array<Record<string, number | boolean>> = [];
 
   await page.keyboard.down('d');
   await page.keyboard.up('w');
-  for (let sample = 0; sample < 120; sample += 1) {
+  let lastSampledTick = startTick;
+  for (let attempt = 0; attempt < 240 && lastSampledTick < startTick + 36; attempt += 1) {
     const state = await page.evaluate(() => {
       const playerState = document.querySelector<HTMLOutputElement>('[data-player-state]');
       const footballState = document.querySelector<HTMLOutputElement>('[data-football-state]');
@@ -74,18 +76,22 @@ test('a late 90 degree jog cut in the live game retains contact without attachin
         contactTick: Number(footballState.dataset.activeContactTick ?? 0),
       };
     });
-    if (state.loose) looseSamples += 1;
-    if (state.separation > maximumSeparation) {
-      maximumSeparation = state.separation;
-      maximumSeparationState = state;
+    if (state.tick > lastSampledTick) {
+      tickSamples.push(state);
+      lastSampledTick = state.tick;
+      if (state.separation > maximumSeparation) {
+        maximumSeparation = state.separation;
+        maximumSeparationState = state;
+      }
     }
-    await page.waitForTimeout(12);
+    if (lastSampledTick < startTick + 36) await page.waitForTimeout(5);
   }
   await page.keyboard.up('d');
 
   const endX = Number(await player.getAttribute('data-x') ?? 0);
   const endZ = Number(await player.getAttribute('data-z') ?? 0);
   const contactsAfterCut = Number(await probe.getAttribute('data-planned-contact-count') ?? 0);
+  const endingFreeBallFrames = Number(await probe.getAttribute('data-free-ball-frames') ?? 0);
   const loose = await probe.getAttribute('data-dribble-loose-ball');
   const finalDiagnostics = await page.evaluate(() => {
     const footballState = document.querySelector<HTMLOutputElement>('[data-football-state]');
@@ -101,9 +107,12 @@ test('a late 90 degree jog cut in the live game retains contact without attachin
   });
   expect(endX).toBeLessThan(startX - 1.5);
   expect(Math.abs(endZ - startZ)).toBeLessThan(2.0);
+  expect(lastSampledTick, 'cut telemetry should cover 36 simulation ticks around the next contact').toBeGreaterThanOrEqual(startTick + 36);
   expect(contactsAfterCut, JSON.stringify({ contactCountdown, contactsBeforeCut, contactsAfterCut, loose, finalDiagnostics })).toBeGreaterThan(contactsBeforeCut);
+  expect(endingFreeBallFrames, 'free-ball simulation should advance between legal contacts').toBeGreaterThan(startingFreeBallFrames);
   expect(maximumSeparation, JSON.stringify({ startTick, startX, startZ, endX, endZ, contactsBeforeCut, contactsAfterCut, loose, maximumSeparation, maximumSeparationState })).toBeLessThan(2.0);
-  expect(looseSamples / 120, JSON.stringify({ startX, startZ, endX, endZ, contactsBeforeCut, contactsAfterCut, loose, maximumSeparation, finalDiagnostics })).toBeLessThanOrEqual(0.2);
+  const looseTicks = tickSamples.filter((state) => state.loose).length;
+  expect(looseTicks / tickSamples.length, JSON.stringify({ startX, startZ, endX, endZ, contactsBeforeCut, contactsAfterCut, loose, looseTicks, sampleTicks: tickSamples.length, maximumSeparation, finalDiagnostics })).toBeLessThanOrEqual(0.2);
 });
 
 test('RMB close control stays on planned contacts instead of falling back to the cooldown corridor', async ({ page }) => {
