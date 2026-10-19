@@ -198,7 +198,6 @@ function plannedActorPoint(input: Readonly<PlannedDribbleInput>, seconds: number
 function targetSpeed(input: Readonly<PlannedDribbleInput>): number {
   const actorSpeed = horizontalMagnitude(input.actor.velocity);
   const plannedSpeed = Math.hypot(input.motion.plannedVelocity.x, input.motion.plannedVelocity.z);
-  const referenceSpeed = Math.max(actorSpeed, plannedSpeed);
   if (input.receiveMode === 'kill') return Math.min(0.75, actorSpeed * 0.16);
   if (input.receiveMode === 'controlled-exit') return input.precision ? 2.0 : 2.8;
   // Close control means a short *relative* player-ball pocket, not an
@@ -219,7 +218,16 @@ function targetSpeed(input: Readonly<PlannedDribbleInput>): number {
     // travels ahead between the deliberately sparse contact beats.
     return clampFootball(actorSpeed + 1.25 + Math.min(0.65, actorSpeed * 0.07), 3.55, 9.55);
   }
-  return clampFootball(referenceSpeed * 0.94 + 0.24, 2.65, 5.5);
+
+  // Normal control should anticipate the athlete's near-future pace, but it
+  // must not launch the ball at the eventual 5.2 m/s jog target while the body
+  // is still accelerating from rest. The old max(actorSpeed, plannedSpeed)
+  // did exactly that and was only masked by the former superhuman 20 m/s^2
+  // acceleration. Allow at most 0.55 m/s of look-ahead so the ball opens a
+  // readable pocket without outrunning the carrier during the first strides.
+  const speedGap = Math.max(0, plannedSpeed - actorSpeed);
+  const anticipatedSpeed = actorSpeed * 0.94 + 0.24 + Math.min(0.55, speedGap * 0.30);
+  return clampFootball(anticipatedSpeed, 1.15, 5.5);
 }
 
 function targetVelocity(input: Readonly<PlannedDribbleInput>): FootballVec3 {
