@@ -26,12 +26,12 @@ const request = {
 };
 
 describe('strike contact planning', () => {
-  it('prepares a support step before a deterministic foot contact beat', () => {
+  it('starts support-step presentation immediately before a deterministic foot contact beat', () => {
     const plan = createStrikeContactPlan(request);
     expect(plan).not.toBeNull();
     expect(plan!.kind).toBe('shot');
     expect(plan!.foot).toBe('right');
-    expect(plan!.prepareTick).toBeGreaterThan(request.tick);
+    expect(plan!.prepareTick).toBe(request.tick);
     expect(plan!.contactTick).toBeGreaterThan(plan!.prepareTick);
     expect(plan!.eventId).toBe(createStrikeContactPlan(request)!.eventId);
   });
