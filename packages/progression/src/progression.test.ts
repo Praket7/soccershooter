@@ -72,6 +72,24 @@ describe('Road to Legend progression', () => {
       .not.toBe(resolveRunUpgradeModifiers({ ...technical.profile, runChoices: ['recovery'] }).contactTimingTicks);
   });
 
+  it('proves each player build completes the same physical campaign with a distinct deterministic playstyle signature', () => {
+    const runs = (['technical', 'pace', 'power'] as const).map((archetype) => simulateSkilledCampaign(archetype, 0x9a17));
+    const totalEncounters = CAMPAIGN_ACTS.reduce((total, act) => total + act.encounters.length, 0);
+
+    for (const run of runs) {
+      expect(run.profile.campaignComplete).toBe(true);
+      expect(run.wins).toBe(totalEncounters);
+      expect(run.playstyle.passContacts + run.playstyle.shotContacts + run.playstyle.controlTouches + run.playstyle.challengeContacts)
+        .toBeGreaterThanOrEqual(run.wins);
+      expect(run.playstyle.possessionChanges).toBeGreaterThan(0);
+      expect(simulateSkilledCampaign(run.archetype, 0x9a17).playstyle).toEqual(run.playstyle);
+    }
+
+    const signatures = runs.map((run) => JSON.stringify(run.playstyle));
+    expect(new Set(signatures).size).toBe(3);
+    expect(new Set(runs.map((run) => run.checksum)).size).toBe(3);
+  });
+
   it('runs authored acts against their distinct tactical opponent archetypes', () => {
     const campaign = simulateSkilledCampaign('technical', 1234);
     expect(campaign.opponentArchetypes).toEqual(CAMPAIGN_ACTS.flatMap((act) => act.encounters.map(() => act.opponentArchetype)));
