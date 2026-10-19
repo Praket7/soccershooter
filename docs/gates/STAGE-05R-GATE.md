@@ -16,7 +16,7 @@
 - Stage 04 golden ball trajectories remain on the existing unchanged physics implementation; the contact planner only changes velocity/angular velocity at legal events.
 - Carry tests and browser probes confirm planned foot/tick/surface IDs, free-ball frames, non-teleporting contacts, longer sprint spacing, and recoverable misses.
 - A new live-game E2E sends a right-angle cut request after the live planner displays a contact two simulation ticks ahead. It records at least 30 unique DOM observations spanning 36 simulation ticks, checks separation and loose-ball state in those observations, requires another planned contact, and checks that the free-ball-frame counter advances. It does not claim to observe the exact simulation tick when the input is consumed. This version passed five focused repeats and the full 52-test browser suite.
-- `pnpm dribble:calibration` — PASS, 16 deterministic scenarios and 125 measured contacts; distributions are recorded below and in the reproducible runner.
+- `pnpm dribble:calibration` — PASS, 16 deterministic scenarios and 136 measured contacts; distributions are recorded below and in the reproducible runner.
 
 ## Owner gate still required
 
