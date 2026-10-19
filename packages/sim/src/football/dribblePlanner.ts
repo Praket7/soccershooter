@@ -138,29 +138,39 @@ function chooseSurface(input: Readonly<PlannedDribbleInput>, foot: FootballFoot)
   return foot === outsideFoot ? 'outside' : 'inside';
 }
 
-function trajectoryOffsetAt(motion: Readonly<AthleticMotionState>, seconds: number): { x: number; z: number } {
+function trajectoryOffsetAt(
+  motion: Readonly<AthleticMotionState>,
+  origin: Pick<FootballVec3, 'x' | 'z'>,
+  seconds: number,
+): { x: number; z: number } {
   if (motion.trajectory.length === 0 || seconds <= 0) return { x: 0, z: 0 };
   const samples = motion.trajectory;
+  // AthleticMotionState.trajectory contains absolute world-space positions.
+  // Convert each sample to a displacement from the actor's current origin
+  // before plannedActorPoint adds that origin back. The previous code added
+  // world position twice, making intercept reach depend on pitch coordinates.
   if (seconds <= samples[0]!.time) {
     const sample = samples[0]!;
     const scale = seconds / Math.max(1e-6, sample.time);
-    return { x: sample.position.x * scale, z: sample.position.z * scale };
+    return {
+      x: (sample.position.x - origin.x) * scale,
+      z: (sample.position.z - origin.z) * scale,
+    };
   }
   for (let index = 1; index < samples.length; index += 1) {
     const left = samples[index - 1]!;
     const right = samples[index]!;
     if (seconds > right.time) continue;
     const t = (seconds - left.time) / Math.max(1e-6, right.time - left.time);
-    return {
-      x: left.position.x + (right.position.x - left.position.x) * t,
-      z: left.position.z + (right.position.z - left.position.z) * t,
-    };
+    const worldX = left.position.x + (right.position.x - left.position.x) * t;
+    const worldZ = left.position.z + (right.position.z - left.position.z) * t;
+    return { x: worldX - origin.x, z: worldZ - origin.z };
   }
   const last = samples[samples.length - 1]!;
   const extra = seconds - last.time;
   return {
-    x: last.position.x + last.velocity.x * extra,
-    z: last.position.z + last.velocity.z * extra,
+    x: last.position.x - origin.x + last.velocity.x * extra,
+    z: last.position.z - origin.z + last.velocity.z * extra,
   };
 }
 
@@ -177,7 +187,7 @@ function predictedBallPoint(ball: Readonly<FootballBallSnapshot>, seconds: numbe
 }
 
 function plannedActorPoint(input: Readonly<PlannedDribbleInput>, seconds: number): FootballVec3 {
-  const offset = trajectoryOffsetAt(input.motion, seconds);
+  const offset = trajectoryOffsetAt(input.motion, input.actor.position, seconds);
   return {
     x: input.actor.position.x + offset.x,
     y: input.actor.position.y,
