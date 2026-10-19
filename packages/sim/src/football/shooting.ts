@@ -19,7 +19,15 @@ export interface ShotBuildInput {
   style: ShotStyle;
   shooter: Readonly<FootballActorSnapshot>;
   ball: Readonly<FootballBallSnapshot>;
+  /** Horizontal fallback for AI/legacy callers that do not provide a world target. */
   aim: FootballHorizontalDirection;
+  /**
+   * Optional center-reticle world target. When supplied, the shot points from
+   * the physical ball toward this target in both horizontal direction and
+   * elevation, bounded by the selected technique rather than silently using a
+   * fixed vertical launch angle.
+   */
+  aimTarget?: FootballVec3;
   charge: number;
   spinInput: number;
   pressure: number;
@@ -63,6 +71,45 @@ function styleElevationDegrees(style: ShotStyle, charge: number): number {
   return 7.5;
 }
 
+function styleElevationEnvelopeDegrees(style: ShotStyle): readonly [number, number] {
+  if (style === 'chip') return [18, 42];
+  if (style === 'finesse') return [5, 20];
+  if (style === 'outside-foot') return [3, 18];
+  if (style === 'knuckle') return [1.5, 12];
+  if (style === 'driven') return [0.5, 7];
+  return [1.5, 18];
+}
+
+function resolvedAim(input: Readonly<ShotBuildInput>): FootballHorizontalDirection {
+  const target = input.aimTarget;
+  if (target
+    && Number.isFinite(target.x)
+    && Number.isFinite(target.z)
+    && Math.hypot(target.x - input.ball.position.x, target.z - input.ball.position.z) > 1e-6) {
+    return normalizeHorizontal({
+      x: target.x - input.ball.position.x,
+      z: target.z - input.ball.position.z,
+    }, forwardFromYaw(input.shooter.facingYaw));
+  }
+  return normalizeHorizontal(input.aim, forwardFromYaw(input.shooter.facingYaw));
+}
+
+function resolvedElevationRadians(input: Readonly<ShotBuildInput>, charge: number): number {
+  const fallbackDegrees = styleElevationDegrees(input.style, charge);
+  const target = input.aimTarget;
+  if (!target || !Number.isFinite(target.y)) return fallbackDegrees * Math.PI / 180;
+
+  const horizontal = Math.hypot(
+    target.x - input.ball.position.x,
+    target.z - input.ball.position.z,
+  );
+  if (!Number.isFinite(horizontal) || horizontal <= 0.25) return fallbackDegrees * Math.PI / 180;
+
+  const requestedDegrees = Math.atan2(target.y - input.ball.position.y, horizontal) * 180 / Math.PI;
+  const [minDegrees, maxDegrees] = styleElevationEnvelopeDegrees(input.style);
+  return clampFootball(requestedDegrees, minDegrees, maxDegrees) * Math.PI / 180;
+}
+
 function angularSignature(style: ShotStyle, spinInput: number, foot: FootballFoot): FootballVec3 {
   const spin = clampFootball(spinInput, -1, 1);
   const footSign = foot === 'right' ? -1 : 1;
@@ -86,7 +133,7 @@ function deterministicKnuckleSeed(input: Readonly<ShotBuildInput>): number {
 }
 
 export function buildShot(input: Readonly<ShotBuildInput>): ShotSolution {
-  const aim = normalizeHorizontal(input.aim, forwardFromYaw(input.shooter.facingYaw));
+  const aim = resolvedAim(input);
   const facing = forwardFromYaw(input.shooter.facingYaw);
   const facingDot = horizontalDot(facing, aim);
   const alignment = clampFootball((facingDot - MIN_LEGAL_DOT) / (1 - MIN_LEGAL_DOT), 0, 1);
@@ -117,7 +164,7 @@ export function buildShot(input: Readonly<ShotBuildInput>): ShotSolution {
   const alignmentFactor = 0.69 + 0.31 * alignment;
   const balanceFactor = 0.72 + 0.28 * effectiveBalance;
   const launchSpeed = clampFootball(nominalSpeed * alignmentFactor * balanceFactor, 0, 36);
-  const elevation = styleElevationDegrees(input.style, charge) * Math.PI / 180;
+  const elevation = resolvedElevationRadians(input, charge);
   const horizontal = launchSpeed * Math.cos(elevation);
   const launchVelocity: FootballVec3 = {
     x: aim.x * horizontal,
