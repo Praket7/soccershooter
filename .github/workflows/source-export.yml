@@ -1,0 +1,28 @@
+name: Sandbox source export
+
+on:
+  push:
+    branches:
+      - 'stress/**'
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Package exact source tree
+        run: |
+          tar --exclude=.git --exclude=node_modules --exclude='**/node_modules' -czf /tmp/soccershooter-source.tgz .
+
+      - name: Upload source archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: soccershooter-source
+          path: /tmp/soccershooter-source.tgz
+          if-no-files-found: error
+          retention-days: 1
