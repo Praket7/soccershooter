@@ -21,14 +21,15 @@ test('a new player can understand Road to Legend without developer explanation',
   await expect(power).toContainText('Power');
   await expect(power).toContainText('stronger strikes');
 
-  const brief = screen.locator('[data-challenge-brief]');
-  await expect(brief).toContainText('Find space');
-  await expect(brief).toContainText('move the defender before you release the ball');
-  await expect(screen.locator('[data-current-encounter]')).toContainText('What to try');
+  const encounter = screen.locator('[data-current-encounter]');
+  await expect(encounter).toContainText('Find space');
+  await expect(encounter).toContainText('move the defender before you release the ball');
+  await expect(encounter).toContainText('What to try');
 });
 
 test('later tactical problems explain the football idea rather than only exposing an internal label', async ({ page }) => {
   await page.goto('/');
+  await expect.poll(async () => page.evaluate(() => Boolean(localStorage.getItem('soccershooter.profile.v2')))).toBe(true);
   await page.evaluate(() => {
     const profile = JSON.parse(localStorage.getItem('soccershooter.profile.v2') ?? '{}');
     profile.campaignActId = 'academy';
@@ -39,7 +40,7 @@ test('later tactical problems explain the football idea rather than only exposin
   await page.reload();
   await page.getByRole('button', { name: 'Road to Legend' }).click();
 
-  const brief = page.locator('[data-challenge-brief]');
-  await expect(brief).toContainText('Beat the press');
-  await expect(brief).toContainText('play before pressure arrives');
+  const encounter = page.locator('[data-current-encounter]');
+  await expect(encounter).toContainText('Beat the press');
+  await expect(encounter).toContainText('play before pressure arrives');
 });
