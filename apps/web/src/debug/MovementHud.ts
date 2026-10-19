@@ -23,7 +23,7 @@ function format(value: number, digits = 2): string {
 
 export class MovementHud {
   readonly element: HTMLDivElement;
-  #visible = true;
+  #visible = false;
 
   constructor(parent: HTMLElement = document.body) {
     const element = document.createElement('div');
@@ -44,6 +44,7 @@ export class MovementHud {
       whiteSpace: 'pre',
       zIndex: '20',
       backdropFilter: 'blur(8px)',
+      display: 'none',
     });
     parent.append(element);
     this.element = element;
