@@ -1,3 +1,9 @@
+import {
+  cloneAthleticMotionState,
+  createAthleticMotionState,
+  type AthleticMotionState,
+} from './athleticMotion';
+
 export interface Vec3 {
   x: number;
   y: number;
@@ -42,6 +48,7 @@ export interface PlayerState {
   grounded: boolean;
   groundHeight: number;
   locomotion: LocomotionState;
+  athleticMotion: AthleticMotionState;
   actionHooks: PlayerActionHooks;
 }
 
@@ -54,6 +61,7 @@ export interface PlayerStateInit {
   grounded?: boolean;
   groundHeight?: number;
   locomotion?: LocomotionState;
+  athleticMotion?: AthleticMotionState;
   actionHooks?: Partial<PlayerActionHooks>;
 }
 
@@ -81,6 +89,9 @@ export function createPlayerState(init: PlayerStateInit = {}): PlayerState {
     grounded: init.grounded ?? true,
     groundHeight: finiteOr(init.groundHeight, init.position?.y ?? 0, 'groundHeight'),
     locomotion: init.locomotion ?? 'idle',
+    athleticMotion: init.athleticMotion
+      ? cloneAthleticMotionState(init.athleticMotion)
+      : createAthleticMotionState(),
     actionHooks: {
       jumpRequested: init.actionHooks?.jumpRequested ?? false,
       tackleRequested: init.actionHooks?.tackleRequested ?? false,
@@ -93,6 +104,7 @@ export function clonePlayerState(state: Readonly<PlayerState>): PlayerState {
     ...state,
     position: { ...state.position },
     velocity: { ...state.velocity },
+    athleticMotion: cloneAthleticMotionState(state.athleticMotion),
     actionHooks: { ...state.actionHooks },
   };
 }
