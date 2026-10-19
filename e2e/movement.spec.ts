@@ -108,7 +108,7 @@ test('Stage 05R records a rendered input acknowledgement latency distribution', 
 
 test('Stage 03 movement remains controllable inside the physical football lab', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'SoccerShooter Physical Football Lab' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'SoccerShooter' })).toBeVisible();
   await expect(page.locator('canvas[data-game-viewport]')).toBeVisible();
 
   const probe = page.locator('[data-player-state]');
