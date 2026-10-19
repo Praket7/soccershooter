@@ -227,7 +227,7 @@ export function stepAthleticMotion(
     z: desired.z * plannedSpeed,
   };
 
-  const gait = chooseGait(
+  const baseGait = chooseGait(
     input.grounded,
     speed,
     moveMagnitude,
@@ -235,6 +235,21 @@ export function stepAthleticMotion(
     plantIntensity,
     brakingDemand,
   );
+  // A hard grounded plant needs a short weight-transfer/recovery beat before
+  // ordinary propulsion resumes. This state never moves the root by itself; it
+  // simply makes the already-authoritative braking/turn transition explicit to
+  // contact planning and presentation.
+  const leavingPlant = input.grounded
+    && previous.gait === 'plant'
+    && baseGait !== 'plant'
+    && moveMagnitude > 0.05;
+  const continuingRecovery = input.grounded
+    && previous.gait === 'recover'
+    && baseGait !== 'plant'
+    && brakingDemand > 0.12
+    && speed > 0.6
+    && moveMagnitude > 0.05;
+  const gait: AthleticGait = leavingPlant || continuingRecovery ? 'recover' : baseGait;
 
   return {
     gait,
