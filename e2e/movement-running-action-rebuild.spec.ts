@@ -42,6 +42,7 @@ test('player can keep running while charging and completing a shot', async ({ pa
 
   const football = page.locator('[data-football-state]');
   const player = page.locator('[data-player-state]');
+  const viewport = page.locator('[data-game-viewport]');
   await page.keyboard.press('g');
   await page.keyboard.down('w');
   await expect.poll(async () => Number(await player.getAttribute('data-speed')), { timeout: 2200 }).toBeGreaterThan(3.2);
@@ -73,8 +74,14 @@ test('player can keep running while charging and completing a shot', async ({ pa
     (window as Window & { __runningShotTrace?: string[] }).__runningShotTrace = trace;
   });
 
+  const box = await viewport.boundingBox();
+  expect(box).not.toBeNull();
+  if (!box) return;
+  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
+
   const beforeContact = Number(await football.getAttribute('data-last-contact-event-tick'));
   await page.mouse.down({ button: 'left' });
+  await expect.poll(async () => Number(await football.getAttribute('data-shot-charge')), { timeout: 1000 }).toBeGreaterThan(0.03);
   await page.waitForTimeout(150);
   await page.mouse.up({ button: 'left' });
 
