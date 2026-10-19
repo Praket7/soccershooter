@@ -507,7 +507,7 @@ function frame(now: number): void {
     if (recording && playbackIndex === null) recordedIntents.push(copyIntent(tickIntent));
 
     const beforeVelocity = player.velocity;
-    player = stepPlayerMovement(player, tickIntent, practiceMode ? practiceWorld : world, FIXED_DT, practiceMode ? footballPractice.movementConfig : DEFAULT_MOVEMENT_CONFIG);
+    player = stepPlayerMovement(player, tickIntent, practiceMode ? footballPractice.movementWorld(practiceWorld) : world, FIXED_DT, practiceMode ? footballPractice.movementConfig : DEFAULT_MOVEMENT_CONFIG);
     if (practiceMode) {
       if (!playingBack) footballPractice.processIntent(player, tickIntent, FIXED_DT);
       // Keep the independent football on the same authoritative timeline as

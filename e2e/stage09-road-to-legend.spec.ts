@@ -48,3 +48,36 @@ test('Road to Legend starts a physical-goal campaign challenge and saves an aban
   await expect(screen).toContainText('1 losses');
   await expect(page.getByRole('button', { name: 'Start current challenge' })).toBeVisible();
 });
+
+test('Legacy gauntlet seed applies its modifier to the live challenge', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('button', { name: 'Road to Legend' })).toBeVisible();
+  await page.evaluate(() => {
+    const profile = JSON.parse(localStorage.getItem('soccershooter.profile.v2') ?? '{}');
+    profile.campaignComplete = true;
+    profile.legacyLevel = 2;
+    profile.xp = 25;
+    localStorage.setItem('soccershooter.profile.v2', JSON.stringify(profile));
+  });
+  await page.reload();
+  await page.getByRole('button', { name: 'Road to Legend' }).click();
+
+  const legacyLevel = 2;
+  const seed = (Math.imul(legacyLevel + 1, 1664525) + 25 + 1013904223) >>> 0;
+  const modifiers = ['high-press', 'small-pitch', 'quick-recovery', 'aerial-pressure'] as const;
+  const modifier = modifiers[(Math.imul(seed ^ legacyLevel, 1103515245) >>> 0) % modifiers.length]!;
+  const modifierIntensity = 1 + Math.max(0, legacyLevel - 1) * 0.08;
+  await page.getByRole('button', { name: 'Start Legacy gauntlet' }).click();
+
+  const practice = page.locator('[data-football-practice]');
+  await expect(practice).toHaveAttribute('data-campaign-legacy-modifier', modifier);
+  await expect(practice).toHaveAttribute('data-campaign-legacy-level', '2');
+  await expect(page.locator('[data-campaign-objective]')).toContainText(`Legacy ${modifier.replaceAll('-', ' ')} ×${modifierIntensity.toFixed(2)}`);
+
+  switch (modifier) {
+    case 'high-press': await expect(practice).toHaveAttribute('data-legacy-pressure', '0.324'); break;
+    case 'small-pitch': await expect(practice).toHaveAttribute('data-legacy-pitch-scale', '0.9352'); break;
+    case 'quick-recovery': await expect(practice).toHaveAttribute('data-legacy-recovery-rate', '1.324'); break;
+    case 'aerial-pressure': await expect(practice).toHaveAttribute('data-legacy-keeper-max-height', '2.3096'); break;
+  }
+});

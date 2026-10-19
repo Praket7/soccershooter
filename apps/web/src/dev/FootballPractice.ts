@@ -4,7 +4,8 @@ import { MATCH_BALL_PROFILE } from '@soccershooter/physics/ball/aerodynamics';
 import { BALL_SUBSTEP_DT, STANDARD_GOAL_FRAME, crossedGoalPlane, stepBall } from '@soccershooter/physics/ball/trajectory';
 import type { InputIntent } from '@soccershooter/sim';
 import { PlayerActionBits, type PlayerState } from '@soccershooter/sim/player/PlayerState';
-import { DEFAULT_MOVEMENT_CONFIG } from '@soccershooter/sim/player/movement';
+import { DEFAULT_MOVEMENT_CONFIG, type MovementWorld } from '@soccershooter/sim/player/movement';
+import type { LegacyGauntlet } from '@soccershooter/progression/campaign';
 import { decodeFootballActionIntent } from '@soccershooter/sim/football/actionIntent';
 import { selectPassTarget, solvePass, type PassType } from '@soccershooter/sim/football/passing';
 import { resolveReceiveMode } from '@soccershooter/sim/football/receive';
@@ -45,6 +46,7 @@ import { TechniqueDebugHud } from '../debug/TechniqueDebugHud';
 import { resolveDribbleIntent, resolveTravelFacingYaw, updateShotFacingLock } from '../input/FootballControl';
 import { PLAYER_VISUAL_LAYOUT } from '../presentation/PlayerVisualLayout';
 import { applyShotBuildModifier } from './shotBuildModifiers';
+import { resolveLiveLegacyModifiers, type LiveLegacyModifiers } from './legacyChallengeModifiers';
 
 export interface FootballPracticeOptions {
   scene: THREE.Scene;
@@ -313,6 +315,8 @@ export class FootballPractice {
   #shotState = 'READY';
   #probe: HTMLOutputElement;
   #buildModifiers: FootballBuildModifiers = { contactTimingTicks: 1, sprintStaminaCostScale: 1, strikeImpulseScale: 1 };
+  #legacyGauntlet: LegacyGauntlet | null = null;
+  #legacyModifiers: LiveLegacyModifiers = resolveLiveLegacyModifiers(null);
   #onGoalScored: () => void;
 
   constructor(options: FootballPracticeOptions) {
@@ -400,17 +404,45 @@ export class FootballPractice {
     return 1;
   }
 
+  movementWorld(base: Readonly<MovementWorld>): MovementWorld {
+    const scale = this.#legacyModifiers.pitchScale;
+    const centerX = (base.bounds.minX + base.bounds.maxX) / 2;
+    const centerZ = (base.bounds.minZ + base.bounds.maxZ) / 2;
+    const halfWidth = (base.bounds.maxX - base.bounds.minX) * scale / 2;
+    const halfLength = (base.bounds.maxZ - base.bounds.minZ) * scale / 2;
+    return {
+      ...base,
+      bounds: {
+        minX: centerX - halfWidth,
+        maxX: centerX + halfWidth,
+        minZ: centerZ - halfLength,
+        maxZ: centerZ + halfLength,
+      },
+    };
+  }
+
   setWorldAimTarget(target: Readonly<FootballVec3> | null): void {
     this.#worldAimTarget = target ? { ...target } : null;
   }
 
-  setCampaignChallenge(encounter: { id: string; tacticalProblem: string } | null): void {
+  setCampaignChallenge(encounter: { id: string; tacticalProblem: string; legacyGauntlet?: LegacyGauntlet } | null): void {
+    this.#legacyGauntlet = encounter?.legacyGauntlet ?? null;
+    this.#legacyModifiers = resolveLiveLegacyModifiers(this.#legacyGauntlet);
+    this.root.dataset.campaignLegacyModifier = this.#legacyGauntlet?.modifier ?? '';
+    this.root.dataset.campaignLegacyLevel = this.#legacyGauntlet ? String(this.#legacyGauntlet.level) : '';
+    this.root.dataset.legacyPressure = this.#legacyModifiers.pressure.toFixed(3);
+    this.root.dataset.legacyPitchScale = this.#legacyModifiers.pitchScale.toFixed(4);
+    this.root.dataset.legacyRecoveryRate = this.#legacyModifiers.recoveryRate.toFixed(3);
+    this.root.dataset.legacyKeeperMaxHeight = this.#legacyModifiers.keeperMaxHeight.toFixed(4);
     const label = this.root.querySelector<HTMLElement>('[data-campaign-objective]');
     if (!label) return;
     this.root.dataset.campaignEncounter = encounter?.id ?? '';
     this.root.dataset.campaignTacticalProblem = encounter?.tacticalProblem ?? '';
     label.hidden = !encounter;
-    label.textContent = encounter ? `CAREER CHALLENGE · ${encounter.tacticalProblem.replaceAll('-', ' ')} · score a physical goal to advance` : '';
+    const modifier = this.#legacyGauntlet
+      ? ` · Legacy ${this.#legacyGauntlet.modifier.replaceAll('-', ' ')} ×${this.#legacyGauntlet.modifierIntensity.toFixed(2)}`
+      : '';
+    label.textContent = encounter ? `CAREER CHALLENGE · ${encounter.tacticalProblem.replaceAll('-', ' ')}${modifier} · score a physical goal to advance` : '';
   }
 
   setVisible(visible: boolean): void {
@@ -489,9 +521,9 @@ export class FootballPractice {
     this.#elapsed += Math.max(0, dt);
     const runtimeStep = stepFootballRuntime(this.#runtime, intent.actionBits, dt);
     this.#runtime = runtimeStep.state;
-    this.#defenderState = stepDefenderActionState(this.#defenderState, dt);
+    this.#defenderState = stepDefenderActionState(this.#defenderState, Math.min(0.1, dt * this.#legacyModifiers.recoveryRate));
 
-    const actor = actorSnapshot(player);
+    const actor = { ...actorSnapshot(player), pressure: this.#legacyModifiers.pressure };
     const snapshot = ballSnapshot(this.#state);
     const precision = (intent.actionBits & PlayerActionBits.Precision) !== 0;
     const tackle = (intent.actionBits & PlayerActionBits.Tackle) !== 0;
@@ -1038,7 +1070,7 @@ export class FootballPractice {
   }
 
   #keeperSaveIfEligible(previous: Readonly<BallState>, next: Readonly<BallState>): BallState | null {
-    const crossing = evaluateKeeperPlaneCrossing(previous, next, KEEPER_Z, this.#keeperX, KEEPER_HALF_REACH, 2.18);
+    const crossing = evaluateKeeperPlaneCrossing(previous, next, KEEPER_Z, this.#keeperX, KEEPER_HALF_REACH, this.#legacyModifiers.keeperMaxHeight);
     if (!crossing) return null;
     const contact = cloneBallState(next);
     contact.position = { ...crossing.position };

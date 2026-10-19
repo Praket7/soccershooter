@@ -1,7 +1,13 @@
-import { advanceCampaign, CAMPAIGN_ACTS, enterLegacy, finishLegacyGauntlet, type CampaignEncounter } from '@soccershooter/progression/campaign';
+import { advanceCampaign, CAMPAIGN_ACTS, createLegacyGauntlet, enterLegacy, finishLegacyGauntlet, type LegacyGauntlet } from '@soccershooter/progression/campaign';
 import { ARCHETYPE_MODIFIERS, awardEncounter, createFreshProfile, importProfile, selectArchetype, type PlayerArchetype, type PlayerProfile } from '@soccershooter/progression';
 import { LocalStorageProfileStore, type ProfileStore } from '@soccershooter/progression/save';
 import { PUBLIC_TEAMS } from '@soccershooter/content/teams/catalog';
+
+export interface CareerChallenge {
+  id: string;
+  tacticalProblem: string;
+  legacyGauntlet?: LegacyGauntlet;
+}
 
 function escapeHtml(value: string): string {
   return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
@@ -37,7 +43,7 @@ export class RoadToLegendScreen {
     private readonly onContinuePractice: () => void,
     private readonly store: ProfileStore = new LocalStorageProfileStore(window.localStorage),
     private readonly onProfileChange: (profile: Readonly<PlayerProfile>) => void = () => {},
-    private readonly onStartEncounter: (encounter: CampaignEncounter | { id: string; tacticalProblem: string }) => void = () => {},
+    private readonly onStartEncounter: (encounter: CareerChallenge) => void = () => {},
     private readonly onEndEncounter: () => void = () => {},
   ) {
     this.root = document.createElement('main');
@@ -90,8 +96,9 @@ export class RoadToLegendScreen {
       this.#profile = enterLegacy(this.#profile, seed);
       this.#activeLegacySeed = seed;
       this.#activeEncounterId = `legacy-${this.#profile.legacyLevel}-${seed}`;
+      const gauntlet = createLegacyGauntlet(this.#profile, seed);
       void this.store.save(this.#profile);
-      this.onStartEncounter({ id: this.#activeEncounterId, tacticalProblem: 'legacy-gauntlet' });
+      this.onStartEncounter({ id: this.#activeEncounterId, tacticalProblem: 'legacy-gauntlet', legacyGauntlet: gauntlet });
       this.#render();
     });
     const abandon = controls.querySelector<HTMLButtonElement>('[data-career-abandon-encounter]')!;
