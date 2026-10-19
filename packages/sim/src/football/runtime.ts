@@ -36,6 +36,17 @@ export function createFootballRuntimeState(): FootballRuntimeState {
   };
 }
 
+function shotTechniquePriority(style: ShotStyle): number {
+  if (style === 'chip') return 2;
+  if (style === 'finesse') return 1;
+  return 0;
+}
+
+function upgradeLatchedShotStyle(current: ShotStyle | null, requested: ShotStyle): ShotStyle {
+  if (current === null) return requested;
+  return shotTechniquePriority(requested) > shotTechniquePriority(current) ? requested : current;
+}
+
 export function stepFootballRuntime(
   state: Readonly<FootballRuntimeState>,
   actionBits: number,
@@ -48,7 +59,16 @@ export function stepFootballRuntime(
 
   let shotChargeSeconds = state.shotChargeSeconds;
   let shotStyleLatched = state.shotStyleLatched;
-  if (shotStarted) shotStyleLatched = decodeFootballActionIntent(actionBits).shotStyle;
+  const requestedShotStyle = decodeFootballActionIntent(actionBits).shotStyle;
+  if (shotStarted) shotStyleLatched = requestedShotStyle;
+  else if (shootHeld) {
+    // Real players do not hit multi-button chords on the exact same input frame.
+    // While LMB remains held, allow the technique to upgrade from normal ->
+    // finesse -> chip. Once upgraded it never downgrades if the modifier is
+    // released before LMB, so the resulting contact remains deterministic and
+    // readable without requiring perfect button ordering.
+    shotStyleLatched = upgradeLatchedShotStyle(shotStyleLatched, requestedShotStyle);
+  }
   if (shootHeld) shotChargeSeconds = Math.min(MAX_SHOT_CHARGE_SECONDS, shotChargeSeconds + dt);
 
   let releasedShotCharge: number | null = null;
