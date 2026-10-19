@@ -1,4 +1,4 @@
-name: Apply aerial integration patch
+name: Apply tactical timing gate patch
 
 on:
   push:
@@ -18,24 +18,97 @@ jobs:
           ref: finish/stages-01-10-foundation
           fetch-depth: 1
 
-      - name: Feed authoritative ball height into technique eligibility
+      - name: Replace scheduler-sensitive max gate with p99 budget
         run: |
           python - <<'PY'
           from pathlib import Path
-          path = Path('apps/web/src/dev/FootballPractice.ts')
+
+          path = Path('tools/balance/tacticalTournament.ts')
           text = path.read_text()
-          old = "        ballDistance: Math.hypot(snapshot.position.x - actor.position.x, snapshot.position.z - actor.position.z),\n        grounded: player.grounded,"
-          new = "        ballDistance: Math.hypot(snapshot.position.x - actor.position.x, snapshot.position.z - actor.position.z),\n        ballHeight: snapshot.position.y,\n        grounded: player.grounded,"
+          replacements = [
+            (
+              "  averageDecisionMsPerTeam: number;\n  maxDecisionMsPerTeam: number;\n",
+              "  averageDecisionMsPerTeam: number;\n  p99DecisionMsPerTeam: number;\n  maxDecisionMsPerTeam: number;\n",
+            ),
+            (
+              "function timedStep(\n",
+              "const DECISION_TIMING_BIN_MS = 0.01;\nconst DECISION_TIMING_BINS = 2001;\n\nfunction recordDecisionTiming(histogram: Uint32Array, elapsedMs: number): void {\n  const bin = Math.min(histogram.length - 1, Math.max(0, Math.floor(elapsedMs / DECISION_TIMING_BIN_MS)));\n  histogram[bin] = (histogram[bin] ?? 0) + 1;\n}\n\nfunction decisionTimingPercentile(histogram: Uint32Array, samples: number, percentile: number): number {\n  if (samples <= 0) return 0;\n  const target = Math.max(1, Math.ceil(samples * percentile));\n  let cumulative = 0;\n  for (let index = 0; index < histogram.length; index += 1) {\n    cumulative += histogram[index] ?? 0;\n    if (cumulative >= target) return (index + 1) * DECISION_TIMING_BIN_MS;\n  }\n  return histogram.length * DECISION_TIMING_BIN_MS;\n}\n\nfunction timedStep(\n",
+            ),
+            (
+              "  let timingSamples = 0;\n  let maxDecisionMsPerTeam = 0;\n",
+              "  let timingSamples = 0;\n  const decisionTimingHistogram = new Uint32Array(DECISION_TIMING_BINS);\n  let maxDecisionMsPerTeam = 0;\n",
+            ),
+            (
+              "        timingSamples += 1;\n        maxDecisionMsPerTeam = Math.max(maxDecisionMsPerTeam, elapsed);\n",
+              "        timingSamples += 1;\n        recordDecisionTiming(decisionTimingHistogram, elapsed);\n        maxDecisionMsPerTeam = Math.max(maxDecisionMsPerTeam, elapsed);\n",
+            ),
+            (
+              "    averageDecisionMsPerTeam: timingSamples > 0 ? timingSum / timingSamples : 0,\n    maxDecisionMsPerTeam,\n",
+              "    averageDecisionMsPerTeam: timingSamples > 0 ? timingSum / timingSamples : 0,\n    p99DecisionMsPerTeam: decisionTimingPercentile(decisionTimingHistogram, timingSamples, 0.99),\n    maxDecisionMsPerTeam,\n",
+            ),
+          ]
+          for old, new in replacements:
+            if text.count(old) != 1:
+              raise SystemExit(f'tacticalTournament replacement expected once, found {text.count(old)}: {old[:60]!r}')
+            text = text.replace(old, new)
+          path.write_text(text)
+
+          path = Path('tools/balance/tournament.ts')
+          text = path.read_text()
+          old = "  if (report.maxDecisionMsPerTeam >= 12) failures.push(`max tactical decision=${report.maxDecisionMsPerTeam.toFixed(4)}ms >= 12ms`);"
+          new = "  if (report.p99DecisionMsPerTeam >= 1) failures.push(`p99 tactical decision=${report.p99DecisionMsPerTeam.toFixed(4)}ms >= 1ms`);"
           if text.count(old) != 1:
-              raise SystemExit(f'expected exactly one technique context insertion point, found {text.count(old)}')
+            raise SystemExit(f'tournament gate replacement expected once, found {text.count(old)}')
+          path.write_text(text.replace(old, new))
+
+          path = Path('tools/balance/tacticalTournament.test.ts')
+          text = path.read_text()
+          old = "function deterministicMetrics<T extends { averageDecisionMsPerTeam: number; maxDecisionMsPerTeam: number }>(report: T) {\n  const { averageDecisionMsPerTeam: _average, maxDecisionMsPerTeam: _max, ...deterministic } = report;"
+          new = "function deterministicMetrics<T extends { averageDecisionMsPerTeam: number; p99DecisionMsPerTeam: number; maxDecisionMsPerTeam: number }>(report: T) {\n  const { averageDecisionMsPerTeam: _average, p99DecisionMsPerTeam: _p99, maxDecisionMsPerTeam: _max, ...deterministic } = report;"
+          if text.count(old) != 1:
+            raise SystemExit(f'deterministic metrics replacement expected once, found {text.count(old)}')
+          text = text.replace(old, new)
+
+          marker = "\n  it('produces useful passing and respects the Stage 06 tactical CPU budget'"
+          test_block = """
+  it('uses a high-percentile CPU budget instead of failing on one scheduler outlier', async () => {
+    const { runTacticalTournament } = await loadTournament();
+    const { evaluateTacticalTournamentGate } = await import('./tournament');
+    const report = runTacticalTournament({ possessions: 500, seed: 0x51a6e006 });
+    expect(report.p99DecisionMsPerTeam).toBeLessThan(1);
+
+    const isolatedPause = { ...report, maxDecisionMsPerTeam: 25 };
+    expect(evaluateTacticalTournamentGate(isolatedPause).pass).toBe(true);
+
+    const sustainedSlowdown = { ...report, p99DecisionMsPerTeam: 1.25 };
+    const gate = evaluateTacticalTournamentGate(sustainedSlowdown);
+    expect(gate.pass).toBe(false);
+    expect(gate.failures.some((failure) => failure.includes('p99 tactical decision'))).toBe(true);
+  });
+"""
+          if text.count(marker) != 1:
+            raise SystemExit(f'tactical test insertion marker expected once, found {text.count(marker)}')
+          text = text.replace(marker, test_block + marker)
+
+          old = "    expect(report.averageDecisionMsPerTeam).toBeLessThan(1);\n    expect(report.maxDecisionMsPerTeam).toBeLessThan(12);"
+          new = "    expect(report.averageDecisionMsPerTeam).toBeLessThan(1);\n    expect(report.p99DecisionMsPerTeam).toBeLessThan(1);\n    expect(Number.isFinite(report.maxDecisionMsPerTeam)).toBe(true);"
+          if text.count(old) != 1:
+            raise SystemExit(f'tactical CPU assertion replacement expected once, found {text.count(old)}')
           path.write_text(text.replace(old, new))
           PY
+
+      - name: Verify focused tactical gate
+        run: |
+          npm install --global pnpm@12.9.1
+          pnpm install --frozen-lockfile
+          pnpm exec vitest run tools/balance/tacticalTournament.test.ts --reporter=verbose
+          pnpm exec tsc -p tsconfig.json --noEmit
 
       - name: Commit foundation integration
         run: |
           git config user.name 'Praket7'
           git config user.email '149203433+Praket7@users.noreply.github.com'
-          git add apps/web/src/dev/FootballPractice.ts
+          git add tools/balance/tacticalTournament.ts tools/balance/tournament.ts tools/balance/tacticalTournament.test.ts
           git diff --cached --check
-          git commit -m 'fix(techniques): use live ball height for aerial eligibility'
+          git commit -m 'test(bots): make tactical CPU gate scheduler-robust'
           git push origin HEAD:finish/stages-01-10-foundation
