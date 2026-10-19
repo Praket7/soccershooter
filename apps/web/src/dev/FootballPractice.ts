@@ -51,7 +51,7 @@ const PRACTICE_BALL_START = Object.freeze({ x: 0, y: BALL_CONSTANTS.radius, z: -
 const KEEPER_Z = STANDARD_GOAL_FRAME.planeZ - 0.72;
 const KEEPER_MAX_SPEED = 4.8;
 const KEEPER_HALF_REACH = 0.68;
-const VISUAL_SCALE = 1.35;
+export const PRACTICE_BALL_VISUAL_SCALE = 1;
 const PRACTICE_KNUCKLE_SEED = 0x5a17f00d;
 const SPECIALIST_SHOT_STYLES: readonly ShotStyle[] = Object.freeze(['normal', 'knuckle', 'outside-foot']);
 
@@ -95,7 +95,7 @@ function ballSnapshot(state: Readonly<BallState>): FootballBallSnapshot {
 function createBall(scene: THREE.Scene): THREE.Group {
   const group = new THREE.Group();
   group.name = 'stage05-practice-ball';
-  const radius = BALL_CONSTANTS.radius * VISUAL_SCALE;
+  const radius = BALL_CONSTANTS.radius * PRACTICE_BALL_VISUAL_SCALE;
   const shell = new THREE.Mesh(
     new THREE.SphereGeometry(radius, 28, 20),
     new THREE.MeshStandardMaterial({ color: 0xf5f4ee, roughness: 0.68, metalness: 0.01 }),
@@ -730,7 +730,7 @@ export class FootballPractice {
   }
 
   #syncVisuals(): void {
-    const visualOffset = BALL_CONSTANTS.radius * (VISUAL_SCALE - 1);
+    const visualOffset = BALL_CONSTANTS.radius * (PRACTICE_BALL_VISUAL_SCALE - 1);
     this.ballVisual.position.set(this.#state.position.x, this.#state.position.y + visualOffset, this.#state.position.z);
     this.ballMarker.position.set(this.#state.position.x, 0.014, this.#state.position.z);
     this.keeperVisual.position.x = this.#keeperX;
