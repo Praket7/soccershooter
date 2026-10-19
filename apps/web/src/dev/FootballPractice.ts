@@ -299,7 +299,11 @@ export class FootballPractice {
       <p>WASD carries through a physical control corridor. RMB gives close control and the firm technique family. Ctrl is the lift modifier. F is receive/trap: F alone kills the ball; F + WASD takes the first touch out. Aim through the center reticle.</p>
       <div class="practice-actions">
         <button type="button" data-football-reset>Reset ball <kbd>G</kbd></button>
-        <span><kbd>E</kbd> ground · <kbd>Q</kbd> through · <kbd>R</kbd> lofted · <kbd>RMB+E</kbd> driven · <kbd>Ctrl+Q</kbd> chipped through · hold/release <kbd>LMB</kbd> shoot · <kbd>RMB+LMB</kbd> finesse · <kbd>Ctrl+LMB</kbd> chip</span>
+        <span><kbd>E</kbd> ground · <kbd>Q</kbd> through · <kbd>R</kbd> lofted · <kbd>RMB+E</kbd> driven · <kbd>Ctrl+Q</kbd> chipped through</span>
+      </div>
+      <div class="practice-actions" data-shot-controls-guide>
+        <strong>SHOOTING</strong>
+        <span>Aim with the center reticle · hold <kbd>LMB</kbd> for power · LMB only = NORMAL · RMB anytime while charging = FINESSE · Ctrl anytime while charging = CHIP · Release LMB to strike</span>
       </div>
       <details class="practice-technique-panel">
         <summary>Practice-only specialist contacts</summary>
@@ -490,6 +494,7 @@ export class FootballPractice {
         shooter: shotActor,
         ball: snapshot,
         aim,
+        aimTarget: this.#worldAimTarget ?? undefined,
         charge: runtimeStep.releasedShotCharge,
         spinInput: releaseStyle === 'finesse' ? 0.82 : releaseStyle === 'outside-foot' ? 0.68 : 0.18,
         pressure: actor.pressure,
