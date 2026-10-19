@@ -138,7 +138,10 @@ describe('Stage 05R off-balance and pressure dribbling', () => {
 
     expect(pressured.quality).toBeLessThan(clean.quality - 0.25);
     expect(pressured.ball.velocity.z).toBeGreaterThan(0.8);
-    expect(pressured.ball.velocity.x).toBeGreaterThan(clean.ball.velocity.x + 0.15);
+    // The pace-matched startup touch is deliberately softer now, so preserve
+    // the meaningful lateral-error relationship without requiring the old
+    // higher absolute launch speed.
+    expect(pressured.ball.velocity.x).toBeGreaterThan(clean.ball.velocity.x + 0.12);
     expect(Math.hypot(pressured.ball.velocity.x, pressured.ball.velocity.z)).toBeLessThanOrEqual(6.2);
   });
 
