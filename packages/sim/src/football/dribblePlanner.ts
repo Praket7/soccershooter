@@ -53,6 +53,7 @@ export interface PlannedDribbleStep {
 const TICK_HZ = 60;
 const FIRST_CONTACT_TICKS_NORMAL = 3;
 const FIRST_CONTACT_TICKS_PRECISION = 2;
+const FIRST_CONTACT_TICKS_SPRINT = 3;
 const COMMIT_BEFORE_CONTACT_TICKS = 4;
 const MAX_PLAN_REACH = 1.48;
 const MAX_CONTROL_HEIGHT = 0.72;
@@ -61,16 +62,28 @@ function oppositeFoot(foot: FootballFoot): FootballFoot {
   return foot === 'left' ? 'right' : 'left';
 }
 
+function isEffortTurn(input: Readonly<PlannedDribbleInput>): boolean {
+  if (input.receiveMode) return false;
+  const actorSpeed = horizontalMagnitude(input.actor.velocity);
+  return input.motion.gait === 'plant'
+    || input.motion.gait === 'recover'
+    || input.motion.plantIntensity >= 0.34
+    || (actorSpeed >= 3.2 && Math.abs(input.motion.turnDemand) >= 0.30);
+}
+
 function cadenceTicks(input: Readonly<PlannedDribbleInput>): number {
   if (input.receiveMode === 'kill' || input.receiveMode === 'controlled-exit') return 3;
   const strideTicks = Math.max(1, input.motion.strideSeconds * TICK_HZ);
+  if (isEffortTurn(input)) return Math.round(clampFootball(strideTicks * 0.54, 9, 14));
   if (input.precision) return Math.round(clampFootball(strideTicks * 0.64, 12, 17));
+  if (input.sprint) return Math.round(clampFootball(strideTicks * 1.08, 20, 26));
   return Math.round(clampFootball(strideTicks * 0.86, 17, 24));
 }
 
 function nextContactTick(input: Readonly<PlannedDribbleInput>): number {
   if (input.state.lastContactTick < 0) {
     if (input.receiveMode) return input.tick + 2;
+    if (input.sprint) return input.tick + FIRST_CONTACT_TICKS_SPRINT;
     return input.tick + (input.precision ? FIRST_CONTACT_TICKS_PRECISION : FIRST_CONTACT_TICKS_NORMAL);
   }
   return Math.max(input.tick + 2, input.state.lastContactTick + cadenceTicks(input));
@@ -84,7 +97,12 @@ function contactFoot(input: Readonly<PlannedDribbleInput>): FootballFoot {
 function chooseSurface(input: Readonly<PlannedDribbleInput>, foot: FootballFoot): FootballContactSurface {
   if (input.receiveMode === 'kill') return 'sole';
   if (input.receiveMode === 'controlled-exit' || input.precision) return 'inside';
-  if (Math.abs(input.motion.turnDemand) < 0.18) return 'instep';
+  if (isEffortTurn(input)) {
+    const turningRight = input.motion.turnDemand > 0;
+    const outsideFoot = turningRight ? 'right' : 'left';
+    return foot === outsideFoot ? 'outside' : 'inside';
+  }
+  if (input.sprint || Math.abs(input.motion.turnDemand) < 0.18) return 'instep';
   const turningRight = input.motion.turnDemand > 0;
   const outsideFoot = turningRight ? 'right' : 'left';
   return foot === outsideFoot ? 'outside' : 'inside';
@@ -144,6 +162,18 @@ function targetSpeed(input: Readonly<PlannedDribbleInput>): number {
   if (input.receiveMode === 'kill') return Math.min(0.75, actorSpeed * 0.16);
   if (input.receiveMode === 'controlled-exit') return input.precision ? 2.0 : 2.8;
   if (input.precision) return clampFootball(referenceSpeed * 0.68 + 0.18, 1.45, 3.75);
+  if (isEffortTurn(input)) {
+    // A hard cut is a brake/plant/contact/re-accelerate sequence. The touch is
+    // deliberately shorter than a sprint knock-on instead of granting an
+    // impossible lateral redirect at full approach speed.
+    return clampFootball(actorSpeed * 0.62 + 0.65, 2.4, 5.15);
+  }
+  if (input.sprint) {
+    // Knock the ball only modestly faster than the runner. During initial
+    // acceleration this avoids punting it away; at full stride it still opens
+    // a visibly larger pocket than jog/precision control.
+    return clampFootball(actorSpeed + 1.05 + Math.min(0.55, actorSpeed * 0.06), 3.55, 9.15);
+  }
   return clampFootball(referenceSpeed * 0.94 + 0.24, 2.65, 5.5);
 }
 
@@ -163,13 +193,14 @@ function targetVelocity(input: Readonly<PlannedDribbleInput>): FootballVec3 {
     direction,
   );
   const incomingSpeed = Math.hypot(input.ball.velocity.x, input.ball.velocity.z);
+  const effort = isEffortTurn(input);
   const turnRetention = incomingSpeed > 0.5
     ? clampFootball(
-        Math.abs(input.motion.turnDemand) * 0.16
+        Math.abs(input.motion.turnDemand) * (effort ? 0.32 : 0.16)
           + clampFootball(input.pressure, 0, 1) * 0.18
           + (1 - clampFootball(input.actor.balance, 0, 1)) * 0.18,
         0,
-        input.precision ? 0.20 : 0.34,
+        input.precision ? 0.20 : effort ? 0.52 : input.sprint ? 0.38 : 0.34,
       )
     : 0;
   return {
@@ -212,18 +243,25 @@ function planContact(
   const tolerance = geometryTolerance(input);
   const pressure = clampFootball(input.pressure, 0, 1);
   const balance = clampFootball(input.actor.balance, 0, 1);
+  const effort = isEffortTurn(input);
   const quality = clampFootball(
-    1 - pressure * 0.35 - (1 - balance) * 0.32 - Math.abs(input.motion.turnDemand) * (input.precision ? 0.10 : 0.18),
+    1
+      - pressure * 0.35
+      - (1 - balance) * 0.32
+      - Math.abs(input.motion.turnDemand) * (input.precision ? 0.10 : effort ? 0.26 : 0.18)
+      - (input.sprint ? input.motion.plantIntensity * 0.10 : 0),
     0.35,
     1,
   );
   const prepareTick = Math.max(input.tick, contactTick - COMMIT_BEFORE_CONTACT_TICKS);
+  const surface = chooseSurface(input, foot);
+  const mode = effort ? 'effort' : input.precision ? 'precision' : input.sprint ? 'sprint' : 'normal';
 
   return createFootballContactPlan({
     sourceId: 'stage05r-owner-dribble',
     kind,
     foot,
-    surface: chooseSurface(input, foot),
+    surface,
     prepareTick,
     contactTick,
     recoveryEndTick: contactTick + 5,
@@ -232,14 +270,14 @@ function planContact(
     // ball intercept, not an invisible desired possession pocket.
     expectedFootPoint: { ...expectedBallPoint, y: Math.max(0.06, expectedBallPoint.y - input.ball.radius * 0.22) },
     targetBallVelocity: velocity,
-    maxLinearImpulse: kind === 'trap' ? 4.6 : input.precision ? 2.8 : 3.8,
+    maxLinearImpulse: kind === 'trap' ? 4.6 : input.precision ? 2.8 : effort ? 4.2 : input.sprint ? 4.8 : 3.8,
     maxAngularImpulse: kind === 'trap' ? 85 : 120,
     timingWindowTicks: 1,
     geometryTolerance: tolerance,
     quality,
     reason: kind === 'trap'
       ? `receive-kill-${foot}`
-      : `${input.precision ? 'precision' : 'normal'}-${foot}-${chooseSurface(input, foot)}`,
+      : `${mode}-${foot}-${surface}`,
   });
 }
 
@@ -285,14 +323,6 @@ export function stepPlannedDribble(input: Readonly<PlannedDribbleInput>): Planne
   if (!Number.isSafeInteger(input.tick) || input.tick < 0) throw new RangeError('tick must be a non-negative safe integer');
   const state = cloneState(input.state);
   const unchangedBall = cloneFootballBall(input.ball);
-
-  // Sprint/effort-turn remains on the legacy path until Task 4. This prevents
-  // this first owner slice from smuggling an unfinished sprint planner into the
-  // micro-gate.
-  if (input.sprint) {
-    state.activePlan = null;
-    return { state, ball: unchangedBall, contactApplied: false, reason: 'legacy-sprint' };
-  }
 
   const settledBall = Math.hypot(input.ball.velocity.x, input.ball.velocity.y, input.ball.velocity.z) < 0.22;
   const deliberateReceive = input.receiveMode === 'kill' || input.receiveMode === 'controlled-exit';
