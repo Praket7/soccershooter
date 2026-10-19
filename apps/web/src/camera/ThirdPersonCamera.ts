@@ -1,5 +1,6 @@
 import type { PlayerState, Vec3 } from '@soccershooter/sim/player/PlayerState';
 import type { LookDelta } from '../input/ActionMap';
+import { currentGameplayPreferences } from '../settings/GameplayPreferences';
 
 export interface CameraObstacle {
   id: string;
@@ -131,8 +132,16 @@ function cameraPosition(target: Vec3, yaw: number, pitch: number, armLength: num
   };
 }
 
+function hasOwnSetting(options: Partial<ThirdPersonCameraSettings>, key: keyof ThirdPersonCameraSettings): boolean {
+  return Object.prototype.hasOwnProperty.call(options, key);
+}
+
 export class ThirdPersonCamera {
   readonly settings: Readonly<ThirdPersonCameraSettings>;
+  readonly #distanceUsesPreferences: boolean;
+  readonly #fovUsesPreferences: boolean;
+  readonly #sprintFovUsesPreferences: boolean;
+  #lastPreferenceDistance: number;
   #yaw: number;
   #pitch: number;
   #armLength: number;
@@ -145,7 +154,17 @@ export class ThirdPersonCamera {
   #fov: number;
 
   constructor(options: Partial<ThirdPersonCameraSettings> = {}) {
-    const settings = { ...DEFAULT_SETTINGS, ...options };
+    const preferences = currentGameplayPreferences();
+    this.#distanceUsesPreferences = !hasOwnSetting(options, 'distance');
+    this.#fovUsesPreferences = !hasOwnSetting(options, 'baseFov');
+    this.#sprintFovUsesPreferences = !hasOwnSetting(options, 'sprintFovBoost');
+    const settings = {
+      ...DEFAULT_SETTINGS,
+      ...(this.#distanceUsesPreferences ? { distance: preferences.cameraDistance } : {}),
+      ...(this.#fovUsesPreferences ? { baseFov: preferences.cameraFov } : {}),
+      ...(this.#sprintFovUsesPreferences ? { sprintFovBoost: preferences.sprintFovBoost } : {}),
+      ...options,
+    };
     if (![settings.distance, settings.minDistance, settings.maxDistance, settings.zoomSpeed, settings.zoomSettlingSeconds].every(Number.isFinite)) {
       throw new RangeError('camera zoom settings must be finite');
     }
@@ -157,6 +176,7 @@ export class ThirdPersonCamera {
     }
     settings.distance = clamp(settings.distance, settings.minDistance, settings.maxDistance);
     this.settings = Object.freeze(settings);
+    this.#lastPreferenceDistance = preferences.cameraDistance;
     this.#yaw = wrapYaw(this.settings.initialYaw);
     this.#pitch = clamp(this.settings.initialPitch, this.settings.minPitch, this.settings.maxPitch);
     this.#desiredDistance = this.settings.distance;
@@ -184,6 +204,12 @@ export class ThirdPersonCamera {
     if (!Number.isFinite(deltaSeconds) || deltaSeconds <= 0 || deltaSeconds > 0.25) {
       throw new RangeError('camera deltaSeconds must be finite and in (0, 0.25]');
     }
+    const preferences = currentGameplayPreferences();
+    if (this.#distanceUsesPreferences && Math.abs(preferences.cameraDistance - this.#lastPreferenceDistance) > 1e-9) {
+      this.#lastPreferenceDistance = preferences.cameraDistance;
+      this.#desiredDistance = clamp(preferences.cameraDistance, this.settings.minDistance, this.settings.maxDistance);
+    }
+
     this.#yaw = wrapYaw(this.#yaw + look.yawDelta);
     this.#pitch = clamp(this.#pitch + look.pitchDelta, this.settings.minPitch, this.settings.maxPitch);
 
@@ -230,7 +256,10 @@ export class ThirdPersonCamera {
       this.#armLength += (desiredArm - this.#armLength) * alpha;
     }
 
-    const targetFov = this.settings.baseFov + this.settings.sprintFovBoost * clamp(sprintFraction, 0, 1);
+    const baseFov = this.#fovUsesPreferences ? preferences.cameraFov : this.settings.baseFov;
+    const configuredSprintBoost = this.#sprintFovUsesPreferences ? preferences.sprintFovBoost : this.settings.sprintFovBoost;
+    const sprintBoost = preferences.reducedMotion ? 0 : configuredSprintBoost;
+    const targetFov = baseFov + sprintBoost * clamp(sprintFraction, 0, 1);
     const fovAlpha = 1 - Math.exp(-deltaSeconds / 0.1);
     this.#fov += (targetFov - this.#fov) * fovAlpha;
 

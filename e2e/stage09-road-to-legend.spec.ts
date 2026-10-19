@@ -16,7 +16,7 @@ test('Road to Legend exposes all campaign acts, local baseline profile, and save
   await screen.locator('[data-archetype="pace"]').click();
   await expect(screen.locator('[data-archetype="pace"]')).toHaveAttribute('aria-pressed', 'true');
   await expect(screen.locator('[data-build-modifiers]')).toContainText('sprint stamina ×0.82');
-  await expect(screen.locator('[data-equipped-slots]')).toContainText('body-feint');
+  await expect(screen.locator('[data-equipped-slots]')).toContainText('body feint');
   await expect(page.locator('[data-career-export]')).toBeVisible();
   await expect(page.locator('[data-career-import]')).toBeVisible();
   await page.getByRole('button', { name: 'Open practice' }).click();

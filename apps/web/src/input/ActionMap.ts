@@ -1,5 +1,6 @@
 import type { InputIntent } from '@soccershooter/sim';
 import { PlayerActionBits } from '@soccershooter/sim/player/PlayerState';
+import { currentGameplayPreferences } from '../settings/GameplayPreferences';
 
 export interface KeyboardIntentSample {
   keys: ReadonlySet<string>;
@@ -174,8 +175,8 @@ export function keyboardStateToIntent(sample: Readonly<KeyboardIntentSample>): I
 
 export class ActionMap {
   readonly #keys = new Set<string>();
-  readonly #mouseSensitivity: number;
-  readonly #invertY: boolean;
+  readonly #mouseSensitivityOverride: number | null;
+  readonly #invertYOverride: boolean | null;
   readonly #keyboardTarget: Window;
   readonly #pointerTarget: HTMLElement;
   #aimYaw = 0;
@@ -217,9 +218,12 @@ export class ActionMap {
 
   readonly #onPointerMove = (event: PointerEvent) => {
     if (document.pointerLockElement !== this.#pointerTarget) return;
-    const yawDelta = event.movementX * this.#mouseSensitivity;
-    const pitchSign = this.#invertY ? 1 : -1;
-    const pitchDelta = event.movementY * this.#mouseSensitivity * pitchSign;
+    const preferences = currentGameplayPreferences();
+    const sensitivity = this.#mouseSensitivityOverride ?? preferences.mouseSensitivity;
+    const invertY = this.#invertYOverride ?? preferences.invertY;
+    const yawDelta = event.movementX * sensitivity;
+    const pitchSign = invertY ? 1 : -1;
+    const pitchDelta = event.movementY * sensitivity * pitchSign;
     this.#aimYaw = wrapYaw(this.#aimYaw + yawDelta);
     this.#pendingYawDelta += yawDelta;
     this.#pendingPitchDelta += pitchDelta;
@@ -286,9 +290,10 @@ export class ActionMap {
   constructor(keyboardTarget: Window, pointerTarget: HTMLElement, options: ActionMapOptions = {}) {
     this.#keyboardTarget = keyboardTarget;
     this.#pointerTarget = pointerTarget;
-    this.#mouseSensitivity = options.mouseSensitivity ?? DEFAULT_MOUSE_SENSITIVITY;
-    this.#invertY = options.invertY ?? false;
-    if (!Number.isFinite(this.#mouseSensitivity) || this.#mouseSensitivity <= 0) {
+    this.#mouseSensitivityOverride = options.mouseSensitivity ?? null;
+    this.#invertYOverride = options.invertY ?? null;
+    if (this.#mouseSensitivityOverride !== null
+      && (!Number.isFinite(this.#mouseSensitivityOverride) || this.#mouseSensitivityOverride <= 0)) {
       throw new RangeError('mouseSensitivity must be a positive finite number');
     }
   }

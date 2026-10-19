@@ -1,5 +1,6 @@
 import type { InputIntent } from '@soccershooter/sim';
 import { PlayerActionBits } from '@soccershooter/sim/player/PlayerState';
+import { currentGameplayPreferences } from '../settings/GameplayPreferences';
 import { normalizeMoveAxes, type LookDelta } from './ActionMap';
 
 export interface GamepadButtonSnapshot {
@@ -36,6 +37,7 @@ const GAMEPAD_EDGE_ACTION_BITS = (
   | PlayerActionBits.ThroughPass
   | PlayerActionBits.LoftedPass
   | PlayerActionBits.Receive
+  | PlayerActionBits.Technique
 ) >>> 0;
 
 function wrapYaw(yaw: number): number {
@@ -82,6 +84,11 @@ export function gamepadSnapshotToFrame(
   if (button(snapshot, 6)) actionBits |= PlayerActionBits.Precision;
   if (button(snapshot, 7)) actionBits |= PlayerActionBits.ShootHeld;
   if (button(snapshot, 8)) actionBits |= PlayerActionBits.Receive;
+  // Standard-pad parity for actions that previously existed only on keyboard:
+  // R3 is a holdable lift/chip modifier and D-pad Up is the practice technique
+  // edge. Neither changes the established face/shoulder football layout.
+  if (button(snapshot, 11)) actionBits |= PlayerActionBits.ChipModifier;
+  if (button(snapshot, 12)) actionBits |= PlayerActionBits.Technique;
   const intent: InputIntent = {
     moveX: move.x,
     moveY: move.y,
@@ -106,6 +113,15 @@ export class GamepadAdapter {
     const pads = navigator.getGamepads?.() ?? [];
     for (const pad of pads) {
       if (!pad || !pad.connected || pad.mapping !== 'standard') continue;
+      const preferences = currentGameplayPreferences();
+      const sensitivity = preferences.gamepadLookSensitivity;
+      const liveOptions: GamepadOptions = {
+        deadzone: this.#options.deadzone ?? preferences.gamepadMoveDeadzone,
+        lookDeadzone: this.#options.lookDeadzone ?? preferences.gamepadLookDeadzone,
+        yawRate: this.#options.yawRate ?? DEFAULT_GAMEPAD_YAW_RATE * sensitivity,
+        pitchRate: this.#options.pitchRate ?? DEFAULT_GAMEPAD_PITCH_RATE * sensitivity,
+        invertY: this.#options.invertY ?? preferences.invertY,
+      };
       const frame = gamepadSnapshotToFrame(
         {
           axes: [...pad.axes],
@@ -114,7 +130,7 @@ export class GamepadAdapter {
         },
         currentAimYaw,
         deltaSeconds,
-        this.#options,
+        liveOptions,
       );
 
       const shootHeld = (frame.intent.actionBits & PlayerActionBits.ShootHeld) !== 0;

@@ -5,6 +5,7 @@ import {
   horizontalDistance,
   horizontalDot,
   normalizeHorizontal,
+  pitchSpinForDirection,
   type BallContactCommand,
   type FootballActorSnapshot,
   type FootballBallSnapshot,
@@ -193,11 +194,12 @@ export function solvePass(input: Readonly<PassSolveInput>): PassSolution {
     z: blended.direction.z * horizontalSpeed * Math.cos(elevation),
   };
   const launchSpeed = Math.hypot(launchVelocity.x, launchVelocity.y, launchVelocity.z);
-  const angularVelocityDelta: FootballVec3 = input.type === 'lofted' || input.type === 'chipped-through'
-    ? { x: -18, y: 0, z: 0 }
+  const signedPitchSpin = input.type === 'lofted' || input.type === 'chipped-through'
+    ? -18
     : input.type === 'driven'
-      ? { x: 4, y: 0, z: 0 }
-      : { x: -4, y: 0, z: 0 };
+      ? 4
+      : -4;
+  const angularVelocityDelta = pitchSpinForDirection(blended.direction, signedPitchSpin);
   const maxImpulse = Math.min(12.5, input.ball.mass * 30);
   const command = commandTowardVelocity(
     'pass',

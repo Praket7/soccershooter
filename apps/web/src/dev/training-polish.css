@@ -1,0 +1,58 @@
+.technique-player-guide {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid rgba(121, 200, 255, .18);
+  border-radius: 10px;
+  background: rgba(6, 13, 19, .54);
+}
+
+.technique-player-guide > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.technique-player-guide > div span {
+  color: #8197a3;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+}
+
+.technique-player-guide > div strong {
+  color: #f3f6ee;
+  font-size: 14px;
+}
+
+.technique-player-guide dl {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 5px 11px;
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.technique-player-guide dt {
+  color: #82949e;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.technique-player-guide dd {
+  min-width: 0;
+  margin: 0;
+  color: #ced8dc;
+}
+
+.technique-player-guide > p {
+  margin: 0;
+  color: #a8b7bc;
+  font-size: 10px;
+  line-height: 1.5;
+}

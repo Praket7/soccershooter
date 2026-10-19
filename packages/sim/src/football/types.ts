@@ -102,6 +102,24 @@ export function horizontalAngle(a: FootballHorizontalDirection, b: FootballHoriz
   return Math.acos(horizontalDot(a, b));
 }
 
+/**
+ * Converts a signed pitch-spin rate into the ball's travel frame. A +Z strike
+ * preserves the historical +X/-X spin axis, while any other strike direction
+ * rotates that same top/backspin around the correct horizontal rolling axis.
+ */
+export function pitchSpinForDirection(
+  direction: FootballHorizontalDirection,
+  signedRate: number,
+): FootballVec3 {
+  const travel = normalizeHorizontal(direction);
+  const rate = finiteFootball(signedRate);
+  return {
+    x: travel.z * rate,
+    y: 0,
+    z: -travel.x * rate,
+  };
+}
+
 export function vectorFromTo(a: FootballVec3, b: FootballVec3): FootballVec3 {
   return { x: b.x - a.x, y: b.y - a.y, z: b.z - a.z };
 }

@@ -23,6 +23,13 @@ export interface AdaptiveBoundaryContext {
 const TIER_ORDER: readonly BotDifficultyTier[] = ['novice', 'standard', 'elite'];
 const MIN_MODEL_CONFIDENCE = 0.55;
 
+// Promotion requires stronger evidence than retention. This dead band prevents
+// a noisy player model from visibly bouncing difficulty at consecutive restarts.
+const NOVICE_EXIT_SCORE = 0.48;
+const STANDARD_TO_NOVICE_SCORE = 0.38;
+const STANDARD_TO_ELITE_SCORE = 0.72;
+const ELITE_EXIT_SCORE = 0.62;
+
 export function createAdaptiveDirector(
   mode: AdaptiveGameMode,
   initialTier: BotDifficultyTier = 'standard',
@@ -67,9 +74,11 @@ export function playerSkillScore(model: Readonly<PlayerModelSnapshot>): number {
   );
 }
 
-function targetTier(score: number): BotDifficultyTier {
-  if (score < 0.42) return 'novice';
-  if (score > 0.68) return 'elite';
+function targetTier(current: BotDifficultyTier, score: number): BotDifficultyTier {
+  if (current === 'novice') return score > NOVICE_EXIT_SCORE ? 'standard' : 'novice';
+  if (current === 'elite') return score < ELITE_EXIT_SCORE ? 'standard' : 'elite';
+  if (score < STANDARD_TO_NOVICE_SCORE) return 'novice';
+  if (score > STANDARD_TO_ELITE_SCORE) return 'elite';
   return 'standard';
 }
 
@@ -99,7 +108,7 @@ export function applyAdaptiveBoundary(
     };
   }
 
-  const nextTier = moveOneTier(state.tier, targetTier(score));
+  const nextTier = moveOneTier(state.tier, targetTier(state.tier, score));
   return {
     ...state,
     tier: nextTier,
