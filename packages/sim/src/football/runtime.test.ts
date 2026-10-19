@@ -42,6 +42,48 @@ describe('Stage 05 football runtime cadence', () => {
     expect(release.state.shotStyleLatched).toBeNull();
   });
 
+  test('pressing RMB after LMB has already started charging upgrades the shot to finesse', () => {
+    let state = createFootballRuntimeState();
+    state = stepFootballRuntime(state, PlayerActionBits.ShootHeld, 0.18).state;
+    expect(state.shotStyleLatched).toBe('normal');
+
+    state = stepFootballRuntime(
+      state,
+      PlayerActionBits.ShootHeld | PlayerActionBits.Precision,
+      0.12,
+    ).state;
+    expect(state.shotStyleLatched).toBe('finesse');
+
+    state = stepFootballRuntime(state, PlayerActionBits.ShootHeld, 0.08).state;
+    expect(state.shotStyleLatched).toBe('finesse');
+
+    const release = stepFootballRuntime(state, PlayerActionBits.ShootReleased, 1 / 60);
+    expect(release.releasedShotStyle).toBe('finesse');
+  });
+
+  test('pressing Ctrl during an existing charge upgrades normal or finesse to chip and keeps it latched', () => {
+    let state = createFootballRuntimeState();
+    state = stepFootballRuntime(
+      state,
+      PlayerActionBits.ShootHeld | PlayerActionBits.Precision,
+      0.16,
+    ).state;
+    expect(state.shotStyleLatched).toBe('finesse');
+
+    state = stepFootballRuntime(
+      state,
+      PlayerActionBits.ShootHeld | PlayerActionBits.ChipModifier,
+      0.1,
+    ).state;
+    expect(state.shotStyleLatched).toBe('chip');
+
+    state = stepFootballRuntime(state, PlayerActionBits.ShootHeld, 0.08).state;
+    expect(state.shotStyleLatched).toBe('chip');
+
+    const release = stepFootballRuntime(state, PlayerActionBits.ShootReleased, 1 / 60);
+    expect(release.releasedShotStyle).toBe('chip');
+  });
+
   test('chip technique latches at charge start and takes precedence over simultaneous precision', () => {
     let state = createFootballRuntimeState();
     state = stepFootballRuntime(
