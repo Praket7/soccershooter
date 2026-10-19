@@ -84,7 +84,11 @@ function chooseGait(
 ): AthleticGait {
   if (!grounded) return 'recover';
   if (moveMagnitude < 0.05) return speed > 0.1 ? 'brake' : 'idle';
-  if (plantIntensity >= 0.62) return 'plant';
+  // A visible effort plant can occur during a fast 90-degree football cut even
+  // when the root controller deliberately avoids the old sluggish committed
+  // plant. The visual gait explains force transfer; only 120-180 degree root
+  // reversals invoke the heavy authoritative plant behavior.
+  if (plantIntensity >= 0.42) return 'plant';
   if (brakingDemand >= 0.48 && speed > 1.2) return 'brake';
   if (sprinting && speed >= 5.2) return 'sprint';
   if (speed < 3.1) return 'walk';
