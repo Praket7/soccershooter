@@ -10,14 +10,23 @@ const GOAL_CAMERA_PADDING = 0.08;
 export const OPPOSITE_PRACTICE_GOAL_PLANE_Z = -15.2;
 
 /**
- * Keeps the player as the camera anchor while adding a capped look bias toward
- * a loose ball. The ball never drives locomotion or possession; this is purely
- * presentation so the owner can read where the free ball went during cuts.
+ * Keeps the player as the camera anchor while optionally adding a capped look
+ * bias toward a loose ball. Manual center-reticle aim is authoritative: while
+ * the player is in camera-control/aim mode, free-ball presentation is not
+ * allowed to translate the camera anchor underneath a stationary reticle.
+ *
+ * Passive framing is still available for uncaptured/spectator-style views.
+ * This preserves ball awareness without making live aim drift as the ball moves.
  */
 export function resolveBallAwareCameraFocus(
   playerPosition: Readonly<Vec3>,
   ballPosition: Readonly<Vec3>,
+  manualAimActive = true,
 ): Vec3 {
+  if (manualAimActive) {
+    return { x: playerPosition.x, y: playerPosition.y, z: playerPosition.z };
+  }
+
   const dx = ballPosition.x - playerPosition.x;
   const dz = ballPosition.z - playerPosition.z;
   const distance = Math.hypot(dx, dz);
