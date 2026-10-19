@@ -13,6 +13,10 @@ function practiceBallVisualScale(): number {
 }
 
 describe('Stage 05 rendered ball/body clearance', () => {
+  test('practice ball is rendered at the same scale as the authoritative physics ball', () => {
+    expect(practiceBallVisualScale()).toBe(1);
+  });
+
   test('precision close control cannot target the rendered ball inside the front boot volume', () => {
     const actor: FootballActorSnapshot = {
       position: { x: 0, y: 0, z: 0 },
