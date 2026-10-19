@@ -189,6 +189,10 @@
   font-size: calc(11px * var(--game-hud-scale));
 }
 
+.control-card[hidden] {
+  display: none !important;
+}
+
 [data-movement-hud="true"] {
   font-size: calc(12px * var(--game-hud-scale)) !important;
 }
