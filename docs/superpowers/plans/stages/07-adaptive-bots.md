@@ -110,15 +110,17 @@ Promotion metrics:
 
 ## Implementation Task Sequence
 
-- [ ] **Task 1:** Write failing tests proving novice and elite bots use identical physical movement, stamina, collider, and ball parameters.
-- [ ] **Task 2:** Implement rolling gameplay-only player model with confidence/decay.
-- [ ] **Task 3:** Implement inspectable difficulty parameter profiles for reaction, perception, precision, tactical depth, and repertoire.
-- [ ] **Task 4:** Implement data-driven bot personalities as utility-weight profiles.
-- [ ] **Task 5:** Implement PvE adaptation only at legal boundaries such as encounter start or restart.
-- [ ] **Task 6:** Create isolated local learning-lab interface that can replace only high-level role/action choice.
-- [ ] **Task 7:** Benchmark learned experiments against deterministic bots on cooperation, exploits, latency, corner cases, win rate, and tester preference.
-- [ ] **Task 8:** Keep learned policies disabled by default unless the promotion gate is explicitly passed.
+The checkboxes below track implementation tasks; owner playtest and subjective acceptance remain recorded separately in the stage gate.
 
+
+- [x] **Task 1:** Write failing tests proving novice and elite bots use identical physical movement, stamina, collider, and ball parameters.
+- [x] **Task 2:** Implement rolling gameplay-only player model with confidence/decay.
+- [x] **Task 3:** Implement inspectable difficulty parameter profiles for reaction, perception, precision, tactical depth, and repertoire.
+- [x] **Task 4:** Implement data-driven bot personalities as utility-weight profiles.
+- [x] **Task 5:** Implement PvE adaptation only at legal boundaries such as encounter start or restart.
+- [x] **Task 6:** Create isolated local learning-lab interface that can replace only high-level role/action choice.
+- [ ] **Task 7 (machine benchmark complete; human preference pending):** Benchmark learned experiments against deterministic bots on cooperation, exploits, latency, corner cases, win rate, and tester preference.
+- [x] **Task 8:** Keep learned policies disabled by default unless the promotion gate is explicitly passed.
 ## Tests
 - novice/elite bots have identical physical stats
 - every difficulty difference is inspectable in a parameter snapshot

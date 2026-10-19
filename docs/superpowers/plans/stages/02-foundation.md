@@ -85,17 +85,19 @@ export function hashSimulationState(sim: Simulation): string;
 ```
 
 ## Tasks
-- [ ] Configure workspace boundaries and exact lockfile.
-- [ ] Add deterministic seeded PRNG owned by `packages/sim`.
-- [ ] Lint/test to prohibit `Math.random()` inside authoritative packages.
-- [ ] Implement fixed-step runner and presentation accumulator.
-- [ ] Add spiral-of-death cap with visible diagnostic rather than silent time distortion.
-- [ ] Add state hashing and input-trace serialization.
-- [ ] Add Node headless runner for 10,000+ ticks.
-- [ ] Add browser harness that replays the same trace.
-- [ ] Add CI: install, lint, typecheck, unit tests, deterministic comparison, web build, server build.
-- [ ] Add production-build guard that fails on imports from `private/reference-content`.
 
+The checkboxes below track implementation tasks; owner playtest and subjective acceptance remain recorded separately in the stage gate.
+
+- [x] Configure workspace boundaries and exact lockfile.
+- [x] Add deterministic seeded PRNG owned by `packages/sim`.
+- [x] Lint/test to prohibit `Math.random()` inside authoritative packages.
+- [x] Implement fixed-step runner and presentation accumulator.
+- [x] Add spiral-of-death cap with visible diagnostic rather than silent time distortion.
+- [x] Add state hashing and input-trace serialization.
+- [x] Add Node headless runner for 10,000+ ticks.
+- [x] Add browser harness that replays the same trace.
+- [x] Add CI: install, lint, typecheck, unit tests, deterministic comparison, web build, server build.
+- [x] Add production-build guard that fails on imports from `private/reference-content`.
 ## Tests
 - same seed + same inputs => same hash
 - Node/browser hashes match

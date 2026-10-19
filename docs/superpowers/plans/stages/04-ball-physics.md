@@ -94,15 +94,17 @@ Interactive/debug controls for:
 - CSV trace export
 
 ## Tasks
-- [ ] Implement coefficient-table driven drag/Magnus/spin model.
-- [ ] Implement deterministic knuckle noise seeded from simulation.
-- [ ] Implement bounce and turf rolling model.
-- [ ] Implement trajectory predictor using the same equations.
-- [ ] Implement posts/crossbar benchmark.
-- [ ] Create golden trajectory fixtures.
-- [ ] Add random stress/fuzz launcher.
-- [ ] Build Ball Lab UI.
 
+The checkboxes below track implementation tasks; owner playtest and subjective acceptance remain recorded separately in the stage gate.
+
+- [x] Implement coefficient-table driven drag/Magnus/spin model.
+- [x] Implement deterministic knuckle noise seeded from simulation.
+- [x] Implement bounce and turf rolling model.
+- [x] Implement trajectory predictor using the same equations.
+- [x] Implement posts/crossbar benchmark.
+- [x] Create golden trajectory fixtures.
+- [x] Add random stress/fuzz launcher.
+- [x] Build Ball Lab UI.
 ## Golden tests
 - zero-spin shot stays near vertical plane
 - sidespin curves in correct direction

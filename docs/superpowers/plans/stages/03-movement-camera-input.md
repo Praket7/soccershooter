@@ -75,16 +75,18 @@ Camera:
 - Create `apps/web/src/debug/MovementHud.ts`
 
 ## Tasks
-- [ ] Implement capsule/kinematic body state.
-- [ ] Implement deterministic acceleration, braking, sprint, and turning.
-- [ ] Implement stamina drain/recovery.
-- [ ] Implement field collision and benchmark obstacles.
-- [ ] Implement keyboard/mouse action map.
-- [ ] Implement gamepad parity.
-- [ ] Implement camera collision and configurable comfort settings.
-- [ ] Add movement trace recording/replay.
-- [ ] Build movement benchmark course: sprint, cut, stop, slalom, tight corridor, wall camera test.
 
+The checkboxes below track implementation tasks; owner playtest and subjective acceptance remain recorded separately in the stage gate.
+
+- [x] Implement capsule/kinematic body state.
+- [x] Implement deterministic acceleration, braking, sprint, and turning.
+- [x] Implement stamina drain/recovery.
+- [x] Implement field collision and benchmark obstacles.
+- [x] Implement keyboard/mouse action map.
+- [x] Implement gamepad parity.
+- [x] Implement camera collision and configurable comfort settings.
+- [x] Add movement trace recording/replay.
+- [x] Build movement benchmark course: sprint, cut, stop, slalom, tight corridor, wall camera test.
 ## Tests
 - diagonal input normalized
 - legal max acceleration never exceeded

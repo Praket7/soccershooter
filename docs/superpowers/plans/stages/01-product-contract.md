@@ -72,16 +72,18 @@ This stage is executed by AI under `docs/ai/AI_EXECUTION_CONTRACT.md`. Before an
 - Create `docs/gates/STAGE-01-GATE.md`
 
 ## Tasks
-- [ ] Define reference desktop and low-spec fallback profiles using hardware already available; no purchase dependency.
-- [ ] Define FPS, 1% low, simulation step, render step, long-task, memory, draw-call, and payload measurements.
-- [ ] Define network profiles: local, 50/100/150 ms RTT, jitter, 2% loss, 5% loss.
-- [ ] Define feel scorecard: movement, camera, first touch, passing, shooting, defense, bot usefulness, readability, rematch desire.
-- [ ] Define telemetry event contracts without raw names, email, IP address, or sensitive identifiers.
-- [ ] Define provenance fields: source, author, license, URL/path, modifications, original/third-party, shipping status.
-- [ ] Define balance tournament outputs: win rate, possession, pass chains, turnovers, shots, technique usage, role distribution, exploit flags.
-- [ ] Define exact gate-report structure and naming convention.
-- [ ] Define “known defect” rule: a defect can be deferred only if it is outside the current stage gate and recorded explicitly.
 
+The checkboxes below track implementation tasks; owner playtest and subjective acceptance remain recorded separately in the stage gate.
+
+- [x] Define reference desktop and low-spec fallback profiles using hardware already available; no purchase dependency.
+- [x] Define FPS, 1% low, simulation step, render step, long-task, memory, draw-call, and payload measurements.
+- [x] Define network profiles: local, 50/100/150 ms RTT, jitter, 2% loss, 5% loss.
+- [x] Define feel scorecard: movement, camera, first touch, passing, shooting, defense, bot usefulness, readability, rematch desire.
+- [x] Define telemetry event contracts without raw names, email, IP address, or sensitive identifiers.
+- [x] Define provenance fields: source, author, license, URL/path, modifications, original/third-party, shipping status.
+- [x] Define balance tournament outputs: win rate, possession, pass chains, turnovers, shots, technique usage, role distribution, exploit flags.
+- [x] Define exact gate-report structure and naming convention.
+- [x] Define “known defect” rule: a defect can be deferred only if it is outside the current stage gate and recorded explicitly.
 ## Tests
 - telemetry event schema rejects unexpected identifying fields
 - provenance entry cannot be marked shippable without license/source fields

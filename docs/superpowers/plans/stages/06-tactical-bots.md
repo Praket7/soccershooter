@@ -115,15 +115,17 @@ Prefer team-level utility assignment over hardcoded permanent striker/defender l
 
 ## Implementation Task Sequence
 
-- [ ] **Task 1:** Write failing scenario tests for support spacing, turnover recovery, blocked passing lanes, goalkeeper home position, and anti-clustering.
-- [ ] **Task 2:** Implement perception features and a tactical blackboard from deterministic simulation state.
-- [ ] **Task 3:** Implement team-level dynamic role assignment and stabilize role switching with hysteresis/cooldowns.
-- [ ] **Task 4:** Implement pass-lane, intercept-time, shot-quality, and support-angle predictors.
-- [ ] **Task 5:** Implement carrier, off-ball, and defensive utility evaluators.
-- [ ] **Task 6:** Implement goalkeeper positioning, claim, dive, parry, and distribution logic.
-- [ ] **Task 7:** Run headless 3v3 bot matches and export role/pass/cluster statistics.
-- [ ] **Task 8:** Tune only from recorded metrics and scenario failures, then rerun the full bot regression suite.
+The checkboxes below track implementation tasks; owner playtest and subjective acceptance remain recorded separately in the stage gate.
 
+
+- [x] **Task 1:** Write failing scenario tests for support spacing, turnover recovery, blocked passing lanes, goalkeeper home position, and anti-clustering.
+- [x] **Task 2:** Implement perception features and a tactical blackboard from deterministic simulation state.
+- [x] **Task 3:** Implement team-level dynamic role assignment and stabilize role switching with hysteresis/cooldowns.
+- [x] **Task 4:** Implement pass-lane, intercept-time, shot-quality, and support-angle predictors.
+- [x] **Task 5:** Implement carrier, off-ball, and defensive utility evaluators.
+- [x] **Task 6:** Implement goalkeeper positioning, claim, dive, parry, and distribution logic.
+- [x] **Task 7:** Run headless 3v3 bot matches and export role/pass/cluster statistics.
+- [x] **Task 8:** Tune only from recorded metrics and scenario failures, then rerun the full bot regression suite.
 ## Tests
 - support bot leaves carrier lane
 - defender recovers goal-side after turnover

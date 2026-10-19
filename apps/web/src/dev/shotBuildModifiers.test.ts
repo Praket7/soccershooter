@@ -29,4 +29,30 @@ describe('career shot build modifier', () => {
     expect(Math.hypot(applied.velocity.x, applied.velocity.y, applied.velocity.z)).toBeLessThanOrEqual(36);
     expect(applied.velocity.z).toBeCloseTo(36);
   });
+
+  it('does not increase speed beyond the existing impulse-limited result for an extreme incoming ball', () => {
+    const ball = {
+      position: { x: 0, y: 0.11, z: 0 },
+      velocity: { x: 0, y: 0, z: -100 },
+      angularVelocity: { x: 0, y: 0, z: 0 },
+      radius: 0.11,
+      mass: 0.436,
+      grounded: true,
+    } as const;
+    const shot = {
+      launchVelocity: { x: 0, y: 0, z: 36 },
+      command: {
+        kind: 'shot' as const,
+        deltaVelocity: { x: 0, y: 0, z: 136 },
+        angularVelocityDelta: { x: 0, y: 0, z: 0 },
+        maxImpulse: 15.5,
+        diagnostic: 'max shot',
+      },
+    };
+
+    const baseline = applyBallContact(ball, shot.command);
+    const power = applyBallContact(ball, applyShotBuildModifier(shot, 1.08).command!);
+    expect(Math.hypot(power.velocity.x, power.velocity.y, power.velocity.z)).toBeGreaterThan(36);
+    expect(power.velocity).toEqual(baseline.velocity);
+  });
 });

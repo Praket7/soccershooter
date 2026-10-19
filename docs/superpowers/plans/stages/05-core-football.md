@@ -101,16 +101,18 @@ Families:
 - hooks for later bicycle/scissor
 
 ## Tasks
-- [ ] Implement dribble control envelope.
-- [ ] Implement pass target solver.
-- [ ] Implement shot impulse/spin builder.
-- [ ] Implement tackling and recovery.
-- [ ] Implement interception windows.
-- [ ] Implement aerial contact eligibility.
-- [ ] Add greybox keeper and practice goals.
-- [ ] Add debug HUD explaining action success/failure.
-- [ ] Add exploit bots: sprint-only, shot-spam, tackle-spam, dribble-circle.
 
+The checkboxes below track implementation tasks; owner playtest and subjective acceptance remain recorded separately in the stage gate.
+
+- [x] Implement dribble control envelope.
+- [x] Implement pass target solver.
+- [x] Implement shot impulse/spin builder.
+- [x] Implement tackling and recovery.
+- [x] Implement interception windows.
+- [x] Implement aerial contact eligibility.
+- [x] Add greybox keeper and practice goals.
+- [x] Add debug HUD explaining action success/failure.
+- [x] Add exploit bots: sprint-only, shot-spam, tackle-spam, dribble-circle.
 ## Tests
 - no action teleports ball
 - kick impulse cannot exceed legal envelope
