@@ -66,7 +66,9 @@ test('player can keep running while charging and completing a shot', async ({ pa
         speed: playerOutput.dataset.speed ?? '',
       });
       if (trace[trace.length - 1] !== entry) trace.push(entry);
-      if (output.dataset.reason?.startsWith('shot:')) output.dataset.runningShotContactSeen = 'true';
+      if (output.dataset.reason?.startsWith('shot:') && output.dataset.runningShotContactSeen !== 'true') {
+        output.dataset.runningShotContactSeen = 'true';
+      }
     };
     capture();
     const observer = new MutationObserver(capture);
