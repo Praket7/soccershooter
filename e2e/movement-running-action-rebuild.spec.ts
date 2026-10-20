@@ -96,7 +96,7 @@ test('player can keep running while charging and completing a shot', async ({ pa
   await page.keyboard.up('w');
 });
 
-test('sustained lateral carry keeps the free ball compact while the athlete turns into travel', async ({ page }) => {
+test('sustained lateral carry keeps the free ball compact while action aim stays independent', async ({ page }) => {
   await page.goto('/');
   const football = page.locator('[data-football-state]');
   const player = page.locator('[data-player-state]');
@@ -111,7 +111,7 @@ test('sustained lateral carry keeps the free ball compact while the athlete turn
     return {
       px: Number(p.dataset.x),
       pz: Number(p.dataset.z),
-      yaw: Number(p.dataset.facingYaw),
+      actionYaw: Number(p.dataset.facingYaw),
       bx: Number(b.dataset.ballX),
       bz: Number(b.dataset.ballZ),
       action: b.dataset.action ?? '',
@@ -120,7 +120,9 @@ test('sustained lateral carry keeps the free ball compact while the athlete turn
 
   expect(Math.abs(state.px)).toBeGreaterThan(0.9);
   expect(Math.hypot(state.bx - state.px, state.bz - state.pz)).toBeLessThan(1.0);
-  expect(Math.abs(state.yaw)).toBeGreaterThan(1.0);
+  // Authoritative action facing stays on camera aim during a strafe. The rendered
+  // athlete's travel-facing yaw is covered by ProceduralAthleteProxy.regression.test.ts.
+  expect(Math.abs(state.actionYaw)).toBeLessThan(0.15);
   expect(state.action).not.toMatch(/FAILED|MISSED/);
   await expect(football).toHaveAttribute('data-dribble-controller', 'planned-contact');
   await expect(player).toHaveAttribute('data-sprinting', 'false');
