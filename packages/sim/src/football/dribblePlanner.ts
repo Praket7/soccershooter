@@ -291,7 +291,23 @@ function targetVelocity(input: Readonly<PlannedDribbleInput>, seconds: number): 
   // during reversals; a modest blend lets the touch lead the cut without
   // pretending the carrier can instantly change velocity.
   const requestedDirection = normalizeHorizontal(input.desiredDirection);
-  const requestedWeight = isEffortTurn(input) ? 0.14 : 0.32;
+  const carrierAlignment = clampFootball(
+    carrierDirection.x * requestedDirection.x + carrierDirection.z * requestedDirection.z,
+    -1,
+    1,
+  );
+  // A jogging 90-degree lane change needs the touch to lead the new direction
+  // instead of remaining tethered to lateral carrier momentum. Preserve the
+  // existing braking arc for reversals and sprint cuts, where redirecting too
+  // aggressively stretches the ball away from the player.
+  const laneChangeLead = !input.precision && carrierAlignment >= -0.12
+    ? clampFootball((0.55 - carrierAlignment) / 0.55, 0, 1)
+    : 0;
+  const baseRequestedWeight = isEffortTurn(input) ? 0.14 : 0.32;
+  const laneChangeAuthority = input.sprint
+    ? input.motion.plantIntensity >= 0.24 ? 0.38 : 0.72
+    : 0.78;
+  const requestedWeight = baseRequestedWeight + laneChangeLead * (1 - baseRequestedWeight) * laneChangeAuthority;
   const direction = normalizeHorizontal({
     x: carrierDirection.x * (1 - requestedWeight) + requestedDirection.x * requestedWeight,
     z: carrierDirection.z * (1 - requestedWeight) + requestedDirection.z * requestedWeight,
@@ -481,6 +497,17 @@ export function stepPlannedDribble(input: Readonly<PlannedDribbleInput>): Planne
 
   const settledBall = Math.hypot(input.ball.velocity.x, input.ball.velocity.y, input.ball.velocity.z) < 0.22;
   const deliberateReceive = input.receiveMode === 'kill' || input.receiveMode === 'controlled-exit';
+  const requestedDirection = normalizeHorizontal(input.desiredDirection);
+  if (state.looseBall && !deliberateReceive) {
+    const recoveryDistance = horizontalDistance(input.actor.position, input.ball.position);
+    const recoveryLane = (input.ball.position.x - input.actor.position.x) * requestedDirection.x
+      + (input.ball.position.z - input.actor.position.z) * requestedDirection.z;
+    if (recoveryDistance > 0.85 || recoveryLane < 0.10) {
+      state.activePlan = null;
+      return { state, ball: unchangedBall, contactApplied: false, reason: 'loose-ball-chase' };
+    }
+    state.looseBall = false;
+  }
   if (input.moveIntentMagnitude < 0.08 && settledBall && !deliberateReceive) {
     state.activePlan = null;
     state.looseBall = false;
@@ -500,11 +527,29 @@ export function stepPlannedDribble(input: Readonly<PlannedDribbleInput>): Planne
     state.activePlan = plan;
   }
 
-  const requestedDirection = normalizeHorizontal(input.desiredDirection);
   const plannedDirection = plan ? normalizeHorizontal(plan.targetBallVelocity) : null;
+  const laneAlignment = plannedDirection
+    ? requestedDirection.x * plannedDirection.x + requestedDirection.z * plannedDirection.z
+    : 1;
+  const ballAheadOfRequestedLane = (input.ball.position.x - input.actor.position.x) * requestedDirection.x
+    + (input.ball.position.z - input.actor.position.z) * requestedDirection.z;
+  // Keep sprint touches committed against abrupt reversals, but let a normal
+  // arc update through the final plant beat once the ball starts falling out
+  // of the new carry lane. If it cannot be reached at contact, the existing
+  // geometry/window checks still produce a genuine loose ball.
+  const lateLaneCorrection = !input.precision && plannedDirection !== null
+    && laneAlignment < -0.5 && ballAheadOfRequestedLane < 0.55;
+  const committedSprintLaneCanFollow = input.sprint && plannedDirection !== null
+    && laneAlignment < 0.995
+    && ballAheadOfRequestedLane < 0.55;
   const lateJogBranchDoesNotRequireFullReversal = !input.sprint && !input.precision && plannedDirection !== null
-    && requestedDirection.x * plannedDirection.x + requestedDirection.z * plannedDirection.z >= -0.5;
-  if (plan && input.tick < plan.contactTick && (input.tick < plan.prepareTick || lateJogBranchDoesNotRequireFullReversal)) {
+    && laneAlignment >= -0.5;
+  if (plan && input.tick < plan.contactTick && (
+    input.tick < plan.prepareTick
+    || lateJogBranchDoesNotRequireFullReversal
+    || lateLaneCorrection
+    || committedSprintLaneCanFollow
+  )) {
     plan = planContact(input, plan.contactTick, plan.foot);
     state.activePlan = plan;
   }

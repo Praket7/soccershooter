@@ -232,4 +232,27 @@ describe('Stage 05R contact-planned normal and precision dribbling', () => {
     expect(miss.state.activePlan).toBeNull();
     expect(miss.ball).toEqual(escaped);
   });
+
+  test('a missed touch stays dispossessed until the player turns back and recovers the ball', () => {
+    const plannerApi = requireApi();
+    if (!plannerApi) return;
+    const planned = step(plannerApi, plannerApi.createPlannedDribbleState(), 90);
+    const contactTick = planned.state.activePlan!.contactTick;
+    const escaped = ball({ position: { x: 1.6, y: 0.11, z: 2.1 }, velocity: { x: 1.2, y: 0, z: 5.5 } });
+    const lost = step(plannerApi, planned.state, contactTick, { ball: escaped });
+
+    expect(lost.state.looseBall).toBe(true);
+    expect(lost.state.activePlan).toBeNull();
+    expect(lost.reason).toBe('geometry-miss');
+
+    const stillLost = step(plannerApi, lost.state, contactTick + 1, { ball: escaped });
+    expect(stillLost.state.looseBall).toBe(true);
+    expect(stillLost.reason).toBe('loose-ball-chase');
+
+    const recovered = step(plannerApi, stillLost.state, 14, {
+      ball: ball({ position: { x: 0, y: 0.11, z: 0.58 } }),
+    });
+    expect(recovered.state.looseBall).toBe(false);
+    expect(recovered.reason).toBe('contact-planned');
+  });
 });

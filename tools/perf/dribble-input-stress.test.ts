@@ -39,7 +39,7 @@ describe('Stage 05R player-input retention stress', () => {
     const byName = new Map(report.scenarios.map((scenario) => [scenario.scenario, scenario]));
 
     expect(byName.get('tight-circle-jog')?.maxBehindMeters).toBeLessThan(0.17);
-    expect(byName.get('tight-circle-sprint')?.maxBehindMeters).toBeLessThan(0.33);
+    expect(byName.get('tight-circle-sprint')?.maxBehindMeters).toBeLessThan(0.20);
     expect(byName.get('tight-circle-sprint')?.meanBallPlayerSpeedDeltaMetersPerSecond).toBeLessThan(0.70);
     expect(byName.get('tight-circle-sprint')?.looseBallRate).toBe(0);
   });
