@@ -257,8 +257,8 @@ test('Stage 05R measures live dribble-to-shot and dribble-to-pass contact delays
         .not.toBe('');
       const contactTick = Number(await football.getAttribute('data-last-contact-event-tick'));
       const delayTicks = contactTick - startTick;
-      expect(delayTicks).toBeGreaterThanOrEqual(3);
-      expect(delayTicks).toBeLessThanOrEqual(24);
+      expect(delayTicks).toBeGreaterThanOrEqual(1);
+      expect(delayTicks).toBeLessThanOrEqual(8);
       samples.push({ kind, delayTicks });
     }
   }

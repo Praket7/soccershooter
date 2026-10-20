@@ -32,6 +32,10 @@ export interface CampaignPlaystyleMetrics {
   controlTouches: number;
   challengeContacts: number;
   possessionChanges: number;
+  /** Physical attack tempo. Lower values mean the build reaches a goal sooner. */
+  attackTicks: number;
+  /** Millimetres travelled by the primary attacker during authored attacking challenges. */
+  attackerTravelMillimeters: number;
 }
 
 export interface CampaignSimulationReport {
@@ -156,7 +160,15 @@ const PLAYER_BUILD_PERSONALITIES: Readonly<Record<PlayerArchetype, Readonly<Reco
 });
 
 function createEmptyPlaystyle(): CampaignPlaystyleMetrics {
-  return { passContacts: 0, shotContacts: 0, controlTouches: 0, challengeContacts: 0, possessionChanges: 0 };
+  return {
+    passContacts: 0,
+    shotContacts: 0,
+    controlTouches: 0,
+    challengeContacts: 0,
+    possessionChanges: 0,
+    attackTicks: 0,
+    attackerTravelMillimeters: 0,
+  };
 }
 
 function countContact(metrics: CampaignPlaystyleMetrics, kind: BallContactKind): void {
@@ -178,6 +190,8 @@ function mergePlaystyle(target: CampaignPlaystyleMetrics, source: Readonly<Campa
   target.controlTouches += source.controlTouches;
   target.challengeContacts += source.challengeContacts;
   target.possessionChanges += source.possessionChanges;
+  target.attackTicks += source.attackTicks;
+  target.attackerTravelMillimeters += source.attackerTravelMillimeters;
 }
 
 function simulateEncounter(
@@ -210,7 +224,20 @@ function simulateEncounter(
   for (let tick = 0; tick < CAMPAIGN_MATCH_TICKS; tick += 1) {
     const previousContacts = state.contactCount;
     const previousPossessionChanges = state.possessionChanges;
+    const previousAttacker = state.players.find((player) => player.id === 'h-1');
+    if (!previousAttacker) throw new Error('physical campaign scenario lost its attacker');
+    const previousX = previousAttacker.position.x;
+    const previousZ = previousAttacker.position.z;
+
     state = stepPhysicalScrimmage(state, 1 / 60, 'standard', personalities);
+    playstyle.attackTicks += 1;
+    const currentAttacker = state.players.find((player) => player.id === 'h-1');
+    if (!currentAttacker) throw new Error('physical campaign scenario lost its attacker');
+    playstyle.attackerTravelMillimeters += Math.round(Math.hypot(
+      currentAttacker.position.x - previousX,
+      currentAttacker.position.z - previousZ,
+    ) * 1000);
+
     if (state.contactCount > previousContacts) {
       const event = state.recentContacts[state.recentContacts.length - 1];
       if (event) countContact(playstyle, event.kind);

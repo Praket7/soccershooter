@@ -4,6 +4,11 @@ import { createFootballContactPlan } from '../../../../packages/sim/src/football
 import { createPlayerState } from '../../../../packages/sim/src/player/PlayerState';
 import { ProceduralAthleteProxy } from './ProceduralAthleteProxy';
 
+function yawDelta(a: number, b: number): number {
+  const tau = Math.PI * 2;
+  return ((b - a + Math.PI) % tau + tau) % tau - Math.PI;
+}
+
 describe('procedural athlete locomotion regressions', () => {
   test('ordinary jog stance keeps the support boot planted while the root advances', () => {
     const proxy = new ProceduralAthleteProxy(new Scene());
@@ -41,6 +46,26 @@ describe('procedural athlete locomotion regressions', () => {
     const plantedAfterRootAdvance = proxy.getFootWorldPosition('left');
 
     expect(plantedAtStart.distanceTo(plantedAfterRootAdvance)).toBeLessThanOrEqual(0.08);
+    proxy.dispose();
+  });
+
+  test('rendered athlete turns into travel while authoritative action facing can remain on camera aim', () => {
+    const proxy = new ProceduralAthleteProxy(new Scene());
+    const base = createPlayerState({ position: { x: 0, y: 0, z: 0 }, facingYaw: 0 });
+    const strafing = {
+      ...base,
+      athleticMotion: {
+        ...base.athleticMotion,
+        gait: 'jog' as const,
+        plannedVelocity: { x: -4.5, z: 0 },
+      },
+    };
+
+    proxy.update({ player: strafing, simulationTick: 40, interpolationAlpha: 1 });
+    const travelYaw = Math.atan2(strafing.athleticMotion.plannedVelocity.x, strafing.athleticMotion.plannedVelocity.z);
+
+    expect(Math.abs(yawDelta(strafing.facingYaw, 0))).toBeLessThan(0.001);
+    expect(Math.abs(yawDelta(proxy.group.rotation.y, travelYaw))).toBeLessThan(0.001);
     proxy.dispose();
   });
 

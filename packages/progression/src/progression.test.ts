@@ -82,6 +82,8 @@ describe('Road to Legend progression', () => {
       expect(run.playstyle.passContacts + run.playstyle.shotContacts + run.playstyle.controlTouches + run.playstyle.challengeContacts)
         .toBeGreaterThanOrEqual(run.wins);
       expect(run.playstyle.possessionChanges).toBeGreaterThan(0);
+      expect(run.playstyle.attackTicks).toBe(run.simulatedTicks);
+      expect(run.playstyle.attackerTravelMillimeters).toBeGreaterThan(0);
       expect(simulateSkilledCampaign(run.archetype, 0x9a17).playstyle).toEqual(run.playstyle);
     }
 

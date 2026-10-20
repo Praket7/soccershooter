@@ -25,6 +25,8 @@ export interface AthleticMotionState {
   bodyLean: { forward: number; lateral: number };
   plannedVelocity: AthleticHorizontalVector;
   trajectory: AthleticTrajectorySample[];
+  /** True only while the current deterministic input is preparing a shot. */
+  strikePreparation?: boolean;
 }
 
 export interface AthleticMotionInput {
@@ -41,6 +43,7 @@ export interface AthleticMotionInput {
   sprintSpeed: number;
   acceleration: number;
   braking: number;
+  strikePreparation?: boolean;
 }
 
 const EPSILON = 1e-9;
@@ -84,10 +87,13 @@ function chooseGait(
 ): AthleticGait {
   if (!grounded) return 'recover';
   if (moveMagnitude < 0.05) return speed > 0.1 ? 'brake' : 'idle';
-  if (plantIntensity >= 0.34) return 'plant';
-  if (brakingDemand >= 0.35 && speed > 1.2) return 'brake';
+  // A visible effort plant can occur during a fast 90-degree football cut even
+  // when the root controller deliberately avoids the old sluggish committed
+  // plant. The visual gait explains force transfer; only 120-180 degree root
+  // reversals invoke the heavy authoritative plant behavior.
+  if (plantIntensity >= 0.42) return 'plant';
+  if (brakingDemand >= 0.48 && speed > 1.2) return 'brake';
   if (sprinting && speed >= 5.2) return 'sprint';
-  if (speed < 0.9) return 'walk';
   if (speed < 3.1) return 'walk';
   return 'jog';
 }
@@ -95,13 +101,15 @@ function chooseGait(
 function futureTrajectory(input: Readonly<AthleticMotionInput>, plantIntensity: number): AthleticTrajectorySample[] {
   const direction = normalize(input.desiredDirection);
   const speed = Math.hypot(input.currentVelocity.x, input.currentVelocity.z);
+  const speedFraction = clamp(speed / Math.max(0.1, input.sprintSpeed), 0, 1);
+  const turnSeverity = clamp(Math.abs(input.turnDelta) / (Math.PI / 2), 0, 1);
   const requestedTopSpeed = input.sprinting ? input.sprintSpeed : input.jogSpeed;
   const requestedSpeed = requestedTopSpeed * clamp(input.moveMagnitude, 0, 1);
-  const plantSpeedScale = 1 - plantIntensity * 0.58;
+  const plantSpeedScale = 1 - plantIntensity * 0.44;
   const targetSpeed = requestedSpeed * plantSpeedScale;
-  const targetX = direction.x * targetSpeed;
-  const targetZ = direction.z * targetSpeed;
-  const response = input.moveMagnitude < 0.05 || plantIntensity > 0.2 ? input.braking : input.acceleration;
+  const perpendicular = { x: -direction.z, z: direction.x };
+  const directionalBraking = input.braking * (1.34 - 0.34 * speedFraction);
+  const turnPropulsion = input.acceleration * (1 + 0.34 * turnSeverity * (1 - 0.25 * speedFraction));
 
   let x = finite(input.position.x);
   let z = finite(input.position.z);
@@ -111,17 +119,20 @@ function futureTrajectory(input: Readonly<AthleticMotionInput>, plantIntensity: 
 
   for (let index = 1; index <= TRAJECTORY_SAMPLE_COUNT; index += 1) {
     const dt = TRAJECTORY_STEP_SECONDS;
-    const maxVelocityDelta = Math.max(0, response) * dt;
-    const dx = targetX - vx;
-    const dz = targetZ - vz;
-    const distance = Math.hypot(dx, dz);
-    if (distance <= maxVelocityDelta || distance <= EPSILON) {
-      vx = targetX;
-      vz = targetZ;
+    if (input.moveMagnitude < 0.05) {
+      const magnitude = Math.hypot(vx, vz);
+      const nextMagnitude = moveToward(magnitude, 0, Math.max(0, input.braking) * dt);
+      const scale = magnitude > EPSILON ? nextMagnitude / magnitude : 0;
+      vx *= scale;
+      vz *= scale;
     } else {
-      const scale = maxVelocityDelta / distance;
-      vx += dx * scale;
-      vz += dz * scale;
+      const forward = vx * direction.x + vz * direction.z;
+      const lateral = vx * perpendicular.x + vz * perpendicular.z;
+      const forwardRate = forward < -0.05 || input.plantCut ? input.braking : turnPropulsion;
+      const nextForward = moveToward(forward, targetSpeed, Math.max(0, forwardRate) * dt);
+      const nextLateral = moveToward(lateral, 0, Math.max(0, directionalBraking) * dt);
+      vx = direction.x * nextForward + perpendicular.x * nextLateral;
+      vz = direction.z * nextForward + perpendicular.z * nextLateral;
     }
     x += vx * dt;
     z += vz * dt;
@@ -130,22 +141,6 @@ function futureTrajectory(input: Readonly<AthleticMotionInput>, plantIntensity: 
       position: { x, z },
       velocity: { x: vx, z: vz },
     });
-  }
-
-  // A trajectory is a near-future query, not a second movement authority. The
-  // first sample deliberately retains substantial current momentum even when
-  // intent changes abruptly; later samples bend toward the requested path.
-  if (samples[0] && speed > 0.1) {
-    samples[0].velocity.x = moveToward(
-      input.currentVelocity.x,
-      samples[0].velocity.x,
-      Math.max(0, input.acceleration) * TRAJECTORY_STEP_SECONDS,
-    );
-    samples[0].velocity.z = moveToward(
-      input.currentVelocity.z,
-      samples[0].velocity.z,
-      Math.max(0, input.acceleration) * TRAJECTORY_STEP_SECONDS,
-    );
   }
 
   return samples;
@@ -165,6 +160,7 @@ export function createAthleticMotionState(): AthleticMotionState {
     bodyLean: { forward: 0, lateral: 0 },
     plannedVelocity: { x: 0, z: 0 },
     trajectory: [],
+    strikePreparation: false,
   };
 }
 
@@ -181,6 +177,21 @@ export function cloneAthleticMotionState(state: Readonly<AthleticMotionState>): 
   };
 }
 
+function stanceFootForPhase(phase: number): AthleticFoot {
+  // Stance is deliberately shorter than half a cycle. The previous half-cycle
+  // lock let a boot remain nailed to world space while the pelvis translated,
+  // which produced the stretched/crossing-leg sideways glitch.
+  if (phase >= 0.06 && phase < 0.40) return 'left';
+  if (phase >= 0.56 && phase < 0.90) return 'right';
+  return 'both';
+}
+
+function nextSwingFoot(phase: number, support: AthleticFoot): 'left' | 'right' {
+  if (support === 'left') return 'right';
+  if (support === 'right') return 'left';
+  return phase < 0.5 ? 'left' : 'right';
+}
+
 export function stepAthleticMotion(
   previous: Readonly<AthleticMotionState>,
   input: Readonly<AthleticMotionInput>,
@@ -194,15 +205,15 @@ export function stepAthleticMotion(
 
   const plantIntensity = input.plantCut
     ? clamp(turnSeverity * (0.78 + speedFraction * 0.72), 0, 1)
-    : clamp(turnSeverity * speedFraction * 1.18, 0, 1);
+    : clamp(turnSeverity * speedFraction * 0.88, 0, 0.58);
 
   const releaseBrake = moveMagnitude < 0.05 ? clamp(speed / Math.max(0.1, input.jogSpeed), 0, 1) : 0;
-  const turningBrake = clamp(plantIntensity * (0.55 + speedFraction * 0.45), 0, 1);
+  const turningBrake = clamp(plantIntensity * (0.48 + speedFraction * 0.42), 0, 1);
   const brakingDemand = Math.max(releaseBrake, turningBrake);
-  const propulsionDemand = clamp(moveMagnitude * (1 - brakingDemand * 0.86), 0, 1);
+  const propulsionDemand = clamp(moveMagnitude * (1 - brakingDemand * 0.72), 0, 1);
 
   const targetStride = strideForSpeed(speed, input.sprinting);
-  const strideSeconds = moveToward(previous.strideSeconds, targetStride, 0.55 * dt);
+  const strideSeconds = moveToward(previous.strideSeconds, targetStride, 0.72 * dt);
   let gaitPhase = previous.gaitPhase;
   if (input.grounded && (speed > 0.12 || moveMagnitude > 0.05)) {
     gaitPhase = (gaitPhase + dt / Math.max(0.2, strideSeconds)) % 1;
@@ -212,16 +223,12 @@ export function stepAthleticMotion(
 
   const supportFoot: AthleticFoot = speed <= 0.12 && moveMagnitude <= 0.05
     ? 'both'
-    : gaitPhase < 0.5 ? 'left' : 'right';
-  const nextFoot: 'left' | 'right' = supportFoot === 'left'
-    ? 'right'
-    : supportFoot === 'right'
-      ? 'left'
-      : previous.nextFoot;
+    : stanceFootForPhase(gaitPhase);
+  const nextFoot = nextSwingFoot(gaitPhase, supportFoot);
 
   const desired = normalize(input.desiredDirection);
   const requestedTopSpeed = input.sprinting ? input.sprintSpeed : input.jogSpeed;
-  const plannedSpeed = requestedTopSpeed * moveMagnitude * (1 - plantIntensity * 0.5);
+  const plannedSpeed = requestedTopSpeed * moveMagnitude * (1 - plantIntensity * 0.40);
   const plannedVelocity = {
     x: desired.x * plannedSpeed,
     z: desired.z * plannedSpeed,
@@ -235,10 +242,6 @@ export function stepAthleticMotion(
     plantIntensity,
     brakingDemand,
   );
-  // A hard grounded plant needs a short weight-transfer/recovery beat before
-  // ordinary propulsion resumes. This state never moves the root by itself; it
-  // simply makes the already-authoritative braking/turn transition explicit to
-  // contact planning and presentation.
   const leavingPlant = input.grounded
     && previous.gait === 'plant'
     && baseGait !== 'plant'
@@ -267,5 +270,6 @@ export function stepAthleticMotion(
     },
     plannedVelocity,
     trajectory: futureTrajectory(input, plantIntensity),
+    strikePreparation: Boolean(input.strikePreparation),
   };
 }

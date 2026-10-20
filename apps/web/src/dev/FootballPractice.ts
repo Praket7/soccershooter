@@ -18,6 +18,7 @@ import {
 } from '@soccershooter/sim/football/defending';
 import { evaluateAerialContact } from '@soccershooter/sim/football/aerial';
 import type { FootballContactPlan } from '../../../../packages/sim/src/football/contactPlan';
+import { suspendPlannedDribble } from '../../../../packages/sim/src/football/dribbleContinuity';
 import { createStrikeContactPlan, stepStrikeContact } from '@soccershooter/sim/football/strikePlanner';
 import { TECHNIQUES, TECHNIQUE_BY_ID } from '@soccershooter/content/techniques/catalog';
 import { createTechniqueState, executeTechnique, interruptTechnique, resolveTechniqueContactKinematics, type TechniqueContactIntent, type TechniqueState } from '@soccershooter/sim/techniques/executeTechnique';
@@ -734,6 +735,7 @@ export class FootballPractice {
         gaitPhase: player.athleticMotion.gaitPhase,
         strideSeconds: player.athleticMotion.strideSeconds,
         actorPosition: actor.position,
+        actorVelocity: actor.velocity,
         ball: snapshot,
         targetBallVelocity: targetVelocity,
         preferredFoot: actor.preferredFoot,
@@ -755,7 +757,7 @@ export class FootballPractice {
         return;
       }
       this.#pendingTechnique = { definition, plan, contact: result.contact, targetVelocity, angularVelocity };
-      this.#resetPlannedDribble(false);
+      this.#suspendPlannedDribble();
       this.techniqueDebugHud.update({
         technique: definition,
         eligible: true,
@@ -849,6 +851,7 @@ export class FootballPractice {
         gaitPhase: player.athleticMotion.gaitPhase,
         strideSeconds: player.athleticMotion.strideSeconds,
         actorPosition: actor.position,
+        actorVelocity: actor.velocity,
         ball: snapshot,
         targetBallVelocity: modifiedShot.launchVelocity,
         preferredFoot: actor.preferredFoot,
@@ -856,7 +859,7 @@ export class FootballPractice {
       }) : null;
       if (shot.command && strikePlan) {
         this.#pendingStrike = { kind: 'shot', plan: strikePlan, style: releaseStyle, charge: runtimeStep.releasedShotCharge };
-        this.#resetPlannedDribble(false);
+        this.#suspendPlannedDribble();
         this.#shotState = 'GATHER';
         this.#recordAction('SHOT SETUP', true, `plant ${strikePlan.foot} · contact in ${strikePlan.contactTick - contactTick} ticks`);
       } else {
@@ -904,6 +907,7 @@ export class FootballPractice {
         gaitPhase: player.athleticMotion.gaitPhase,
         strideSeconds: player.athleticMotion.strideSeconds,
         actorPosition: actor.position,
+        actorVelocity: actor.velocity,
         ball: snapshot,
         targetBallVelocity: solution.launchVelocity,
         preferredFoot: actor.preferredFoot,
@@ -911,7 +915,7 @@ export class FootballPractice {
       }) : null;
       if (solution.command && strikePlan) {
         this.#pendingStrike = { kind: 'pass', plan: strikePlan, passType: this.#passType };
-        this.#resetPlannedDribble(false);
+        this.#suspendPlannedDribble();
         this.#shotState = 'PASS SETUP';
         this.#recordAction('PASS SETUP', true, `${this.#passType}: plant ${strikePlan.foot} · contact in ${strikePlan.contactTick - contactTick} ticks`);
       } else {
@@ -1022,6 +1026,10 @@ export class FootballPractice {
     }
     this.#syncVisuals();
     this.#updateHud();
+  }
+
+  #suspendPlannedDribble(): void {
+    this.#dribble = suspendPlannedDribble(this.#dribble);
   }
 
   #resetPlannedDribble(resetCounters: boolean): void {

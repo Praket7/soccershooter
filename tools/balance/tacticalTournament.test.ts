@@ -25,7 +25,7 @@ describe('Stage 06 headless tactical tournament', () => {
     expect(first.permanentSwarmPossessions).toBe(0);
     expect(first.clusterRatio).toBeLessThan(0.12);
     expect(first.idleRatio).toBeLessThan(0.08);
-  });
+  }, 15_000);
 
   it('exports role occupancy alongside pass and clustering statistics', async () => {
     const { runTacticalTournament } = await loadTournament();

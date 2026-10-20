@@ -43,6 +43,13 @@ export interface PlannedDribbleInput {
   moveIntentMagnitude: number;
   contactTimingOffsetTicks?: number;
   receiveMode?: ReceiveMode | null;
+  /**
+   * A shot is being charged while the player is still carrying the ball.
+   * This does not reserve or attach the ball. It converts the next ordinary
+   * carry touch into a short legal setup touch so the runner can arrive at the
+   * following strike beat without first kicking the ball out of foot reach.
+   */
+  strikePreparation?: boolean;
 }
 
 export interface PlannedDribbleStep {
@@ -56,6 +63,7 @@ const TICK_HZ = 60;
 const FIRST_CONTACT_TICKS_NORMAL = 3;
 const FIRST_CONTACT_TICKS_PRECISION = 2;
 const FIRST_CONTACT_TICKS_SPRINT = 3;
+const STRIKE_SETUP_CONTACT_TICKS = 5;
 const COMMIT_BEFORE_CONTACT_TICKS = 4;
 const MAX_PLAN_REACH = 1.48;
 const MAX_CONTROL_HEIGHT = 0.72;
@@ -69,23 +77,29 @@ function isEffortTurn(input: Readonly<PlannedDribbleInput>): boolean {
   const actorSpeed = horizontalMagnitude(input.actor.velocity);
   return input.motion.gait === 'plant'
     || input.motion.gait === 'recover'
-    || input.motion.plantIntensity >= 0.34
-    || (actorSpeed >= 3.2 && Math.abs(input.motion.turnDemand) >= 0.30);
+    || input.motion.plantIntensity >= 0.24
+    || (actorSpeed >= 2.5 && Math.abs(input.motion.turnDemand) >= 0.18);
+}
+
+function isStrikePreparation(input: Readonly<PlannedDribbleInput>): boolean {
+  return input.strikePreparation ?? Boolean(input.motion.strikePreparation);
 }
 
 function cadenceTicks(input: Readonly<PlannedDribbleInput>): number {
   if (input.receiveMode === 'kill' || input.receiveMode === 'controlled-exit') return 3;
+  if (isStrikePreparation(input)) return STRIKE_SETUP_CONTACT_TICKS;
   const strideTicks = Math.max(1, input.motion.strideSeconds * TICK_HZ);
-  if (isEffortTurn(input)) return Math.round(clampFootball(strideTicks * 0.54, 9, 14));
-  if (input.precision) return Math.round(clampFootball(strideTicks * 0.64, 12, 17));
-  // Sprint touches are deliberate knock-ons, not jog touches with a faster
-  // animation clock. Keep a longer physical free-ball interval so open-space
-  // running produces a larger recoverable pocket and fewer impulses.
-  if (input.sprint) return Math.round(clampFootball(strideTicks * 1.30, 25, 30));
-  return Math.round(clampFootball(strideTicks * 0.86, 17, 24));
+  // Competent close control needs a physical touch often enough that the ball
+  // remains available without feeling welded. Cadence is still gait-derived;
+  // these are not per-frame corrections or hidden possession forces.
+  if (isEffortTurn(input)) return Math.round(clampFootball(strideTicks * 0.42, 8, 11));
+  if (input.precision) return Math.round(clampFootball(strideTicks * 0.50, 9, 13));
+  if (input.sprint) return Math.round(clampFootball(strideTicks * 1.08, 21, 27));
+  return Math.round(clampFootball(strideTicks * 0.70, 14, 19));
 }
 
 function nextContactTick(input: Readonly<PlannedDribbleInput>): number {
+  if (isStrikePreparation(input)) return input.tick + STRIKE_SETUP_CONTACT_TICKS;
   if (input.state.lastContactTick < 0) {
     if (input.receiveMode) return input.tick + 2;
     if (input.sprint) return input.tick + FIRST_CONTACT_TICKS_SPRINT;
@@ -113,29 +127,28 @@ function contactFoot(input: Readonly<PlannedDribbleInput>): FootballFoot {
 function chooseSurface(input: Readonly<PlannedDribbleInput>, foot: FootballFoot): FootballContactSurface {
   if (input.receiveMode === 'kill') return 'sole';
   if (input.receiveMode === 'controlled-exit' || input.precision) return 'inside';
-  if (input.receiveMode === null || input.receiveMode === undefined) {
-    return chooseControlAssist({
-      actorPosition: input.actor.position,
-      ballPosition: input.ball.position,
-      facingYaw: input.actor.facingYaw,
-      nextFoot: foot,
-      preferredFoot: input.actor.preferredFoot,
-      pressure: input.pressure,
-      balance: input.actor.balance,
-      precision: input.precision,
-      turnDemand: input.motion.turnDemand,
-      skill: 'beginner',
-    }).surface;
-  }
+  if (isStrikePreparation(input)) return foot === input.actor.preferredFoot ? 'inside' : 'outside';
+  // Effort-turn selection must happen before the generic normal-dribble assist.
+  // Previously this branch was unreachable for ordinary dribbling because the
+  // null receive mode returned through the generic assist first.
   if (isEffortTurn(input)) {
     const turningRight = input.motion.turnDemand > 0;
     const outsideFoot = turningRight ? 'right' : 'left';
     return foot === outsideFoot ? 'outside' : 'inside';
   }
   if (input.sprint || Math.abs(input.motion.turnDemand) < 0.18) return 'instep';
-  const turningRight = input.motion.turnDemand > 0;
-  const outsideFoot = turningRight ? 'right' : 'left';
-  return foot === outsideFoot ? 'outside' : 'inside';
+  return chooseControlAssist({
+    actorPosition: input.actor.position,
+    ballPosition: input.ball.position,
+    facingYaw: input.actor.facingYaw,
+    nextFoot: foot,
+    preferredFoot: input.actor.preferredFoot,
+    pressure: input.pressure,
+    balance: input.actor.balance,
+    precision: input.precision,
+    turnDemand: input.motion.turnDemand,
+    skill: 'beginner',
+  }).surface;
 }
 
 function trajectoryOffsetAt(
@@ -145,10 +158,6 @@ function trajectoryOffsetAt(
 ): { x: number; z: number } {
   if (motion.trajectory.length === 0 || seconds <= 0) return { x: 0, z: 0 };
   const samples = motion.trajectory;
-  // AthleticMotionState.trajectory contains absolute world-space positions.
-  // Convert each sample to a displacement from the actor's current origin
-  // before plannedActorPoint adds that origin back. The previous code added
-  // world position twice, making intercept reach depend on pitch coordinates.
   if (seconds <= samples[0]!.time) {
     const sample = samples[0]!;
     const scale = seconds / Math.max(1e-6, sample.time);
@@ -175,9 +184,6 @@ function trajectoryOffsetAt(
 }
 
 function predictedBallPoint(ball: Readonly<FootballBallSnapshot>, seconds: number): FootballVec3 {
-  // This is an intercept estimate, not a second ball solver. It is refreshed
-  // until the short preparation window closes, while the actual Stage 04 ball
-  // remains authoritative and is revalidated at the contact tick.
   const horizontalDamping = Math.max(0.78, 1 - seconds * 0.22);
   return {
     x: ball.position.x + ball.velocity.x * seconds * horizontalDamping,
@@ -200,34 +206,23 @@ function targetSpeed(input: Readonly<PlannedDribbleInput>): number {
   const plannedSpeed = Math.hypot(input.motion.plannedVelocity.x, input.motion.plannedVelocity.z);
   if (input.receiveMode === 'kill') return Math.min(0.75, actorSpeed * 0.16);
   if (input.receiveMode === 'controlled-exit') return input.precision ? 2.0 : 2.8;
-  // Close control means a short *relative* player-ball pocket, not an
-  // artificially slow ball in world space. Keep the ball almost pace-matched
-  // to the carrier so a full jog cannot physically overrun it between the
-  // deliberately frequent precision contacts.
-  if (input.precision) return clampFootball(actorSpeed * 0.96 + 0.22, 1.45, 5.05);
+  // A running shot setup touch deliberately leaves the ball fractionally slower
+  // than the athlete. The player catches the free ball into the next stride;
+  // nothing moves the ball toward the foot except the real contact and turf.
+  if (isStrikePreparation(input)) return clampFootball(actorSpeed * 0.80 + 0.20, 1.4, 4.85);
+  // Precision changes touch spacing and cadence more than locomotion speed. The
+  // ball stays almost pace-matched so close control is responsive, not mud.
+  if (input.precision) return clampFootball(actorSpeed * 0.98 + 0.16, 1.4, 5.15);
   if (isEffortTurn(input)) {
-    // A hard cut is a brake/plant/contact/re-accelerate sequence. The touch is
-    // deliberately shorter than a sprint knock-on instead of granting an
-    // impossible lateral redirect at full approach speed.
-    return clampFootball(actorSpeed * 0.62 + 0.65, 2.4, 5.15);
+    return clampFootball(actorSpeed * 0.78 + 0.35, 2.35, 5.30);
   }
   if (input.sprint) {
-    // A sprint knock-on must create a visibly larger stride pocket than close
-    // control. Preserve the safe startup floor, but once the runner is moving
-    // allow roughly 0.7-0.8 m/s of headroom above top sprint speed so the ball
-    // travels ahead between the deliberately sparse contact beats.
-    return clampFootball(actorSpeed + 1.25 + Math.min(0.65, actorSpeed * 0.07), 3.55, 9.55);
+    return clampFootball(actorSpeed + 1.0 + Math.min(0.50, actorSpeed * 0.055), 3.45, 9.35);
   }
 
-  // Normal control should anticipate the athlete's near-future pace, but it
-  // must not launch the ball at the eventual 5.2 m/s jog target while the body
-  // is still accelerating from rest. The old max(actorSpeed, plannedSpeed)
-  // did exactly that and was only masked by the former superhuman 20 m/s^2
-  // acceleration. Allow at most 0.55 m/s of look-ahead so the ball opens a
-  // readable pocket without outrunning the carrier during the first strides.
   const speedGap = Math.max(0, plannedSpeed - actorSpeed);
-  const anticipatedSpeed = actorSpeed * 0.94 + 0.24 + Math.min(0.55, speedGap * 0.30);
-  return clampFootball(anticipatedSpeed, 1.15, 5.5);
+  const anticipatedSpeed = actorSpeed * 0.98 + 0.16 + Math.min(0.45, speedGap * 0.28);
+  return clampFootball(anticipatedSpeed, 1.1, 5.45);
 }
 
 function targetVelocity(input: Readonly<PlannedDribbleInput>): FootballVec3 {
@@ -249,11 +244,11 @@ function targetVelocity(input: Readonly<PlannedDribbleInput>): FootballVec3 {
   const effort = isEffortTurn(input);
   const turnRetention = incomingSpeed > 0.5
     ? clampFootball(
-        Math.abs(input.motion.turnDemand) * (effort ? 0.32 : 0.16)
+        Math.abs(input.motion.turnDemand) * (effort ? 0.22 : 0.12)
           + clampFootball(input.pressure, 0, 1) * 0.18
           + (1 - clampFootball(input.actor.balance, 0, 1)) * 0.18,
         0,
-        input.precision ? 0.20 : effort ? 0.52 : input.sprint ? 0.38 : 0.34,
+        input.precision ? 0.16 : effort ? 0.38 : input.sprint ? 0.34 : 0.26,
       )
     : 0;
   return {
@@ -274,7 +269,7 @@ function rollingAngularDelta(ball: Readonly<FootballBallSnapshot>, velocity: Rea
 
 function geometryTolerance(input: Readonly<PlannedDribbleInput>): number {
   if (input.receiveMode === 'kill') return 0.22;
-  if (input.precision) return 0.24;
+  if (input.precision || isStrikePreparation(input)) return 0.24;
   return 0.29;
 }
 
@@ -313,14 +308,16 @@ function planContact(
     1
       - pressure * 0.35
       - (1 - balance) * 0.32
-      - Math.abs(input.motion.turnDemand) * (input.precision ? 0.10 : effort ? 0.26 : 0.18)
+      - Math.abs(input.motion.turnDemand) * (input.precision ? 0.10 : effort ? 0.22 : 0.14)
       - (input.sprint ? input.motion.plantIntensity * 0.10 : 0),
     0.35,
     1,
   );
   const prepareTick = Math.max(input.tick, contactTick - COMMIT_BEFORE_CONTACT_TICKS);
   const surface = chooseSurface(input, foot);
-  const mode = effort ? 'effort' : input.precision ? 'precision' : input.sprint ? 'sprint' : 'normal';
+  const mode = isStrikePreparation(input)
+    ? 'strike-setup'
+    : effort ? 'effort' : input.precision ? 'precision' : input.sprint ? 'sprint' : 'normal';
 
   return createFootballContactPlan({
     sourceId: 'stage05r-owner-dribble',
@@ -331,11 +328,9 @@ function planContact(
     contactTick,
     recoveryEndTick: contactTick + 5,
     expectedBallPoint,
-    // The point is where the selected foot must arrive. It follows the moving
-    // ball intercept, not an invisible desired possession pocket.
     expectedFootPoint: { ...expectedBallPoint, y: Math.max(0.06, expectedBallPoint.y - input.ball.radius * 0.22) },
     targetBallVelocity: velocity,
-    maxLinearImpulse: kind === 'trap' ? 4.6 : input.precision ? 2.8 : effort ? 4.2 : input.sprint ? 4.8 : 3.8,
+    maxLinearImpulse: kind === 'trap' ? 4.6 : isStrikePreparation(input) ? 3.6 : input.precision ? 2.8 : effort ? 4.5 : input.sprint ? 4.8 : 3.8,
     maxAngularImpulse: kind === 'trap' ? 85 : 120,
     timingWindowTicks: input.receiveMode ? 1 : clampFootball(assist.timingWindowTicks + (input.contactTimingOffsetTicks ?? 0), 1, 3),
     geometryTolerance: tolerance,
@@ -398,16 +393,23 @@ export function stepPlannedDribble(input: Readonly<PlannedDribbleInput>): Planne
   }
 
   let plan = state.activePlan;
+  // Shot charge is an explicit request to shorten the next stride into a setup
+  // touch. Only a still-uncommitted carry plan may be pulled earlier; a foot
+  // already inside its final plant window is allowed to finish normally.
+  if (plan
+    && isStrikePreparation(input)
+    && plan.kind === 'dribble'
+    && input.tick < plan.prepareTick
+    && plan.contactTick - input.tick > STRIKE_SETUP_CONTACT_TICKS) {
+    plan = planContact(input, input.tick + STRIKE_SETUP_CONTACT_TICKS, plan.foot);
+    state.activePlan = plan;
+  }
+
   const requestedDirection = normalizeHorizontal(input.desiredDirection);
   const plannedDirection = plan ? normalizeHorizontal(plan.targetBallVelocity) : null;
   const lateJogBranchDoesNotRequireFullReversal = !input.sprint && !input.precision && plannedDirection !== null
     && requestedDirection.x * plannedDirection.x + requestedDirection.z * plannedDirection.z >= -0.5;
   if (plan && input.tick < plan.contactTick && (input.tick < plan.prepareTick || lateJogBranchDoesNotRequireFullReversal)) {
-    // Re-target the *foot intercept* while preparation is open. On the final
-    // contact beat, permit forward/lateral/hard-angle cuts that remain
-    // physically viable, but keep a full reversal committed so one late input
-    // cannot instantly snap the ball backwards. The ball receives no position
-    // correction and the contact still revalidates its position, timing, and reach.
     plan = planContact(input, plan.contactTick, plan.foot);
     state.activePlan = plan;
   }

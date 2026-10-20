@@ -30,11 +30,9 @@ export const DEFAULT_MOVEMENT_CONFIG: Readonly<MovementConfig> = Object.freeze({
   walkSpeed: 2.35,
   jogSpeed: 5.2,
   sprintSpeed: 8.8,
-  // Deliberately quicker than laboratory sprint/deceleration averages so the
-  // controller stays responsive, but no longer so high that a player covers
-  // five metres from rest in <0.8 s or erases full sprint momentum in ~0.3 s.
-  // These shared rates also drive the athletic-motion trajectory predictor, so
-  // root movement, contact planning, and presentation now agree on momentum.
+  // Straight-line launch keeps the established football sprint envelope. The
+  // directional controller below can combine braking with re-acceleration on a
+  // cut instead of pretending both must share one scalar velocity budget.
   acceleration: 11,
   braking: 13,
   lowSpeedTurnRate: 12,
@@ -118,9 +116,14 @@ export const BENCHMARK_COURSE: Readonly<{ spawn: Vec3; zones: readonly Benchmark
 
 const TAU = Math.PI * 2;
 const EPSILON = 1e-9;
-const PLANT_CUT_ENTER_ANGLE = (60 * Math.PI) / 180;
-const PLANT_CUT_EXIT_ANGLE = (18 * Math.PI) / 180;
-const PLANT_CUT_MIN_SPEED = 3.2;
+// Ordinary 45-90 degree football cuts must stay responsive. A committed plant
+// is reserved for genuine high-speed reversals where momentum should matter.
+const PLANT_CUT_ENTER_ANGLE = (120 * Math.PI) / 180;
+const PLANT_CUT_EXIT_ANGLE = (42 * Math.PI) / 180;
+const PLANT_CUT_MIN_SPEED = 6.1;
+const MAX_DIRECTION_CHANGE_PROPULSION = 16;
+const MIN_DIRECTIONAL_BRAKING = 13;
+const MAX_DIRECTIONAL_BRAKING = 18;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -139,6 +142,12 @@ function moveAngleToward(from: number, to: number, maxDelta: number): number {
   const delta = angleDelta(from, to);
   if (Math.abs(delta) <= maxDelta) return normalizeAngle(to);
   return normalizeAngle(from + Math.sign(delta) * maxDelta);
+}
+
+function moveToward(current: number, target: number, maxDelta: number): number {
+  const delta = target - current;
+  if (Math.abs(delta) <= maxDelta) return target;
+  return current + Math.sign(delta) * maxDelta;
 }
 
 function moveVectorToward(currentX: number, currentZ: number, targetX: number, targetZ: number, maxDelta: number) {
@@ -258,6 +267,56 @@ function chooseLocomotion(speed: number, targetMagnitude: number, sprinting: boo
   return 'jog';
 }
 
+function directionalVelocity(
+  currentX: number,
+  currentZ: number,
+  desiredX: number,
+  desiredZ: number,
+  targetSpeed: number,
+  currentSpeed: number,
+  turnDelta: number,
+  plantCut: boolean,
+  deltaSeconds: number,
+  config: Readonly<MovementConfig>,
+): { x: number; z: number } {
+  const speedFraction = clamp(currentSpeed / Math.max(0.1, config.sprintSpeed), 0, 1);
+  const turnSeverity = clamp(Math.abs(turnDelta) / (Math.PI / 2), 0, 1);
+  const turnPropulsionBoost = turnSeverity * (1 - 0.25 * speedFraction);
+  const launchAcceleration = config.acceleration
+    + (MAX_DIRECTION_CHANGE_PROPULSION - config.acceleration) * turnPropulsionBoost;
+  const directionalBraking = MAX_DIRECTIONAL_BRAKING
+    + (MIN_DIRECTIONAL_BRAKING - MAX_DIRECTIONAL_BRAKING) * speedFraction;
+
+  // Resolve velocity in a basis aligned to the user's requested travel. This
+  // is the key difference from the old point-mass moveVectorToward response:
+  // cancelling stale sideways momentum no longer steals the entire budget that
+  // should also be building the new requested direction.
+  const perpendicularX = -desiredZ;
+  const perpendicularZ = desiredX;
+  const forwardVelocity = currentX * desiredX + currentZ * desiredZ;
+  const lateralVelocity = currentX * perpendicularX + currentZ * perpendicularZ;
+
+  const forwardRate = forwardVelocity < -0.05 || plantCut ? config.braking : launchAcceleration;
+  const plantTargetSpeed = plantCut ? Math.min(targetSpeed, config.jogSpeed * 0.78) : targetSpeed;
+  const nextForward = moveToward(forwardVelocity, plantTargetSpeed, forwardRate * deltaSeconds);
+  const nextLateral = moveToward(
+    lateralVelocity,
+    0,
+    (plantCut ? config.braking : directionalBraking) * deltaSeconds,
+  );
+
+  let x = desiredX * nextForward + perpendicularX * nextLateral;
+  let z = desiredZ * nextForward + perpendicularZ * nextLateral;
+  const magnitude = Math.hypot(x, z);
+  const legalMax = Math.max(config.sprintSpeed, targetSpeed);
+  if (magnitude > legalMax + EPSILON) {
+    const scale = legalMax / magnitude;
+    x *= scale;
+    z *= scale;
+  }
+  return { x, z };
+}
+
 export function stepPlayerMovement(
   previous: Readonly<PlayerState>,
   intent: Readonly<InputIntent>,
@@ -296,46 +355,42 @@ export function stepPlayerMovement(
   const topSpeed = sprinting ? config.sprintSpeed : config.jogSpeed;
   const requestedTargetSpeed = topSpeed * move.magnitude;
 
-  let constrainedX = desiredX;
-  let constrainedZ = desiredZ;
-  let targetSpeed = requestedTargetSpeed;
   let turnDelta = 0;
   let plantCut = false;
-  if (requestedTargetSpeed > 0.01) {
-    if (currentSpeed > 0.08) {
-      const currentHeading = Math.atan2(state.velocity.x, state.velocity.z);
-      const desiredHeading = Math.atan2(desiredX, desiredZ);
-      turnDelta = angleDelta(currentHeading, desiredHeading);
-      const enteringPlantCut = Math.abs(turnDelta) >= PLANT_CUT_ENTER_ANGLE && currentSpeed > PLANT_CUT_MIN_SPEED;
-      const continuingPlantCut = previous.locomotion === 'sharp-cut' && Math.abs(turnDelta) > PLANT_CUT_EXIT_ANGLE;
-      plantCut = enteringPlantCut || continuingPlantCut;
-
-      if (plantCut) {
-        targetSpeed = Math.min(requestedTargetSpeed, config.jogSpeed);
-      } else {
-        const speedFraction = clamp(currentSpeed / config.sprintSpeed, 0, 1);
-        const turnRate = config.lowSpeedTurnRate + (config.highSpeedTurnRate - config.lowSpeedTurnRate) * speedFraction;
-        const constrainedHeading = moveAngleToward(currentHeading, desiredHeading, turnRate * deltaSeconds);
-        constrainedX = Math.sin(constrainedHeading);
-        constrainedZ = Math.cos(constrainedHeading);
-      }
-    } else if (previous.locomotion === 'sharp-cut') {
-      plantCut = true;
-      targetSpeed = Math.min(requestedTargetSpeed, config.jogSpeed);
-    }
+  if (requestedTargetSpeed > 0.01 && currentSpeed > 0.08) {
+    const currentHeading = Math.atan2(state.velocity.x, state.velocity.z);
+    const desiredHeading = Math.atan2(desiredX, desiredZ);
+    turnDelta = angleDelta(currentHeading, desiredHeading);
+    const enteringPlantCut = Math.abs(turnDelta) >= PLANT_CUT_ENTER_ANGLE && currentSpeed > PLANT_CUT_MIN_SPEED;
+    const continuingPlantCut = previous.locomotion === 'sharp-cut'
+      && Math.abs(turnDelta) > PLANT_CUT_EXIT_ANGLE
+      && currentSpeed > config.walkSpeed;
+    plantCut = enteringPlantCut || continuingPlantCut;
   }
 
-  const targetVelocityX = constrainedX * targetSpeed;
-  const targetVelocityZ = constrainedZ * targetSpeed;
-  const responseRate = move.magnitude <= 0.01 || plantCut ? config.braking : config.acceleration;
-  const maxVelocityDelta = responseRate * deltaSeconds;
-  const velocity = moveVectorToward(
-    state.velocity.x,
-    state.velocity.z,
-    targetVelocityX,
-    targetVelocityZ,
-    maxVelocityDelta,
-  );
+  let velocity: { x: number; z: number };
+  if (move.magnitude <= 0.01) {
+    velocity = moveVectorToward(
+      state.velocity.x,
+      state.velocity.z,
+      0,
+      0,
+      config.braking * deltaSeconds,
+    );
+  } else {
+    velocity = directionalVelocity(
+      state.velocity.x,
+      state.velocity.z,
+      desiredX,
+      desiredZ,
+      requestedTargetSpeed,
+      currentSpeed,
+      turnDelta,
+      plantCut,
+      deltaSeconds,
+      config,
+    );
+  }
 
   const startX = state.position.x;
   const startZ = state.position.z;
@@ -390,9 +445,15 @@ export function stepPlayerMovement(
   state.grounded = grounded;
   state.stamina = stamina;
   state.sprintLocked = sprintLocked;
+
+  // Authoritative facing remains tied to action/aim intent. Rendered locomotion
+  // may align hips and gait to travel direction, but that presentation concern
+  // must not silently alter pass/shot body-angle legality or bot tactics.
+  const locomotionSpeed = Math.hypot(nextVelocityX, nextVelocityZ);
   state.facingYaw = moveAngleToward(state.facingYaw, aimYaw, config.facingTurnRate * deltaSeconds);
+
   state.locomotion = grounded
-    ? chooseLocomotion(Math.hypot(nextVelocityX, nextVelocityZ), move.magnitude, sprinting, plantCut)
+    ? chooseLocomotion(locomotionSpeed, move.magnitude, sprinting, plantCut)
     : 'airborne';
   state.athleticMotion = stepAthleticMotion(previous.athleticMotion, {
     position: { x: nextX, z: nextZ },
@@ -408,6 +469,7 @@ export function stepPlayerMovement(
     sprintSpeed: config.sprintSpeed,
     acceleration: config.acceleration,
     braking: config.braking,
+    strikePreparation: (intent.actionBits & PlayerActionBits.ShootHeld) !== 0,
   });
   state.actionHooks = {
     jumpRequested: (intent.actionBits & PlayerActionBits.Jump) !== 0,
