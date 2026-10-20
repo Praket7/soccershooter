@@ -262,11 +262,24 @@ test('dedicated E pass contact moves the free ball and exposes lane intent witho
   await page.waitForTimeout(100);
   await expect(probe).toHaveAttribute('data-pass-guide-visible', 'true');
   const beforeZ = Number(await probe.getAttribute('data-ball-z'));
+  await page.evaluate(() => {
+    const probe = document.querySelector<HTMLOutputElement>('[data-football-state]');
+    if (!probe) throw new Error('missing football state probe');
+    const capture = window as Window & { __groundPassContact?: string };
+    capture.__groundPassContact = '';
+    const observer = new MutationObserver(() => {
+      if (probe.dataset.action === 'CONTACT' && probe.dataset.reason?.startsWith('ground:')) {
+        capture.__groundPassContact = probe.dataset.reason;
+      }
+    });
+    observer.observe(probe, { attributes: true, attributeFilter: ['data-action', 'data-reason'] });
+  });
   await page.keyboard.press('e');
 
   await expect.poll(async () => Math.abs(Number(await probe.getAttribute('data-ball-z')) - beforeZ), { timeout: 2500 })
     .toBeGreaterThan(1.5);
-  await expect(probe).toHaveAttribute('data-reason', /ground:/);
+  await expect.poll(async () => page.evaluate(() => (window as Window & { __groundPassContact?: string }).__groundPassContact ?? ''))
+    .toMatch(/^ground:/);
   expect(Number(await probe.getAttribute('data-ball-speed'))).toBeGreaterThan(2);
 });
 

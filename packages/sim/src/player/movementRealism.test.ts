@@ -55,4 +55,15 @@ describe('football locomotion realism envelope', () => {
     expect(stop.distance).toBeGreaterThanOrEqual(2.4);
     expect(stop.distance).toBeLessThanOrEqual(4.8);
   });
+
+  test('a 90-degree carry cut redirects at least as quickly as a shifty first step', () => {
+    const world = createFlatMovementWorld();
+    let state = createPlayerState({ velocity: { x: 0, y: 0, z: DEFAULT_MOVEMENT_CONFIG.jogSpeed } });
+    const cut: InputIntent = { moveX: 1, moveY: 0, aimYaw: 0, sprint: false, actionBits: 0 };
+
+    for (let tick = 0; tick < 36; tick += 1) state = stepPlayerMovement(state, cut, world, DT);
+
+    const redirectedAngle = Math.atan2(-state.velocity.x, state.velocity.z) * 180 / Math.PI;
+    expect(redirectedAngle).toBeGreaterThan(83);
+  });
 });
