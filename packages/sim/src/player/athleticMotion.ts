@@ -26,6 +26,8 @@ export interface AthleticMotionState {
   brakingDemand: number;
   propulsionDemand: number;
   bodyLean: { forward: number; lateral: number };
+  /** Horizontal acceleration actually applied by the movement solver, in m/s². */
+  realizedAcceleration: AthleticHorizontalVector;
   plannedVelocity: AthleticHorizontalVector;
   trajectory: AthleticTrajectorySample[];
   /** True only while the current deterministic input is preparing a shot. */
@@ -35,6 +37,8 @@ export interface AthleticMotionState {
 export interface AthleticMotionInput {
   position: AthleticHorizontalVector;
   currentVelocity: AthleticHorizontalVector;
+  /** Horizontal acceleration actually applied by the movement solver, in m/s². */
+  realizedAcceleration: AthleticHorizontalVector;
   desiredDirection: AthleticHorizontalVector;
   moveMagnitude: number;
   sprinting: boolean;
@@ -174,6 +178,7 @@ export function createAthleticMotionState(initialBodyYaw = 0): AthleticMotionSta
     brakingDemand: 0,
     propulsionDemand: 0,
     bodyLean: { forward: 0, lateral: 0 },
+    realizedAcceleration: { x: 0, z: 0 },
     plannedVelocity: { x: 0, z: 0 },
     trajectory: [],
     strikePreparation: false,
@@ -184,6 +189,7 @@ export function cloneAthleticMotionState(state: Readonly<AthleticMotionState>): 
   return {
     ...state,
     bodyLean: { ...state.bodyLean },
+    realizedAcceleration: { ...state.realizedAcceleration },
     plannedVelocity: { ...state.plannedVelocity },
     trajectory: state.trajectory.map((sample) => ({
       time: sample.time,
@@ -296,6 +302,20 @@ export function stepAthleticMotion(
     : stanceFootForPhase(gaitPhase);
   const nextFoot = nextSwingFoot(gaitPhase, supportFoot);
 
+  const bodyForward = { x: Math.sin(bodyYaw), z: Math.cos(bodyYaw) };
+  const bodyRight = { x: Math.cos(bodyYaw), z: -Math.sin(bodyYaw) };
+  const forwardAcceleration = finite(input.realizedAcceleration.x) * bodyForward.x
+    + finite(input.realizedAcceleration.z) * bodyForward.z;
+  const lateralAcceleration = finite(input.realizedAcceleration.x) * bodyRight.x
+    + finite(input.realizedAcceleration.z) * bodyRight.z;
+  // Lean follows force transfer from the movement solver, then settles through
+  // a damped response instead of snapping to the currently held input.
+  const targetForwardLean = clamp(forwardAcceleration * 0.022, -0.22, 0.22);
+  const targetLateralLean = clamp(
+    lateralAcceleration * 0.020 + signedTurn * (0.035 + speedFraction * 0.07),
+    -0.24,
+    0.24,
+  );
   const desired = normalize(input.desiredDirection);
   const requestedTopSpeed = input.sprinting ? input.sprintSpeed : input.jogSpeed;
   const plannedSpeed = requestedTopSpeed * moveMagnitude * (1 - plantIntensity * 0.40);
@@ -337,8 +357,12 @@ export function stepAthleticMotion(
     brakingDemand,
     propulsionDemand,
     bodyLean: {
-      forward: clamp((propulsionDemand - brakingDemand) * 0.22, -0.22, 0.22),
-      lateral: clamp(signedTurn * (0.12 + speedFraction * 0.18), -0.3, 0.3),
+      forward: moveToward(previous.bodyLean.forward, targetForwardLean, 4.8 * dt),
+      lateral: moveToward(previous.bodyLean.lateral, targetLateralLean, 5.6 * dt),
+    },
+    realizedAcceleration: {
+      x: finite(input.realizedAcceleration.x),
+      z: finite(input.realizedAcceleration.z),
     },
     plannedVelocity,
     trajectory: futureTrajectory(input, plantIntensity),
