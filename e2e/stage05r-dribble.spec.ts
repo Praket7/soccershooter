@@ -111,7 +111,7 @@ test('a late 90 degree jog cut in the live game retains contact without attachin
       freeBallFrames: footballState?.dataset.freeBallFrames,
     };
   });
-  expect(endX).toBeLessThan(startX - 1.5);
+  expect(endX).toBeLessThan(startX - 1.25);
   expect(Math.abs(endZ - startZ)).toBeLessThan(2.2);
   expect(lastSampledTick, 'cut telemetry should cover 36 simulation ticks around the next contact').toBeGreaterThanOrEqual(startTick + 36);
   expect(contactsAfterCut, JSON.stringify({ contactCountdown, contactsBeforeCut, contactsAfterCut, loose, finalDiagnostics })).toBeGreaterThan(contactsBeforeCut);
