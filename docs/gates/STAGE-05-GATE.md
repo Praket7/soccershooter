@@ -2,11 +2,11 @@
 
 ## Decision
 
-**ENGINEERING PASS — FINAL OWNER FEEL RE-PLAYTEST REQUIRED**
+**ENGINEERING PASS — OWNER ACCEPTED COMPLETE (2026-10-20)**
 
-Stage 05 now passes its deterministic engineering gate after the latest owner playtest exposed three concrete feel defects: ball/athlete visual penetration during close control, directional-control loss during ordinary changes of direction, and clunky shooting caused by camera/reticle disagreement plus order-sensitive shot modifiers.
+Stage 05 passes its deterministic engineering gate. The owner has now explicitly confirmed that Stage 05 is complete and good, closing the remaining subjective acceptance gate.
 
-Those defects were reproduced, repaired at their responsible layers, converted into regressions, and verified on the exact source head below. This document deliberately does **not** invent the Stage 05 human feel score. The final subjective acceptance remains the owner's next playtest, as required by the project execution contract.
+The concrete defects from earlier playtests were reproduced, repaired at their responsible layers, converted into regressions, and verified. The evidence below preserves the historical engineering record; the owner approval at the end supersedes the older pending-playtest language. No numeric feel score is invented.
 
 The current branch also contains later Stage 06/07 integration work. This report accepts the Stage 05 subsystem only and does not redefine later-stage gates.
 
@@ -210,6 +210,8 @@ Across the Stage 05 owner playtests, the branch now protects against:
 
 The production web bundle is approximately `713.35 kB` minified / `189.21 kB` gzip and still triggers Vite's >500 kB chunk warning. This does not block Stage 05 correctness or the owner feel re-test, but code splitting should be handled before later client growth materially increases the initial payload.
 
-## Final gate rule
+## Owner approval and integration — 2026-10-20
 
-The Stage 05 implementation is engineering-complete and ready for the owner feel re-test. Final Stage 05 human acceptance requires the owner to confirm that the repaired build is fun and refined enough in actual play, especially camera/aim consistency, deliberate normal/finesse/chip selection, and close-control ball handling. No merge is implied by this report; merging still requires explicit owner authorization.
+The owner explicitly confirmed Stage 05 is complete and good, and instructed that the green result be pushed to `main`. This closes the final subjective acceptance gate. The approval is qualitative; no numeric feel score is claimed.
+
+The Stage 05 source commits are on `main` at `9ae9136c10fb1dd59e43680537815e3e3f0f9cf9`. GitHub Actions run [39460470019](https://github.com/Praket7/soccershooter/actions/runs/39460470019) passed on that exact source revision, including unit/contract tests, deterministic football fuzz and balance gates, Stage 06/07 tournaments, production builds, and browser/Node determinism parity.
