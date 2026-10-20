@@ -406,11 +406,26 @@ function commandForPlan(
   ball: Readonly<FootballBallSnapshot>,
   input: Readonly<PlannedDribbleInput>,
 ): BallContactCommand {
+  const incomingSpeed = Math.hypot(input.ball.velocity.x, input.ball.velocity.z);
+  const incomingDirection = normalizeHorizontal(
+    { x: input.ball.velocity.x, z: input.ball.velocity.z },
+    input.desiredDirection,
+  );
+  const requestedDirection = normalizeHorizontal(input.desiredDirection);
+  const incomingIntentDot = incomingDirection.x * requestedDirection.x
+    + incomingDirection.z * requestedDirection.z;
+  // Preserve the planner's trajectory lane for routine cuts, where it accounts
+  // for the runner's braking arc. For a near-reversal, however, that lane is
+  // still the old one; pass the live input through so the corrective touch can
+  // bring the ball around to the new front.
+  const controlDirection = incomingSpeed > 1.15 && incomingIntentDot < -0.34
+    ? requestedDirection
+    : normalizeHorizontal(plan.targetBallVelocity, requestedDirection);
   const controlTouch = !isStrikePreparation(input)
     ? buildControlTouch({
         actor: input.actor,
         ball,
-        desiredDirection: normalizeHorizontal(plan.targetBallVelocity, input.desiredDirection),
+        desiredDirection: controlDirection,
         precision: input.precision,
         sprint: input.sprint,
         pressure: input.pressure,

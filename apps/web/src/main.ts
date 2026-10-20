@@ -580,9 +580,17 @@ function frame(now: number): void {
 
   const alpha = Math.max(0, Math.min(1, accumulator / FIXED_DT));
   const displayPlayer = interpolatedPlayer(alpha);
+  const shotFacingYaw = footballPractice.activeShotFacingYaw;
+  const athletePlayer = shotFacingYaw === null
+    ? displayPlayer
+    : {
+      ...displayPlayer,
+      facingYaw: shotFacingYaw,
+      athleticMotion: { ...displayPlayer.athleticMotion, strikePreparation: true },
+    };
   const contactPlan = footballPractice.activeContactPlan ?? footballPractice.lastContactPlan;
   const athletePose = athleteProxy.update({
-    player: displayPlayer,
+    player: athletePlayer,
     plan: contactPlan,
     simulationTick: footballPractice.contactTick,
     interpolationAlpha: alpha,

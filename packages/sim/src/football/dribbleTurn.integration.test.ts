@@ -122,6 +122,7 @@ function runJogCut(turnDegrees: number) {
   let ball = createBallState({ position: { x: 0, y: BALL_CONSTANTS.radius, z: 0.68 }, grounded: true });
   let planner = createPlannedDribbleState();
   let looseTicks = 0;
+  let firstTurnContactDirectionDot: number | null = null;
   let lastContactBeat: { before: { x: number; y: number; z: number }; after: { x: number; y: number; z: number } } | null = null;
 
   for (let tick = 0; tick < 180; tick += 1) {
@@ -149,6 +150,13 @@ function runJogCut(turnDegrees: number) {
       receiveMode: null,
     });
     planner = result.state;
+    if (turning && result.contactApplied && firstTurnContactDirectionDot === null) {
+      const ballSpeed = Math.hypot(result.ball.velocity.x, result.ball.velocity.z);
+      if (ballSpeed > 1e-6) {
+        firstTurnContactDirectionDot = (result.ball.velocity.x * Math.sin(aimYaw)
+          + result.ball.velocity.z * Math.cos(aimYaw)) / ballSpeed;
+      }
+    }
     if (tick === 48 && plannedVelocityBefore) {
       lastContactBeat = {
         before: { ...plannedVelocityBefore },
@@ -160,7 +168,7 @@ function runJogCut(turnDegrees: number) {
     ball = stepBall(stepBall(ball, BALL_SUBSTEP_DT, MATCH_BALL_PROFILE, null), BALL_SUBSTEP_DT, MATCH_BALL_PROFILE, null);
   }
 
-  return { looseRate: looseTicks / 180, lastContactBeat };
+  return { looseRate: looseTicks / 180, lastContactBeat, firstTurnContactDirectionDot };
 }
 
 describe('Stage 05R sprint dribbling and effort-turn integration', () => {
@@ -172,6 +180,7 @@ describe('Stage 05R sprint dribbling and effort-turn integration', () => {
 
     const reversal = runJogCut(180);
     expect(reversal.looseRate).toBeLessThanOrEqual(0.2);
+    expect(reversal.firstTurnContactDirectionDot).toBeGreaterThan(0.25);
   });
 
   test('sprint uses short pace-matched carry touches and stays close to the runner', () => {

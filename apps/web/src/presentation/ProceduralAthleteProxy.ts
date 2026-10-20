@@ -52,11 +52,15 @@ function moveToward(current: number, target: number, maxDelta: number): number {
   return current + Math.sign(delta) * maxDelta;
 }
 
-function presentationFacingYaw(player: ProceduralAthleteInput['player']): number {
+function presentationFacingYaw(
+  player: ProceduralAthleteInput['player'],
+  restingYaw: number,
+): number {
+  if (player.athleticMotion.strikePreparation) return player.facingYaw;
   const velocity = player.athleticMotion.plannedVelocity;
   return Math.hypot(velocity.x, velocity.z) > 0.22
     ? Math.atan2(velocity.x, velocity.z)
-    : player.facingYaw;
+    : restingYaw;
 }
 
 function localToWorld(
@@ -168,7 +172,10 @@ export class ProceduralAthleteProxy {
   update(input: Readonly<ProceduralAthleteInput>): ProceduralAthletePose {
     const { player, plan } = input;
     const alpha = clamp(input.interpolationAlpha, 0, 1);
-    const targetDisplayYaw = presentationFacingYaw(player);
+    const targetDisplayYaw = presentationFacingYaw(
+      player,
+      this.#yawInitialized ? this.#yawTo : player.facingYaw,
+    );
     if (!this.#yawInitialized) {
       this.#yawInitialized = true;
       this.#yawFrom = targetDisplayYaw;
