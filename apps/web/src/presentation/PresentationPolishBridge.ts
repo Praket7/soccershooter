@@ -16,7 +16,7 @@ function applyPlayerFacingCopy(): boolean {
   const controlLines = [
     'WASD / left stick · move and carry direction',
     'Mouse / right stick · camera and world aim',
-    'Shift / L3 · sprint and recoverable knock-on',
+    'Shift / L3 · sprint with short carry touches',
     'RMB / LT · close-control precision',
     'F / View · receive or trap · add movement for an exit touch',
     'E / X · ground pass · Q / Y · through pass · R / LB · lofted pass',

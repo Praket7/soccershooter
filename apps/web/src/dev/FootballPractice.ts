@@ -344,7 +344,7 @@ export class FootballPractice {
         <div><span>Stage 05R sprint + turn slice</span><strong>Football Practice</strong></div>
         <span class="football-practice-live"><i></i> independent physical ball</span>
       </div>
-      <p>WASD drives gait-timed physical foot contacts with a free ball between touches. RMB keeps a short relative control pocket. Shift creates longer planned knock-ons, and hard cuts brake and plant before effort contacts. F is receive/trap: F alone kills the ball; F + WASD takes the first touch out. Aim through the center reticle.</p>
+      <p>WASD keeps planned foot touches close in jog or sprint. RMB slows your movement for close control; Shift sprints with short carry touches. Hard cuts brake and plant before effort contacts. F is receive/trap: F alone kills the ball; F + WASD takes the first touch out. Aim through the center reticle.</p>
       <div class="practice-actions">
         <button type="button" data-football-reset>Reset ball <kbd>G</kbd></button>
         <span><kbd>E</kbd> ground · <kbd>Q</kbd> through · <kbd>R</kbd> lofted · <kbd>RMB+E</kbd> driven · <kbd>Ctrl+Q</kbd> chipped through</span>
@@ -969,7 +969,7 @@ export class FootballPractice {
             : planReason.startsWith('effort-')
               ? 'EFFORT CONTACT'
               : planReason.startsWith('sprint-')
-                ? 'SPRINT KNOCK-ON'
+                ? 'SPRINT CARRY'
                 : precision
                   ? 'PRECISION CONTACT'
                   : 'PLANNED TOUCH';

@@ -1,5 +1,6 @@
 import type { AthleticMotionState } from '../player/athleticMotion';
 import { chooseControlAssist } from './controlAssist';
+import { buildControlTouch } from './controlEnvelope';
 import {
   createFootballContactPlan,
   executePlannedFootballContact,
@@ -92,10 +93,25 @@ function cadenceTicks(input: Readonly<PlannedDribbleInput>): number {
   // Competent close control needs a physical touch often enough that the ball
   // remains available without feeling welded. Cadence is still gait-derived;
   // these are not per-frame corrections or hidden possession forces.
-  if (isEffortTurn(input)) return Math.round(clampFootball(strideTicks * 0.42, 8, 11));
-  if (input.precision) return Math.round(clampFootball(strideTicks * 0.50, 9, 13));
-  if (input.sprint) return Math.round(clampFootball(strideTicks * 1.08, 21, 27));
-  return Math.round(clampFootball(strideTicks * 0.70, 14, 19));
+  const velocityDirection = normalizeHorizontal(input.actor.velocity, input.desiredDirection);
+  const requestedDirection = normalizeHorizontal(input.desiredDirection);
+  const directionChange = Math.acos(clampFootball(
+    velocityDirection.x * requestedDirection.x + velocityDirection.z * requestedDirection.z,
+    -1,
+    1,
+  ));
+  if (isEffortTurn(input) || (horizontalMagnitude(input.actor.velocity) >= 2.5 && directionChange >= 0.12)) {
+    // Tight running curves need a touch inside the normal stride beat. Waiting
+    // 8-10 ticks lets the player round the turn while the ball continues along
+    // its old tangent, which reads as the ball trailing around the circle.
+    if (directionChange >= 0.20 || Math.abs(input.motion.turnDemand) >= 0.06) {
+      return Math.round(clampFootball(strideTicks * 0.24, 4, 6));
+    }
+    return Math.round(clampFootball(strideTicks * 0.42, 8, 10));
+  }
+  if (input.precision) return Math.round(clampFootball(strideTicks * 0.36, 7, 9));
+  if (input.sprint) return Math.round(clampFootball(strideTicks * 0.42, 8, 10));
+  return Math.round(clampFootball(strideTicks * 0.42, 9, 11));
 }
 
 function nextContactTick(input: Readonly<PlannedDribbleInput>): number {
@@ -201,31 +217,64 @@ function plannedActorPoint(input: Readonly<PlannedDribbleInput>, seconds: number
   };
 }
 
-function targetSpeed(input: Readonly<PlannedDribbleInput>): number {
+function predictedCarrierVelocity(input: Readonly<PlannedDribbleInput>, seconds: number): FootballHorizontalDirection {
+  const samples = input.motion.trajectory;
+  if (samples.length === 0 || seconds <= 0) return input.actor.velocity;
+  if (seconds <= samples[0]!.time) {
+    const sample = samples[0]!;
+    const t = seconds / Math.max(1e-6, sample.time);
+    return {
+      x: input.actor.velocity.x + (sample.velocity.x - input.actor.velocity.x) * t,
+      z: input.actor.velocity.z + (sample.velocity.z - input.actor.velocity.z) * t,
+    };
+  }
+  for (let index = 1; index < samples.length; index += 1) {
+    const left = samples[index - 1]!;
+    const right = samples[index]!;
+    if (seconds > right.time) continue;
+    const t = (seconds - left.time) / Math.max(1e-6, right.time - left.time);
+    return {
+      x: left.velocity.x + (right.velocity.x - left.velocity.x) * t,
+      z: left.velocity.z + (right.velocity.z - left.velocity.z) * t,
+    };
+  }
+  return samples[samples.length - 1]!.velocity;
+}
+
+function targetSpeed(input: Readonly<PlannedDribbleInput>, carrierVelocity: FootballHorizontalDirection): number {
   const actorSpeed = horizontalMagnitude(input.actor.velocity);
+  const contactSpeed = Math.hypot(carrierVelocity.x, carrierVelocity.z);
   const plannedSpeed = Math.hypot(input.motion.plannedVelocity.x, input.motion.plannedVelocity.z);
   if (input.receiveMode === 'kill') return Math.min(0.75, actorSpeed * 0.16);
   if (input.receiveMode === 'controlled-exit') return input.precision ? 2.0 : 2.8;
-  // A running shot setup touch deliberately leaves the ball fractionally slower
-  // than the athlete. The player catches the free ball into the next stride;
-  // nothing moves the ball toward the foot except the real contact and turf.
-  if (isStrikePreparation(input)) return clampFootball(actorSpeed * 0.80 + 0.20, 1.4, 4.85);
+  // Shot preparation must preserve the runner's carry pace. Capping this setup
+  // touch made a sprinting player outrun the free ball before the strike beat.
+  if (isStrikePreparation(input)) return clampFootball(actorSpeed * 0.98 + 0.16, 1.4, 9.35);
   // Precision changes touch spacing and cadence more than locomotion speed. The
   // ball stays almost pace-matched so close control is responsive, not mud.
   if (input.precision) return clampFootball(actorSpeed * 0.98 + 0.16, 1.4, 5.15);
   if (isEffortTurn(input)) {
-    return clampFootball(actorSpeed * 0.78 + 0.35, 2.35, 5.30);
+    const turnSpeedCeiling = input.sprint ? 9.35 : 5.30;
+    return clampFootball(contactSpeed * 1.02 + 0.16, 1.8, turnSpeedCeiling);
   }
   if (input.sprint) {
-    return clampFootball(actorSpeed + 1.0 + Math.min(0.50, actorSpeed * 0.055), 3.45, 9.35);
+    const requestedKnockOn = actorSpeed + 1.0 + Math.min(0.50, actorSpeed * 0.055);
+    const alignment = normalizeHorizontal(carrierVelocity);
+    const requested = normalizeHorizontal(input.desiredDirection);
+    const directionalMatch = alignment.x * requested.x + alignment.z * requested.z;
+    return clampFootball(
+      Math.min(requestedKnockOn, contactSpeed + Math.max(0, directionalMatch) * 0.45),
+      Math.max(0.9, contactSpeed * 0.82),
+      9.35,
+    );
   }
 
-  const speedGap = Math.max(0, plannedSpeed - actorSpeed);
-  const anticipatedSpeed = actorSpeed * 0.98 + 0.16 + Math.min(0.45, speedGap * 0.28);
+  const speedGap = Math.max(0, plannedSpeed - contactSpeed);
+  const anticipatedSpeed = contactSpeed * 0.98 + 0.16 + Math.min(0.45, speedGap * 0.28);
   return clampFootball(anticipatedSpeed, 1.1, 5.45);
 }
 
-function targetVelocity(input: Readonly<PlannedDribbleInput>): FootballVec3 {
+function targetVelocity(input: Readonly<PlannedDribbleInput>, seconds: number): FootballVec3 {
   if (input.receiveMode === 'kill') {
     return {
       x: input.actor.velocity.x * 0.16,
@@ -234,8 +283,19 @@ function targetVelocity(input: Readonly<PlannedDribbleInput>): FootballVec3 {
     };
   }
 
-  const direction = normalizeHorizontal(input.desiredDirection);
-  const speed = targetSpeed(input);
+  const carrierVelocity = predictedCarrierVelocity(input, seconds);
+  const carrierDirection = normalizeHorizontal(carrierVelocity, input.desiredDirection);
+  // Respect the requested lane while accounting for the athlete's braking arc.
+  // A fully trajectory-locked touch keeps the ball attached to old momentum
+  // during reversals; a modest blend lets the touch lead the cut without
+  // pretending the carrier can instantly change velocity.
+  const requestedDirection = normalizeHorizontal(input.desiredDirection);
+  const requestedWeight = isEffortTurn(input) ? 0.14 : 0.32;
+  const direction = normalizeHorizontal({
+    x: carrierDirection.x * (1 - requestedWeight) + requestedDirection.x * requestedWeight,
+    z: carrierDirection.z * (1 - requestedWeight) + requestedDirection.z * requestedWeight,
+  }, carrierDirection);
+  const speed = targetSpeed(input, carrierVelocity);
   const incomingDirection = normalizeHorizontal(
     { x: input.ball.velocity.x, z: input.ball.velocity.z },
     direction,
@@ -244,7 +304,7 @@ function targetVelocity(input: Readonly<PlannedDribbleInput>): FootballVec3 {
   const effort = isEffortTurn(input);
   const turnRetention = incomingSpeed > 0.5
     ? clampFootball(
-        Math.abs(input.motion.turnDemand) * (effort ? 0.22 : 0.12)
+        Math.abs(input.motion.turnDemand) * (effort ? 0.08 : 0.12)
           + clampFootball(input.pressure, 0, 1) * 0.18
           + (1 - clampFootball(input.actor.balance, 0, 1)) * 0.18,
         0,
@@ -287,7 +347,7 @@ function planContact(
   if (expectedBallPoint.y - input.ball.radius > MAX_CONTROL_HEIGHT) return null;
 
   const kind = input.receiveMode === 'kill' ? 'trap' : 'dribble';
-  const velocity = targetVelocity(input);
+  const velocity = targetVelocity(input, seconds);
   const tolerance = geometryTolerance(input);
   const pressure = clampFootball(input.pressure, 0, 1);
   const balance = clampFootball(input.actor.balance, 0, 1);
@@ -341,7 +401,24 @@ function planContact(
   });
 }
 
-function commandForPlan(plan: Readonly<FootballContactPlan>, ball: Readonly<FootballBallSnapshot>): BallContactCommand {
+function commandForPlan(
+  plan: Readonly<FootballContactPlan>,
+  ball: Readonly<FootballBallSnapshot>,
+  input: Readonly<PlannedDribbleInput>,
+): BallContactCommand {
+  const controlTouch = !isStrikePreparation(input)
+    ? buildControlTouch({
+        actor: input.actor,
+        ball,
+        desiredDirection: normalizeHorizontal(plan.targetBallVelocity, input.desiredDirection),
+        precision: input.precision,
+        sprint: input.sprint,
+        pressure: input.pressure,
+        moveIntentMagnitude: input.moveIntentMagnitude,
+        ...(input.receiveMode !== undefined ? { receiveMode: input.receiveMode } : {}),
+      }).command
+    : undefined;
+  if (controlTouch) return controlTouch;
   const angularVelocityDelta = plan.kind === 'trap'
     ? {
         x: -ball.angularVelocity.x * 0.70,
@@ -421,7 +498,7 @@ export function stepPlannedDribble(input: Readonly<PlannedDribbleInput>): Planne
         tick: input.tick,
         actorPosition: input.actor.position,
         ball: input.ball,
-        command: commandForPlan(plan, input.ball),
+        command: commandForPlan(plan, input.ball, input),
         consumedEventIds: state.consumedEventIds,
       });
       if (execution.applied) {

@@ -83,12 +83,12 @@ describe('contact-planned physical dribble carry', () => {
     expect(result.maxSeparation, diagnostic(result)).toBeLessThan(1.12);
   });
 
-  test('sprint carry uses fewer, longer contact events while keeping the ball a recoverable free object', () => {
+  test('sprint carry uses short pace-matched contact events while keeping the ball a free object', () => {
     const normal = runCarry(false);
     const sprint = runCarry(true);
     expect(sprint.failures, diagnostic(sprint)).toEqual([]);
     expect(sprint.samples.filter((sample) => sample.touch === 'contact').length)
-      .toBeLessThan(normal.samples.filter((sample) => sample.touch === 'contact').length);
-    expect(sprint.maxSeparation, diagnostic(sprint)).toBeLessThan(1.38);
+      .toBeGreaterThanOrEqual(normal.samples.filter((sample) => sample.touch === 'contact').length);
+    expect(sprint.maxSeparation, diagnostic(sprint)).toBeLessThan(1.0);
   });
 });

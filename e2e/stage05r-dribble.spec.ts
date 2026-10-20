@@ -152,7 +152,7 @@ test('RMB close control stays on planned contacts instead of falling back to the
   await expect(probe).toHaveAttribute('data-contact-surface', /inside|outside|instep|sole|toe/);
 });
 
-test('live sprint knock-ons use the same planned-contact controller and leave free-ball travel between beats', async ({ page }) => {
+test('live sprint carry uses short planned contacts with free-ball travel between beats', async ({ page }) => {
   await page.goto('/');
   const probe = page.locator('[data-football-state]');
 

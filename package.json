@@ -15,6 +15,7 @@
     "test:e2e": "playwright test",
     "determinism:headless": "tsx tools/perf/run-determinism.ts",
     "dribble:calibration": "tsx tools/perf/dribble-calibration.ts",
+    "dribble:stress": "tsx tools/perf/dribble-input-stress.ts",
     "strike:calibration": "tsx tools/perf/strike-transition-calibration.ts",
     "ball:fuzz": "tsx tools/perf/ball-fuzz.ts --launches=1000000 --substeps=4 --seed=309777",
     "football:fuzz": "tsx tools/perf/football-fuzz.ts --cases=250000 --seed=5904133",

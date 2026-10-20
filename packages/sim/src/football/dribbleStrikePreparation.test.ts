@@ -87,10 +87,12 @@ describe('running-shot dribble preparation', () => {
     expect(preparing.state.activePlan!.contactTick - 102).toBeGreaterThanOrEqual(2);
     expect(preparing.state.activePlan!.contactTick - 102).toBeLessThanOrEqual(5);
     expect(preparing.state.activePlan!.reason).toMatch(/^strike-setup-/);
-    expect(Math.hypot(
+    const setupSpeed = Math.hypot(
       preparing.state.activePlan!.targetBallVelocity.x,
       preparing.state.activePlan!.targetBallVelocity.z,
-    )).toBeLessThanOrEqual(Math.hypot(actor.velocity.x, actor.velocity.z) + 0.05);
+    );
+    expect(setupSpeed).toBeGreaterThanOrEqual(4.9);
+    expect(setupSpeed).toBeLessThanOrEqual(5.3);
   });
 
   test('live athletic motion carries held-shot preparation into the planner without a browser-only override', () => {
@@ -111,5 +113,42 @@ describe('running-shot dribble preparation', () => {
     expect(preparing.state.activePlan).not.toBeNull();
     expect(preparing.state.activePlan!.contactTick - 102).toBeLessThanOrEqual(5);
     expect(preparing.state.activePlan!.reason).toMatch(/^strike-setup-/);
+  });
+
+  test('sprint shot setup preserves the runner carry pace instead of slowing the ball', () => {
+    const sprintActor = { ...actor, velocity: { x: 0, y: 0, z: 8.1 }, sprinting: true };
+    const sprintMotion = {
+      ...motion,
+      gait: 'sprint' as const,
+      strideSeconds: 0.34,
+      plannedVelocity: { x: 0, z: 8.1 },
+      trajectory: motion.trajectory.map((sample) => ({
+        ...sample,
+        position: { x: 0, z: sample.time * 8.1 },
+        velocity: { x: 0, z: 8.1 },
+      })),
+    };
+    const sprintBall = { ...ball, velocity: { x: 0, y: 0, z: 8.2 } };
+    const preparing = stepPlannedDribble({
+      tick: 102,
+      state: ordinaryCarry().state,
+      actor: sprintActor,
+      motion: sprintMotion,
+      ball: sprintBall,
+      desiredDirection: { x: 0, z: 1 },
+      precision: false,
+      sprint: true,
+      pressure: 0,
+      moveIntentMagnitude: 1,
+      strikePreparation: true,
+    });
+
+    expect(preparing.state.activePlan).not.toBeNull();
+    const setupSpeed = Math.hypot(
+      preparing.state.activePlan!.targetBallVelocity.x,
+      preparing.state.activePlan!.targetBallVelocity.z,
+    );
+    expect(setupSpeed).toBeGreaterThanOrEqual(7.8);
+    expect(setupSpeed).toBeLessThanOrEqual(8.3);
   });
 });

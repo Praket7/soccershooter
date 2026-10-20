@@ -108,8 +108,8 @@ function futureTrajectory(input: Readonly<AthleticMotionInput>, plantIntensity: 
   const plantSpeedScale = 1 - plantIntensity * 0.44;
   const targetSpeed = requestedSpeed * plantSpeedScale;
   const perpendicular = { x: -direction.z, z: direction.x };
-  const directionalBraking = input.braking * (1.34 - 0.34 * speedFraction);
-  const turnPropulsion = input.acceleration * (1 + 0.34 * turnSeverity * (1 - 0.25 * speedFraction));
+  const directionalBraking = input.braking * (1 - 0.235 * speedFraction);
+  const turnPropulsion = input.acceleration * (1 - 0.18 * turnSeverity * (1 - 0.25 * speedFraction));
 
   let x = finite(input.position.x);
   let z = finite(input.position.z);

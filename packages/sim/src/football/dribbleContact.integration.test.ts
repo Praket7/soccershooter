@@ -122,7 +122,7 @@ describe('Stage 05R planned-contact dribble integration', () => {
     }
 
     expect(contactTicks.length).toBeGreaterThanOrEqual(6);
-    expect(contactTicks.length).toBeLessThanOrEqual(14);
+    expect(contactTicks.length).toBeLessThanOrEqual(18);
     expect(new Set(feet)).toEqual(new Set(['left', 'right']));
     expect(freeTravelFrames).toBeGreaterThan(80);
     expect(maxSeparation).toBeLessThan(1.65);

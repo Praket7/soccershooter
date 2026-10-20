@@ -32,6 +32,8 @@ type Scenario = typeof SCENARIOS[number];
 interface CalibrationMetrics {
   contacts: number;
   contactCadencePerSecond: number;
+  maxSeparationMeters: number;
+  meanBallPlayerSpeedDeltaMetersPerSecond: number;
   footUsage: Record<'left' | 'right', number>;
   contactTimingErrorTicks: number[];
   ballDistanceAtContactMeters: number[];
@@ -46,6 +48,7 @@ interface CalibrationMetrics {
 interface ScenarioReport { scenario: string; metrics: CalibrationMetrics; }
 type CalibrationDistributionName =
   | 'touchCadencePerSecond' | 'contactTimingErrorTicks' | 'ballDistanceAtContactMeters' | 'exitSpeedRetention'
+  | 'maxSeparationMeters' | 'meanBallPlayerSpeedDeltaMetersPerSecond'
   | 'brakingTicks' | 'brakingDistanceMeters' | 'plantDurationTicks' | 'lostControlRate'
   | 'inputToMotionResponseLatencyTicks' | 'leftFootUsage' | 'rightFootUsage';
 type CalibrationDistribution = ReturnType<typeof summarize>;
@@ -91,6 +94,9 @@ function runScenario(scenario: Scenario, ticks = 180): CalibrationMetrics {
   let lostControlTicks = 0;
   let brakingTicks = 0;
   let brakingDistanceMeters = 0;
+  let maxSeparationMeters = 0;
+  let speedDeltaSum = 0;
+  let speedDeltaSamples = 0;
   let inputToMotionResponseLatencyTicks: number | null = null;
   let preTurnSpeed = 0;
   let preTurnPosition = { x: 0, z: 0 };
@@ -147,6 +153,12 @@ function runScenario(scenario: Scenario, ticks = 180): CalibrationMetrics {
     }
     ball = stepBall(ball, BALL_SUBSTEP_DT, MATCH_BALL_PROFILE, null);
     ball = stepBall(ball, BALL_SUBSTEP_DT, MATCH_BALL_PROFILE, null);
+    maxSeparationMeters = Math.max(maxSeparationMeters, Math.hypot(player.position.x - ball.position.x, player.position.z - ball.position.z));
+    const playerSpeed = Math.hypot(player.velocity.x, player.velocity.z);
+    if (dribble.lastContactTick >= 0 && playerSpeed >= 1.5) {
+      speedDeltaSum += Math.abs(playerSpeed - Math.hypot(ball.velocity.x, ball.velocity.z));
+      speedDeltaSamples += 1;
+    }
     lastPosition = { x: player.position.x, z: player.position.z };
   }
   const gaps = contactTicks.slice(1).map((tick, index) => tick - contactTicks[index]!);
@@ -155,6 +167,10 @@ function runScenario(scenario: Scenario, ticks = 180): CalibrationMetrics {
   return {
     contacts: contactTicks.length,
     contactCadencePerSecond: gaps.length ? 60 / (gaps.reduce((sum, gap) => sum + gap, 0) / gaps.length) : 0,
+    maxSeparationMeters: Number(maxSeparationMeters.toFixed(4)),
+    meanBallPlayerSpeedDeltaMetersPerSecond: speedDeltaSamples
+      ? Number((speedDeltaSum / speedDeltaSamples).toFixed(4))
+      : 0,
     footUsage,
     contactTimingErrorTicks,
     ballDistanceAtContactMeters,
@@ -171,6 +187,8 @@ export function runDribbleCalibration(): { version: 1; seed: number; tickRateHz:
   const scenarios = SCENARIOS.map((scenario) => ({ scenario: scenario.id, metrics: runScenario(scenario) }));
   const distributions: Record<CalibrationDistributionName, CalibrationDistribution> = {
     touchCadencePerSecond: summarize(scenarios.map(({ metrics }) => metrics.contactCadencePerSecond)),
+    maxSeparationMeters: summarize(scenarios.map(({ metrics }) => metrics.maxSeparationMeters)),
+    meanBallPlayerSpeedDeltaMetersPerSecond: summarize(scenarios.map(({ metrics }) => metrics.meanBallPlayerSpeedDeltaMetersPerSecond)),
     contactTimingErrorTicks: summarize(scenarios.flatMap(({ metrics }) => metrics.contactTimingErrorTicks)),
     ballDistanceAtContactMeters: summarize(scenarios.flatMap(({ metrics }) => metrics.ballDistanceAtContactMeters)),
     exitSpeedRetention: summarize(scenarios.flatMap(({ metrics }) => metrics.exitSpeedRetention)),

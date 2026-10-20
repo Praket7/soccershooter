@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { Scene } from 'three';
+import { Mesh, Scene, Vector3 } from 'three';
 import { createFootballContactPlan } from '../../../../packages/sim/src/football/contactPlan';
 import { createPlayerState } from '../../../../packages/sim/src/player/PlayerState';
 import { ProceduralAthleteProxy } from './ProceduralAthleteProxy';
@@ -10,6 +10,73 @@ function yawDelta(a: number, b: number): number {
 }
 
 describe('procedural athlete locomotion regressions', () => {
+  test('running arms swing opposite their same-side legs', () => {
+    const proxy = new ProceduralAthleteProxy(new Scene());
+    const base = createPlayerState({ position: { x: 0, y: 0, z: 0 }, facingYaw: 0 });
+    const moving = {
+      ...base,
+      athleticMotion: {
+        ...base.athleticMotion,
+        gait: 'jog' as const,
+        strideSeconds: 0.42,
+        plannedVelocity: { x: 0, z: 5 },
+        gaitPhase: 0.10,
+      },
+    };
+    proxy.update({ player: moving, simulationTick: 20, interpolationAlpha: 0 });
+    const armAtStart = proxy.group.getObjectByName('left-upper-arm') as Mesh;
+    const startRotation = armAtStart.quaternion.clone();
+    proxy.update({
+      player: { ...moving, athleticMotion: { ...moving.athleticMotion, gaitPhase: 0.35 } },
+      simulationTick: 21,
+      interpolationAlpha: 0,
+    });
+
+    expect(armAtStart.quaternion.angleTo(startRotation)).toBeGreaterThan(0.04);
+    expect(proxy.group.getObjectByName('left-lower-arm')).toBeDefined();
+    proxy.dispose();
+  });
+
+  test('a front-to-back reversal rotates through planted steps instead of flipping the body', () => {
+    const proxy = new ProceduralAthleteProxy(new Scene());
+    const base = createPlayerState({ position: { x: 0, y: 0, z: 0 }, facingYaw: 0 });
+    const forward = {
+      ...base,
+      velocity: { x: 0, y: 0, z: 5 },
+      athleticMotion: {
+        ...base.athleticMotion,
+        gait: 'sprint' as const,
+        supportFoot: 'left' as const,
+        strideSeconds: 0.34,
+        plantIntensity: 0.8,
+        plannedVelocity: { x: 0, z: 5 },
+      },
+    };
+    proxy.update({ player: forward, simulationTick: 40, interpolationAlpha: 1 });
+    const startYaw = proxy.group.rotation.y;
+    const backward = {
+      ...forward,
+      velocity: { x: 0, y: 0, z: -5 },
+      athleticMotion: { ...forward.athleticMotion, plannedVelocity: { x: 0, z: -5 } },
+    };
+
+    proxy.update({ player: backward, simulationTick: 41, interpolationAlpha: 1 });
+    expect(Math.abs(yawDelta(startYaw, proxy.group.rotation.y))).toBeLessThan(0.2);
+    let previousYaw = proxy.group.rotation.y;
+    let largestStep = 0;
+    for (let tick = 42; tick <= 76; tick += 1) {
+      proxy.update({ player: backward, simulationTick: tick, interpolationAlpha: 1 });
+      const step = Math.abs(yawDelta(previousYaw, proxy.group.rotation.y));
+      largestStep = Math.max(largestStep, step);
+      previousYaw = proxy.group.rotation.y;
+    }
+
+    expect(largestStep).toBeLessThan(0.13);
+    expect(Math.abs(yawDelta(startYaw, proxy.group.rotation.y))).toBeGreaterThan(2.3);
+    expect(Math.abs(yawDelta(startYaw, proxy.group.rotation.y))).toBeLessThan(Math.PI);
+    proxy.dispose();
+  });
+
   test('ordinary jog stance keeps the support boot planted while the root advances', () => {
     const proxy = new ProceduralAthleteProxy(new Scene());
     const base = createPlayerState({ position: { x: 0, y: 0, z: 0 }, facingYaw: 0 });
@@ -46,6 +113,50 @@ describe('procedural athlete locomotion regressions', () => {
     const plantedAfterRootAdvance = proxy.getFootWorldPosition('left');
 
     expect(plantedAtStart.distanceTo(plantedAfterRootAdvance)).toBeLessThanOrEqual(0.08);
+    proxy.dispose();
+  });
+
+  test('tight sprint turns release and replant the support foot without a visual snap', () => {
+    const proxy = new ProceduralAthleteProxy(new Scene());
+    const base = createPlayerState({ position: { x: 0, y: 0, z: 0 }, facingYaw: 0 });
+    const radius = 2;
+    const angularSpeed = 3.5;
+    let previousFoot: Vector3 | null = null;
+    let largestStep = 0;
+    let crossedFeet = false;
+    for (let tick = 0; tick < 36; tick += 1) {
+      const angle = tick / 60 * angularSpeed;
+      const player = {
+        ...base,
+        position: {
+          x: radius * Math.sin(angle),
+          y: 0,
+          z: radius * (1 - Math.cos(angle)),
+        },
+        athleticMotion: {
+          ...base.athleticMotion,
+          gait: 'sprint' as const,
+          gaitPhase: 0.55,
+          supportFoot: 'left' as const,
+          strideSeconds: 0.34,
+          plantIntensity: 0.8,
+          plannedVelocity: {
+            x: radius * angularSpeed * Math.cos(angle),
+            z: radius * angularSpeed * Math.sin(angle),
+          },
+        },
+      };
+      proxy.update({ player, simulationTick: 40 + tick, interpolationAlpha: 1 });
+      const foot = proxy.getFootWorldPosition('left');
+      if (previousFoot) largestStep = Math.max(largestStep, foot.distanceTo(previousFoot));
+      previousFoot = foot;
+      const leftLocal = proxy.group.worldToLocal(proxy.getFootWorldPosition('left'));
+      const rightLocal = proxy.group.worldToLocal(proxy.getFootWorldPosition('right'));
+      crossedFeet ||= leftLocal.x >= rightLocal.x;
+    }
+
+    expect(largestStep).toBeLessThan(0.18);
+    expect(crossedFeet).toBe(false);
     proxy.dispose();
   });
 

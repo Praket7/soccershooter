@@ -63,7 +63,7 @@ app.innerHTML = `
         <strong>Football controls</strong>
         <span>WASD · move / exact carry direction</span>
         <span>Mouse / right stick · camera + center-reticle world aim</span>
-        <span>Shift / L3 · sprint / recoverable knock-on</span>
+        <span>Shift / L3 · sprint with short carry touches</span>
         <span>RMB / LT · close-control dribble</span>
         <span>F · receive / trap · F + WASD controlled exit</span>
         <span>E · ground pass · Q · through pass · R · lofted pass</span>
@@ -437,7 +437,7 @@ function renderActionFeedback(
     athleteProxy.bodyMaterial.emissive.setHex(0x6b3100);
     athleteProxy.bodyMaterial.emissiveIntensity = 0.65;
   } else if (mode === 'sprint') {
-    actionFeedback.innerHTML = `<strong>SPRINT ENGAGED</strong><span>Recoverable knock-on touches · target ${Math.round(DEFAULT_MOVEMENT_CONFIG.sprintSpeed * 3.6)} km/h</span>`;
+    actionFeedback.innerHTML = `<strong>SPRINT ENGAGED</strong><span>Short carry touches · ball kept in close range</span>`;
     athleteProxy.bodyMaterial.emissive.setHex(0x233000);
     athleteProxy.bodyMaterial.emissiveIntensity = 0.35;
   } else {

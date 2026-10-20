@@ -43,6 +43,7 @@ interface CarryState {
   ballZ: number;
   ballSpeed: number;
   action: string;
+  reason: string;
 }
 
 async function readCarryState(page: Page): Promise<CarryState> {
@@ -61,6 +62,7 @@ async function readCarryState(page: Page): Promise<CarryState> {
       ballZ: Number(ball.dataset.ballZ ?? 0),
       ballSpeed: Number(ball.dataset.ballSpeed ?? 0),
       action: ball.dataset.action ?? '',
+      reason: ball.dataset.reason ?? '',
     };
   });
 }
@@ -104,6 +106,7 @@ test('Stage 05 practice starts physical, idle, non-magnetic, visually grounded, 
 
   const controls = page.locator('.control-card');
   await expect(controls).toContainText('RMB+E');
+  await expect(controls).toContainText('sprint with short carry touches');
   await expect(controls).toContainText('Ctrl+Q');
   await expect(controls).toContainText('RMB+LMB');
   await expect(controls).toContainText('Ctrl+LMB');
@@ -151,14 +154,57 @@ test('ordinary multi-second dribbling keeps a competent carry compact instead of
   expect(states.some((state) => /FIRST TOUCH FAILED/.test(state.action))).toBe(false);
 });
 
-test('sprinting uses recoverable knock-ons and does not simply run away from the player', async ({ page }) => {
+test('sprinting keeps short carry touches close to the player', async ({ page }) => {
   const states = await runCarryWindow(page, true);
   const maximumSeparation = Math.max(...states.map(separation));
   const final = states.at(-1)!;
 
-  expect(maximumSeparation).toBeLessThan(1.38);
+  expect(maximumSeparation).toBeLessThan(1.0);
   expect(final.ballSpeed).toBeGreaterThan(3.5);
   expect(states.some((state) => /FIRST TOUCH FAILED/.test(state.action))).toBe(false);
+});
+
+test('jogging and sprinting hold the ball through continuous circular direction changes', async ({ page }) => {
+  await page.goto('/');
+  await page.keyboard.press('g');
+  const initial = await readCarryState(page);
+  const directions = [
+    ['w'], ['w', 'd'], ['d'], ['s', 'd'],
+    ['s'], ['s', 'a'], ['a'], ['w', 'a'],
+  ];
+  const scenarios: Array<{ sprint: boolean; maxSeparation: number }> = [];
+  let lostControl = false;
+
+  for (const sprint of [false, true]) {
+    await page.keyboard.press('g');
+    if (sprint) await page.keyboard.down('Shift');
+    const activeKeys = new Set<string>();
+    let maxSeparation = 0;
+    for (let lap = 0; lap < 3; lap += 1) {
+      for (const direction of directions) {
+        const nextKeys = new Set(direction);
+        for (const key of activeKeys) if (!nextKeys.has(key)) await page.keyboard.up(key);
+        for (const key of nextKeys) if (!activeKeys.has(key)) await page.keyboard.down(key);
+        activeKeys.clear();
+        for (const key of nextKeys) activeKeys.add(key);
+        const segmentEndTick = (await readCarryState(page)).tick + 15;
+        while ((await readCarryState(page)).tick < segmentEndTick) {
+          const state = await readCarryState(page);
+          maxSeparation = Math.max(maxSeparation, separation(state));
+          lostControl ||= /loose-ball-chase|no-viable-intercept|geometry-miss|missed-window/.test(state.reason);
+          await page.waitForTimeout(12);
+        }
+      }
+    }
+    for (const key of activeKeys) await page.keyboard.up(key);
+    if (sprint) await page.keyboard.up('Shift');
+    scenarios.push({ sprint, maxSeparation });
+  }
+
+  expect(scenarios[0]?.maxSeparation).toBeLessThan(1.0);
+  expect(scenarios[1]?.maxSeparation).toBeLessThan(1.0);
+  expect(lostControl).toBe(false);
+  expect((await readCarryState(page)).tick).toBeGreaterThan(initial.tick);
 });
 
 async function probeAction(probe: ReturnType<Page['locator']>): Promise<string> {

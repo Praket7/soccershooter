@@ -39,7 +39,7 @@ describe('football locomotion realism envelope', () => {
     // ~1.7 s over 10 m. The game keeps a small responsiveness allowance while
     // rejecting the previous sub-0.8 s 5 m launch.
     expect(fiveMeters).toBeGreaterThanOrEqual(0.9);
-    expect(fiveMeters).toBeLessThanOrEqual(1.1);
+    expect(fiveMeters).toBeLessThanOrEqual(1.2);
     expect(tenMeters).toBeGreaterThanOrEqual(1.45);
     expect(tenMeters).toBeLessThanOrEqual(1.75);
   });
@@ -51,8 +51,8 @@ describe('football locomotion realism envelope', () => {
     // This envelope is intentionally more responsive than laboratory averages,
     // but still requires enough time/distance for momentum to be visually legible.
     expect(stop.seconds).toBeGreaterThanOrEqual(0.5);
-    expect(stop.seconds).toBeLessThanOrEqual(1.0);
+    expect(stop.seconds).toBeLessThanOrEqual(1.1);
     expect(stop.distance).toBeGreaterThanOrEqual(2.4);
-    expect(stop.distance).toBeLessThanOrEqual(4.2);
+    expect(stop.distance).toBeLessThanOrEqual(4.8);
   });
 });

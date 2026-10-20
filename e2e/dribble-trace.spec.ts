@@ -115,10 +115,10 @@ test('browser normal carry matches the deterministic compact possession envelope
   expect(samples.at(-1)?.freeBallFrames).toBeGreaterThan(0);
 });
 
-test('browser sprint carry matches the deterministic recoverable knock-on envelope', async ({ page }) => {
+test('browser sprint carry stays inside the close physical-control envelope', async ({ page }) => {
   const samples = await runBrowserCarry(page, true);
   const maximum = Math.max(...samples.map((entry) => entry.separation));
-  expect(maximum, traceMessage(samples)).toBeLessThan(1.38);
+  expect(maximum, traceMessage(samples)).toBeLessThan(1.0);
   expect(samples.some((entry) => /FIRST TOUCH FAILED/.test(entry.action)), traceMessage(samples)).toBe(false);
   expect(samples.at(-1)?.controller).toBe('planned-contact');
   expect(Math.max(...samples.map((entry) => entry.contactCount))).toBeGreaterThan(1);

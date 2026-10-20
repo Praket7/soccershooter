@@ -83,11 +83,13 @@ function targetPoint(
   direction: FootballHorizontalDirection,
   distance: number,
   ballY: number,
+  lateralOffset = 0,
 ): FootballVec3 {
+  const lateral = { x: direction.z, z: -direction.x };
   return {
-    x: actor.position.x + direction.x * distance,
+    x: actor.position.x + direction.x * distance + lateral.x * lateralOffset,
     y: ballY,
-    z: actor.position.z + direction.z * distance,
+    z: actor.position.z + direction.z * distance + lateral.z * lateralOffset,
   };
 }
 
@@ -134,6 +136,7 @@ function corridorCorrection(
   direction: FootballHorizontalDirection,
   touchDistance: number,
   mode: ControlTouchMode,
+  lateralOffset = 0,
 ): FootballHorizontalDirection {
   const tuning = corridorTuning(mode);
   const relativeX = ball.position.x - actor.position.x;
@@ -143,7 +146,7 @@ function corridorCorrection(
   const relativeLateral = relativeX * lateral.x + relativeZ * lateral.z;
 
   const forwardError = touchDistance - relativeForward;
-  const lateralError = -relativeLateral;
+  const lateralError = lateralOffset - relativeLateral;
   const rawForward = forwardError / tuning.horizon * tuning.gain;
   const rawLateral = lateralError / tuning.horizon * tuning.gain;
   const forwardCorrection = clampFootball(rawForward, -tuning.maxRecovery, tuning.maxAdvance);
@@ -212,8 +215,8 @@ function straightTouchDistance(
   playerSpeed: number,
 ): number {
   if (precision) return CLOSE_CONTROL_CONTACT_DISTANCE;
-  if (sprint) return 0.78 + clampFootball(playerSpeed - 6, 0, 3) * 0.015;
-  return 0.52;
+  if (sprint) return 0.50 + clampFootball(playerSpeed - 6, 0, 3) * 0.015;
+  return CLOSE_CONTROL_CONTACT_DISTANCE;
 }
 
 function straightTargetSpeed(
@@ -222,8 +225,8 @@ function straightTargetSpeed(
   playerSpeed: number,
 ): number {
   if (precision) return clampFootball(playerSpeed + 0.05, 1.8, 5.15);
-  if (sprint) return clampFootball(playerSpeed + 0.08, 4.0, 8.95);
-  return clampFootball(playerSpeed + 0.15, 3.0, 5.45);
+  if (sprint) return clampFootball(playerSpeed, 0.9, 8.8);
+  return clampFootball(playerSpeed, 3.0, 5.45);
 }
 
 interface TouchImperfection {
@@ -389,8 +392,8 @@ export function buildControlTouch(input: Readonly<ControlTouchInput>): ControlTo
     const minimumSpeed = input.precision
       ? Math.max(1.6, playerSpeed * 0.40)
       : input.sprint
-        ? Math.max(2.2, playerSpeed * 0.44)
-        : Math.max(2.2, playerSpeed * 0.48);
+        ? Math.max(2.2, playerSpeed * 0.68)
+        : Math.max(2.2, playerSpeed * 0.62);
     targetBallSpeed = baseSpeed
       + (minimumSpeed - baseSpeed) * Math.pow(turnSeverity, 0.85);
   } else if (input.sprint) {
@@ -407,6 +410,23 @@ export function buildControlTouch(input: Readonly<ControlTouchInput>): ControlTo
     targetBallSpeed = straightTargetSpeed(false, false, playerSpeed);
   }
 
+  const carrierDirection = normalizeHorizontal(input.actor.velocity, direction);
+  const carrierAlignment = carrierDirection.x * direction.x + carrierDirection.z * direction.z;
+  const curvedCarry = !trapRequested && !receiveExitRequested
+    && playerSpeed > 1.6
+    && carrierAlignment < Math.cos(0.12);
+  const currentForward = (input.ball.position.x - input.actor.position.x) * controlDirection.x
+    + (input.ball.position.z - input.actor.position.z) * controlDirection.z;
+  if (curvedCarry && !input.precision && currentForward < touchDistance - 0.04) touchDistance += 0.08;
+  const controlLateral = { x: controlDirection.z, z: -controlDirection.x };
+  const relativeLateral = (input.ball.position.x - input.actor.position.x) * controlLateral.x
+    + (input.ball.position.z - input.actor.position.z) * controlLateral.z;
+  const pocketSide = Math.abs(relativeLateral) > 0.05
+    ? Math.sign(relativeLateral)
+    : input.actor.preferredFoot === 'right' ? 1 : -1;
+  const controlPocketOffset = curvedCarry
+    ? pocketSide * clampFootball(Math.abs(relativeLateral), input.precision ? 0.08 : 0.15, 0.35)
+    : 0;
   const imperfection = buildTouchImperfection(
     input,
     touchMode,
@@ -422,6 +442,7 @@ export function buildControlTouch(input: Readonly<ControlTouchInput>): ControlTo
     controlDirection,
     touchDistance,
     Math.max(input.ball.radius, input.ball.position.y),
+    controlPocketOffset,
   );
   const baseResult = {
     quality,
@@ -443,7 +464,7 @@ export function buildControlTouch(input: Readonly<ControlTouchInput>): ControlTo
 
   const correction = trapRequested || receiveExitRequested
     ? { x: 0, z: 0 }
-    : corridorCorrection(input.actor, input.ball, controlDirection, touchDistance, touchMode);
+    : corridorCorrection(input.actor, input.ball, controlDirection, touchDistance, touchMode, controlPocketOffset);
   const momentumError = {
     x: movingBallDirection.x * imperfection.momentumRetention,
     z: movingBallDirection.z * imperfection.momentumRetention,
@@ -464,7 +485,7 @@ export function buildControlTouch(input: Readonly<ControlTouchInput>): ControlTo
           x: controlDirection.x * targetBallSpeed + correction.x + momentumError.x,
           y: input.ball.grounded ? 0 : input.ball.velocity.y * (effortTurn ? 0.18 : 0.32),
           z: controlDirection.z * targetBallSpeed + correction.z + momentumError.z,
-        };
+      };
 
   const baseDeltaSpeed = trapRequested
     ? 9.5

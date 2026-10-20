@@ -33,8 +33,8 @@ export const DEFAULT_MOVEMENT_CONFIG: Readonly<MovementConfig> = Object.freeze({
   // Straight-line launch keeps the established football sprint envelope. The
   // directional controller below can combine braking with re-acceleration on a
   // cut instead of pretending both must share one scalar velocity budget.
-  acceleration: 11,
-  braking: 13,
+  acceleration: 7.5,
+  braking: 8.5,
   lowSpeedTurnRate: 12,
   highSpeedTurnRate: 5.6,
   facingTurnRate: 12,
@@ -121,9 +121,11 @@ const EPSILON = 1e-9;
 const PLANT_CUT_ENTER_ANGLE = (120 * Math.PI) / 180;
 const PLANT_CUT_EXIT_ANGLE = (42 * Math.PI) / 180;
 const PLANT_CUT_MIN_SPEED = 6.1;
-const MAX_DIRECTION_CHANGE_PROPULSION = 16;
-const MIN_DIRECTIONAL_BRAKING = 13;
-const MAX_DIRECTIONAL_BRAKING = 18;
+// Keep lateral redirection and braking within a human-scale force envelope.
+// Soccer change-of-direction relies on braking and re-acceleration across
+// support steps, not a large instantaneous sideways velocity correction.
+const MIN_DIRECTIONAL_BRAKING = 6.5;
+const MAX_DIRECTIONAL_BRAKING = 8.5;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -281,9 +283,8 @@ function directionalVelocity(
 ): { x: number; z: number } {
   const speedFraction = clamp(currentSpeed / Math.max(0.1, config.sprintSpeed), 0, 1);
   const turnSeverity = clamp(Math.abs(turnDelta) / (Math.PI / 2), 0, 1);
-  const turnPropulsionBoost = turnSeverity * (1 - 0.25 * speedFraction);
-  const launchAcceleration = config.acceleration
-    + (MAX_DIRECTION_CHANGE_PROPULSION - config.acceleration) * turnPropulsionBoost;
+  const turnPropulsionScale = 1 - 0.18 * turnSeverity * (1 - 0.25 * speedFraction);
+  const launchAcceleration = config.acceleration * turnPropulsionScale;
   const directionalBraking = MAX_DIRECTIONAL_BRAKING
     + (MIN_DIRECTIONAL_BRAKING - MAX_DIRECTIONAL_BRAKING) * speedFraction;
 

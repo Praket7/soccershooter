@@ -23,6 +23,9 @@ export interface ProceduralAthletePose {
 const FEET = ['left', 'right'] as const;
 const PRESENTATION_WARP_REACH = 0.76;
 const MAX_STANCE_STRETCH = 0.48;
+const MAX_REPLANT_STEP = 0.12;
+const PRESENTATION_TICK_SECONDS = 1 / 60;
+const BODY_TURN_ANGULAR_ACCELERATION = 20;
 const UP = new THREE.Vector3(0, 1, 0);
 const BODY_COLOR = 0xd9f35b;
 const BOOT_COLOR = 0x10202a;
@@ -41,6 +44,12 @@ function angleDelta(from: number, to: number): number {
 
 function interpolateYaw(from: number, to: number, alpha: number): number {
   return from + angleDelta(from, to) * clamp(alpha, 0, 1);
+}
+
+function moveToward(current: number, target: number, maxDelta: number): number {
+  const delta = target - current;
+  if (Math.abs(delta) <= maxDelta) return target;
+  return current + Math.sign(delta) * maxDelta;
 }
 
 function presentationFacingYaw(player: ProceduralAthleteInput['player']): number {
@@ -81,6 +90,8 @@ export class ProceduralAthleteProxy {
   readonly #trunk = new THREE.Group();
   readonly #upperLegs: Record<'left' | 'right', THREE.Mesh>;
   readonly #lowerLegs: Record<'left' | 'right', THREE.Mesh>;
+  readonly #upperArms: Record<'left' | 'right', THREE.Mesh>;
+  readonly #lowerArms: Record<'left' | 'right', THREE.Mesh>;
   readonly #boots: Record<'left' | 'right', THREE.Mesh>;
   #plantLock: { foot: Exclude<FootballFoot, 'both'>; worldPosition: THREE.Vector3 } | null = null;
   #lastPlantPosition: THREE.Vector3 | null = null;
@@ -91,6 +102,7 @@ export class ProceduralAthleteProxy {
   #yawInitialized = false;
   #yawFrom = 0;
   #yawTo = 0;
+  #yawRate = 0;
   #lastSimulationTick = -1;
 
   constructor(scene: THREE.Scene) {
@@ -120,6 +132,8 @@ export class ProceduralAthleteProxy {
 
     const upperLegs = {} as Record<'left' | 'right', THREE.Mesh>;
     const lowerLegs = {} as Record<'left' | 'right', THREE.Mesh>;
+    const upperArms = {} as Record<'left' | 'right', THREE.Mesh>;
+    const lowerArms = {} as Record<'left' | 'right', THREE.Mesh>;
     const boots = {} as Record<'left' | 'right', THREE.Mesh>;
     for (const foot of FEET) {
       upperLegs[foot] = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.11, 1, 10), this.bodyMaterial);
@@ -135,10 +149,18 @@ export class ProceduralAthleteProxy {
       upperLegs[foot].castShadow = true;
       lowerLegs[foot].castShadow = true;
       boots[foot].castShadow = true;
-      this.group.add(upperLegs[foot], lowerLegs[foot], boots[foot]);
+      upperArms[foot] = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.06, 1, 8), this.bodyMaterial);
+      lowerArms[foot] = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 1, 8), this.bodyMaterial);
+      upperArms[foot].name = `${foot}-upper-arm`;
+      lowerArms[foot].name = `${foot}-lower-arm`;
+      upperArms[foot].castShadow = true;
+      lowerArms[foot].castShadow = true;
+      this.group.add(upperLegs[foot], lowerLegs[foot], boots[foot], upperArms[foot], lowerArms[foot]);
     }
     this.#upperLegs = upperLegs;
     this.#lowerLegs = lowerLegs;
+    this.#upperArms = upperArms;
+    this.#lowerArms = lowerArms;
     this.#boots = boots;
     scene.add(this.group);
   }
@@ -154,7 +176,28 @@ export class ProceduralAthleteProxy {
       this.#lastSimulationTick = input.simulationTick;
     } else if (input.simulationTick !== this.#lastSimulationTick) {
       this.#yawFrom = this.#yawTo;
-      this.#yawTo = targetDisplayYaw;
+      const elapsedTicks = clamp(input.simulationTick - this.#lastSimulationTick, 1, 6);
+      const speed = Math.hypot(player.athleticMotion.plannedVelocity.x, player.athleticMotion.plannedVelocity.z);
+      const turnRateLimit = 7.6
+        - clamp(speed / 8.8, 0, 1) * 2.8
+        + clamp(player.athleticMotion.plantIntensity, 0, 1) * 0.8;
+      for (let tick = 0; tick < elapsedTicks; tick += 1) {
+        const error = angleDelta(this.#yawTo, targetDisplayYaw);
+        const stoppingLimitedRate = Math.sqrt(2 * BODY_TURN_ANGULAR_ACCELERATION * Math.abs(error));
+        const desiredRate = Math.sign(error) * Math.min(turnRateLimit, stoppingLimitedRate);
+        this.#yawRate = moveToward(
+          this.#yawRate,
+          desiredRate,
+          BODY_TURN_ANGULAR_ACCELERATION * PRESENTATION_TICK_SECONDS,
+        );
+        const yawStep = this.#yawRate * PRESENTATION_TICK_SECONDS;
+        if (Math.sign(yawStep) === Math.sign(error) && Math.abs(yawStep) >= Math.abs(error)) {
+          this.#yawTo = targetDisplayYaw;
+          this.#yawRate = 0;
+        } else {
+          this.#yawTo += yawStep;
+        }
+      }
       this.#lastSimulationTick = input.simulationTick;
     }
     const displayYaw = interpolateYaw(this.#yawFrom, this.#yawTo, alpha);
@@ -164,8 +207,9 @@ export class ProceduralAthleteProxy {
     this.group.updateMatrixWorld(true);
 
     this.#trunk.rotation.x = -clamp(player.athleticMotion.bodyLean.forward, -1, 1) * 0.16;
-    this.#trunk.rotation.z = clamp(player.athleticMotion.bodyLean.lateral, -1, 1) * 0.14;
-    this.#trunk.position.y = -player.athleticMotion.plantIntensity * 0.035;
+    this.#trunk.rotation.z = clamp(player.athleticMotion.bodyLean.lateral, -1, 1) * 0.14
+      + clamp(player.athleticMotion.turnDemand, -1, 1) * player.athleticMotion.plantIntensity * 0.06;
+    this.#trunk.position.y = -player.athleticMotion.plantIntensity * 0.055;
 
     const feet = this.#buildFootPositions(input, alpha, displayYaw);
     const supportFoot = player.athleticMotion.gait !== 'idle'
@@ -178,10 +222,10 @@ export class ProceduralAthleteProxy {
       if (!this.#plantLock || this.#plantLock.foot !== supportFoot) {
         this.#plantLock = { foot: supportFoot, worldPosition: natural.clone() };
       } else if (natural.distanceTo(this.#plantLock.worldPosition) > MAX_STANCE_STRETCH) {
-        // Never stretch a leg indefinitely just to satisfy a presentation lock.
-        // The authoritative root keeps moving; presentation releases/replants.
-        this.#plantLock = { foot: supportFoot, worldPosition: natural.clone() };
-        this.#lastPlantPosition = null;
+        // Release a strained stance progressively. Snapping straight to the
+        // unconstrained swing pose makes the boot jump across the turf on cuts.
+        const release = natural.clone().sub(this.#plantLock.worldPosition);
+        this.#plantLock.worldPosition.add(release.setLength(Math.min(MAX_REPLANT_STEP, release.length())));
       }
       feet[supportFoot] = this.#plantLock.worldPosition.clone();
       if (this.#lastPlantPosition) {
@@ -277,6 +321,12 @@ export class ProceduralAthleteProxy {
 
   #syncLegsAndBoots(feet: FootPositions, input: Readonly<ProceduralAthleteInput>, displayYaw: number): void {
     this.group.updateMatrixWorld(true);
+    const motion = input.player.athleticMotion;
+    const armSwing = Math.sin(motion.gaitPhase * TAU) * clamp(
+      Math.hypot(motion.plannedVelocity.x, motion.plannedVelocity.z) / 6.5,
+      0,
+      1,
+    );
     for (const foot of FEET) {
       const side = foot === 'left' ? -1 : 1;
       const hip = new THREE.Vector3(side * PLAYER_VISUAL_LAYOUT.legOffsetX, 0.91, 0);
@@ -288,11 +338,21 @@ export class ProceduralAthleteProxy {
       const hipLocal = this.group.worldToLocal(hipWorld.clone());
       const phase = input.player.athleticMotion.gaitPhase + (foot === 'left' ? 0.5 : 0);
       const kneeLocal = hipLocal.clone().lerp(ankleLocal, 0.52);
-      kneeLocal.y += 0.035;
-      kneeLocal.z += Math.sin(phase * Math.PI * 2) * 0.045;
+      kneeLocal.y += 0.035 - motion.plantIntensity * 0.045;
+      kneeLocal.z += Math.sin(phase * Math.PI * 2) * (0.045 + motion.plantIntensity * 0.035);
       segmentBetween(this.#upperLegs[foot], hipLocal, kneeLocal);
       segmentBetween(this.#lowerLegs[foot], kneeLocal, ankleLocal);
       this.#boots[foot].position.copy(this.group.worldToLocal(bootWorld.clone()));
+
+      // Arms swing opposite the same-side leg and stay flexed while running.
+      // Even this lightweight proxy reads materially less like a rigid torso.
+      const armDirection = foot === 'left' ? 1 : -1;
+      const shoulder = new THREE.Vector3(side * 0.29, 1.40, 0.015);
+      const armPhase = armSwing * armDirection;
+      const elbow = new THREE.Vector3(side * 0.37, 1.16, armPhase * 0.19);
+      const wrist = new THREE.Vector3(side * 0.34, 0.98, armPhase * 0.31);
+      segmentBetween(this.#upperArms[foot], shoulder, elbow);
+      segmentBetween(this.#lowerArms[foot], elbow, wrist);
     }
   }
 }

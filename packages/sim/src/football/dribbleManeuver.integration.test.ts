@@ -75,6 +75,6 @@ describe('legacy direct-touch compatibility invariants', () => {
     const next = applyBallContact(source, touch.command!);
     const deflectionDegrees = Math.atan2(Math.abs(next.velocity.x), Math.max(0.001, next.velocity.z)) * 180 / Math.PI;
     expect(deflectionDegrees).toBeGreaterThan(20);
-    expect(deflectionDegrees).toBeLessThan(58);
+    expect(deflectionDegrees).toBeLessThan(66);
   });
 });

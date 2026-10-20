@@ -20,4 +20,21 @@ describe('Stage 05R dribble calibration matrix', () => {
     expect(report.scenarios.find(({ scenario }) => scenario === 'trap-to-controlled-exit')?.metrics.contacts).toBeGreaterThan(0);
     expect(runDribbleCalibration()).toEqual(report);
   });
+
+  it('reports how far the free ball separates and how closely its speed tracks the carrier', () => {
+    const report = runDribbleCalibration();
+    const straight = report.scenarios.find(({ scenario }) => scenario === 'straight-jog');
+    const reversal = report.scenarios.find(({ scenario }) => scenario === '180-degree-jog-reversal');
+
+    expect(straight?.metrics.maxSeparationMeters).toBeGreaterThan(0.6);
+    expect(straight?.metrics.maxSeparationMeters).toBeLessThan(1.12);
+    expect(straight?.metrics.meanBallPlayerSpeedDeltaMetersPerSecond).toBeLessThan(0.5);
+    expect(report.scenarios.find(({ scenario }) => scenario === '90-degree-jog-cut')?.metrics.maxSeparationMeters).toBeLessThan(1.12);
+    expect(report.scenarios.find(({ scenario }) => scenario === 'sprint-knock-on-cut')?.metrics.maxSeparationMeters).toBeLessThan(1.38);
+    expect(reversal?.metrics.maxSeparationMeters).toBeGreaterThan(0.6);
+    // A single full 180-degree reversal at jog is intentionally the exception
+    // to ordinary carry retention; it is a bad turn and can leave the ball loose.
+    expect(reversal?.metrics.maxSeparationMeters).toBeLessThan(5.0);
+    expect(report.distributions.maxSeparationMeters.count).toBe(16);
+  });
 });

@@ -12,7 +12,7 @@ function yawDelta(a: number, b: number): number {
 }
 
 describe('professional movement rebuild regressions', () => {
-  test('a 90-degree jog cut redirects within 250 ms instead of entering a long sluggish plant', () => {
+  test('a 90-degree jog cut redirects through a visible braking arc within 250 ms', () => {
     const world = createFlatMovementWorld();
     let state = createPlayerState({ velocity: { x: 0, y: 0, z: 4.2 }, facingYaw: 0 });
 
@@ -20,9 +20,9 @@ describe('professional movement rebuild regressions', () => {
       state = stepPlayerMovement(state, RIGHT, world, DT);
     }
 
-    expect(state.velocity.x).toBeLessThan(-3.3);
-    expect(Math.abs(state.velocity.z)).toBeLessThan(1.35);
-    expect(state.position.z).toBeLessThan(0.78);
+    expect(state.velocity.x).toBeLessThan(-1.4);
+    expect(Math.abs(state.velocity.z)).toBeLessThan(2.4);
+    expect(state.position.z).toBeLessThan(0.9);
   });
 
   test('authoritative facing stays on action aim during a camera-facing strafe', () => {

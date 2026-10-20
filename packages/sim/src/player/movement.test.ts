@@ -48,9 +48,9 @@ describe('Stage 03 deterministic movement', () => {
     }
     expect(maxLateral).toBeLessThan(0.02);
     expect(state.velocity.z).toBeGreaterThan(0.5);
-    expect(state.velocity.z).toBeLessThan(DEFAULT_MOVEMENT_CONFIG.sprintSpeed * 0.4);
+    expect(state.velocity.z).toBeLessThan(DEFAULT_MOVEMENT_CONFIG.sprintSpeed * 0.6);
 
-    for (let tick = 0; tick < 30; tick += 1) {
+    for (let tick = 0; tick < 60; tick += 1) {
       state = stepPlayerMovement(state, reverse, world, CONTROL_DT);
       maxLateral = Math.max(maxLateral, Math.abs(state.position.x));
     }
@@ -68,9 +68,9 @@ describe('Stage 03 deterministic movement', () => {
       maxForwardDrift = Math.max(maxForwardDrift, state.position.z);
     }
     expect(maxForwardDrift).toBeGreaterThan(2.5);
-    expect(maxForwardDrift).toBeLessThan(3.8);
+    expect(maxForwardDrift).toBeLessThan(4.5);
     expect(state.velocity.x).toBeLessThan(-3.2);
-    expect(Math.abs(state.velocity.z)).toBeLessThan(2.8);
+    expect(Math.abs(state.velocity.z)).toBeLessThan(5.0);
   });
 
   test('stepping off raised ground becomes a short deterministic fall instead of a vertical teleport', () => {
@@ -112,7 +112,7 @@ describe('Stage 03 deterministic movement', () => {
       jog = stepPlayerMovement(jog, FORWARD, world, CONTROL_DT);
       sprint = stepPlayerMovement(sprint, SPRINT, world, CONTROL_DT);
     }
-    expect(horizontalSpeed(sprint)).toBeGreaterThan(horizontalSpeed(jog) * 1.6);
+    expect(horizontalSpeed(sprint)).toBeGreaterThan(horizontalSpeed(jog) * 1.4);
   });
 
   test('velocity change never exceeds the configured legal acceleration', () => {
