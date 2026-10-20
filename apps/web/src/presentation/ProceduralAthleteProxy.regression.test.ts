@@ -37,43 +37,27 @@ describe('procedural athlete locomotion regressions', () => {
     proxy.dispose();
   });
 
-  test('a front-to-back reversal rotates through planted steps instead of flipping the body', () => {
+  test('the proxy uses the shared simulation heading rather than turning toward a separate signal', () => {
     const proxy = new ProceduralAthleteProxy(new Scene());
     const base = createPlayerState({ position: { x: 0, y: 0, z: 0 }, facingYaw: 0 });
     const forward = {
       ...base,
-      velocity: { x: 0, y: 0, z: 5 },
       athleticMotion: {
         ...base.athleticMotion,
         gait: 'sprint' as const,
         supportFoot: 'left' as const,
         strideSeconds: 0.34,
         plantIntensity: 0.8,
-        plannedVelocity: { x: 0, z: 5 },
+        bodyYaw: 0.2,
       },
     };
     proxy.update({ player: forward, simulationTick: 40, interpolationAlpha: 1 });
-    const startYaw = proxy.group.rotation.y;
-    const backward = {
+    const turned = {
       ...forward,
-      velocity: { x: 0, y: 0, z: -5 },
-      athleticMotion: { ...forward.athleticMotion, plannedVelocity: { x: 0, z: -5 } },
+      athleticMotion: { ...forward.athleticMotion, bodyYaw: 0.28 },
     };
-
-    proxy.update({ player: backward, simulationTick: 41, interpolationAlpha: 1 });
-    expect(Math.abs(yawDelta(startYaw, proxy.group.rotation.y))).toBeLessThan(0.2);
-    let previousYaw = proxy.group.rotation.y;
-    let largestStep = 0;
-    for (let tick = 42; tick <= 76; tick += 1) {
-      proxy.update({ player: backward, simulationTick: tick, interpolationAlpha: 1 });
-      const step = Math.abs(yawDelta(previousYaw, proxy.group.rotation.y));
-      largestStep = Math.max(largestStep, step);
-      previousYaw = proxy.group.rotation.y;
-    }
-
-    expect(largestStep).toBeLessThan(0.13);
-    expect(Math.abs(yawDelta(startYaw, proxy.group.rotation.y))).toBeGreaterThan(2.3);
-    expect(Math.abs(yawDelta(startYaw, proxy.group.rotation.y))).toBeLessThan(Math.PI);
+    proxy.update({ player: turned, simulationTick: 41, interpolationAlpha: 1 });
+    expect(Math.abs(yawDelta(turned.athleticMotion.bodyYaw, proxy.group.rotation.y))).toBeLessThan(0.001);
     proxy.dispose();
   });
 
@@ -140,6 +124,10 @@ describe('procedural athlete locomotion regressions', () => {
           supportFoot: 'left' as const,
           strideSeconds: 0.34,
           plantIntensity: 0.8,
+          bodyYaw: Math.atan2(
+            radius * angularSpeed * Math.cos(angle),
+            radius * angularSpeed * Math.sin(angle),
+          ),
           plannedVelocity: {
             x: radius * angularSpeed * Math.cos(angle),
             z: radius * angularSpeed * Math.sin(angle),
@@ -160,7 +148,7 @@ describe('procedural athlete locomotion regressions', () => {
     proxy.dispose();
   });
 
-  test('rendered athlete turns into travel while authoritative action facing can remain on camera aim', () => {
+  test('rendered athlete follows the shared movement heading while action facing remains on camera aim', () => {
     const proxy = new ProceduralAthleteProxy(new Scene());
     const base = createPlayerState({ position: { x: 0, y: 0, z: 0 }, facingYaw: 0 });
     const strafing = {
@@ -168,12 +156,13 @@ describe('procedural athlete locomotion regressions', () => {
       athleticMotion: {
         ...base.athleticMotion,
         gait: 'jog' as const,
+        bodyYaw: -Math.PI / 2,
         plannedVelocity: { x: -4.5, z: 0 },
       },
     };
 
     proxy.update({ player: strafing, simulationTick: 40, interpolationAlpha: 1 });
-    const travelYaw = Math.atan2(strafing.athleticMotion.plannedVelocity.x, strafing.athleticMotion.plannedVelocity.z);
+    const travelYaw = strafing.athleticMotion.bodyYaw;
 
     expect(Math.abs(yawDelta(strafing.facingYaw, 0))).toBeLessThan(0.001);
     expect(Math.abs(yawDelta(proxy.group.rotation.y, travelYaw))).toBeLessThan(0.001);

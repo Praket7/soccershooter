@@ -88,6 +88,8 @@ function motion(overrides: Partial<AthleticMotionState> = {}): AthleticMotionSta
     strideSeconds: 0.42,
     plantIntensity: 0,
     turnDemand: 0,
+    bodyYaw: 0,
+    bodyYawRate: 0,
     brakingDemand: 0,
     propulsionDemand: 0.9,
     bodyLean: { forward: 0.12, lateral: 0 },

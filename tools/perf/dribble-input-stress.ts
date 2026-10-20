@@ -2,6 +2,7 @@ import { BALL_CONSTANTS, createBallState, type BallState } from '../../packages/
 import { MATCH_BALL_PROFILE } from '../../packages/physics/src/ball/aerodynamics';
 import { BALL_SUBSTEP_DT, stepBall } from '../../packages/physics/src/ball/trajectory';
 import { createPlayerState, type PlayerState } from '../../packages/sim/src/player/PlayerState';
+import { constrainBodyTurnToBall } from '../../packages/sim/src/player/athleticMotion';
 import { createFlatMovementWorld, DEFAULT_MOVEMENT_CONFIG, stepPlayerMovement } from '../../packages/sim/src/player/movement';
 import { createPlannedDribbleState, stepPlannedDribble, type PlannedDribbleState } from '../../packages/sim/src/football/dribblePlanner';
 import type { FootballActorSnapshot, FootballBallSnapshot } from '../../packages/sim/src/football/types';
@@ -189,6 +190,16 @@ function simulateScenario(scenario: InputScenario): DribbleInputStressResult {
       if (dribble.looseBall) looseBallTicks += 1;
       ball = stepBall(ball, BALL_SUBSTEP_DT, MATCH_BALL_PROFILE, null);
       ball = stepBall(ball, BALL_SUBSTEP_DT, MATCH_BALL_PROFILE, null);
+
+      if (!dribble.looseBall
+        && Math.hypot(player.position.x - ball.position.x, player.position.z - ball.position.z) <= 1.5) {
+        player.athleticMotion = constrainBodyTurnToBall(
+          player.athleticMotion,
+          player.position,
+          ball.position,
+          DT,
+        );
+      }
 
       const separation = Math.hypot(player.position.x - ball.position.x, player.position.z - ball.position.z);
       const speedForHeading = Math.hypot(player.velocity.x, player.velocity.z);

@@ -54,13 +54,9 @@ function moveToward(current: number, target: number, maxDelta: number): number {
 
 function presentationFacingYaw(
   player: ProceduralAthleteInput['player'],
-  restingYaw: number,
 ): number {
   if (player.athleticMotion.strikePreparation) return player.facingYaw;
-  const velocity = player.athleticMotion.plannedVelocity;
-  return Math.hypot(velocity.x, velocity.z) > 0.22
-    ? Math.atan2(velocity.x, velocity.z)
-    : restingYaw;
+  return player.athleticMotion.bodyYaw;
 }
 
 function localToWorld(
@@ -172,10 +168,7 @@ export class ProceduralAthleteProxy {
   update(input: Readonly<ProceduralAthleteInput>): ProceduralAthletePose {
     const { player, plan } = input;
     const alpha = clamp(input.interpolationAlpha, 0, 1);
-    const targetDisplayYaw = presentationFacingYaw(
-      player,
-      this.#yawInitialized ? this.#yawTo : player.facingYaw,
-    );
+    const targetDisplayYaw = presentationFacingYaw(player);
     if (!this.#yawInitialized) {
       this.#yawInitialized = true;
       this.#yawFrom = targetDisplayYaw;
@@ -183,31 +176,39 @@ export class ProceduralAthleteProxy {
       this.#lastSimulationTick = input.simulationTick;
     } else if (input.simulationTick !== this.#lastSimulationTick) {
       this.#yawFrom = this.#yawTo;
-      const elapsedTicks = clamp(input.simulationTick - this.#lastSimulationTick, 1, 6);
-      const speed = Math.hypot(player.athleticMotion.plannedVelocity.x, player.athleticMotion.plannedVelocity.z);
-      const turnRateLimit = 7.6
-        - clamp(speed / 8.8, 0, 1) * 2.8
-        + clamp(player.athleticMotion.plantIntensity, 0, 1) * 0.8;
-      for (let tick = 0; tick < elapsedTicks; tick += 1) {
-        const error = angleDelta(this.#yawTo, targetDisplayYaw);
-        const stoppingLimitedRate = Math.sqrt(2 * BODY_TURN_ANGULAR_ACCELERATION * Math.abs(error));
-        const desiredRate = Math.sign(error) * Math.min(turnRateLimit, stoppingLimitedRate);
-        this.#yawRate = moveToward(
-          this.#yawRate,
-          desiredRate,
-          BODY_TURN_ANGULAR_ACCELERATION * PRESENTATION_TICK_SECONDS,
-        );
-        const yawStep = this.#yawRate * PRESENTATION_TICK_SECONDS;
-        if (Math.sign(yawStep) === Math.sign(error) && Math.abs(yawStep) >= Math.abs(error)) {
-          this.#yawTo = targetDisplayYaw;
-          this.#yawRate = 0;
-        } else {
-          this.#yawTo += yawStep;
+      if (player.athleticMotion.strikePreparation) {
+        const elapsedTicks = clamp(input.simulationTick - this.#lastSimulationTick, 1, 6);
+        const speed = Math.hypot(player.athleticMotion.plannedVelocity.x, player.athleticMotion.plannedVelocity.z);
+        const turnRateLimit = 7.6
+          - clamp(speed / 8.8, 0, 1) * 2.8
+          + clamp(player.athleticMotion.plantIntensity, 0, 1) * 0.8;
+        for (let tick = 0; tick < elapsedTicks; tick += 1) {
+          const error = angleDelta(this.#yawTo, targetDisplayYaw);
+          const stoppingLimitedRate = Math.sqrt(2 * BODY_TURN_ANGULAR_ACCELERATION * Math.abs(error));
+          const desiredRate = Math.sign(error) * Math.min(turnRateLimit, stoppingLimitedRate);
+          this.#yawRate = moveToward(
+            this.#yawRate,
+            desiredRate,
+            BODY_TURN_ANGULAR_ACCELERATION * PRESENTATION_TICK_SECONDS,
+          );
+          const yawStep = this.#yawRate * PRESENTATION_TICK_SECONDS;
+          if (Math.sign(yawStep) === Math.sign(error) && Math.abs(yawStep) >= Math.abs(error)) {
+            this.#yawTo = targetDisplayYaw;
+            this.#yawRate = 0;
+          } else {
+            this.#yawTo += yawStep;
+          }
         }
+      } else {
+        this.#yawFrom = targetDisplayYaw;
+        this.#yawTo = targetDisplayYaw;
+        this.#yawRate = player.athleticMotion.bodyYawRate;
       }
       this.#lastSimulationTick = input.simulationTick;
     }
-    const displayYaw = interpolateYaw(this.#yawFrom, this.#yawTo, alpha);
+    const displayYaw = player.athleticMotion.strikePreparation
+      ? interpolateYaw(this.#yawFrom, this.#yawTo, alpha)
+      : targetDisplayYaw;
 
     this.group.position.set(player.position.x, player.position.y, player.position.z);
     this.group.rotation.y = displayYaw;

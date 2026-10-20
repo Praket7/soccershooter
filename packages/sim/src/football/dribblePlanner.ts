@@ -12,6 +12,7 @@ import {
   clampFootball,
   cloneFootballBall,
   commandTowardVelocity,
+  forwardFromYaw,
   horizontalDistance,
   horizontalMagnitude,
   normalizeHorizontal,
@@ -414,13 +415,15 @@ function commandForPlan(
   const requestedDirection = normalizeHorizontal(input.desiredDirection);
   const incomingIntentDot = incomingDirection.x * requestedDirection.x
     + incomingDirection.z * requestedDirection.z;
-  // Preserve the planner's trajectory lane for routine cuts, where it accounts
-  // for the runner's braking arc. For a near-reversal, however, that lane is
-  // still the old one; pass the live input through so the corrective touch can
-  // bring the ball around to the new front.
-  const controlDirection = incomingSpeed > 1.15 && incomingIntentDot < -0.34
+  const reversal = incomingIntentDot < -0.82;
+  // Keep planned braking arcs on routine cuts. On a full reversal, use the new
+  // input lane immediately so the bounded touch carries the ball around with
+  // the planted turn instead of continuing down the old trajectory.
+  const controlDirection = input.receiveMode === 'controlled-exit'
     ? requestedDirection
-    : normalizeHorizontal(plan.targetBallVelocity, requestedDirection);
+    : reversal
+      ? forwardFromYaw(input.motion.bodyYaw)
+      : normalizeHorizontal(plan.targetBallVelocity, requestedDirection);
   const controlTouch = !isStrikePreparation(input)
     ? buildControlTouch({
         actor: input.actor,

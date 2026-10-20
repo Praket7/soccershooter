@@ -29,6 +29,8 @@ function ballAt(z: number, speed = 0): FootballBallSnapshot {
 
 function motionAt(z: number): AthleticMotionState {
   return {
+    bodyYaw: 0,
+    bodyYawRate: 0,
     gait: 'jog',
     gaitPhase: 0.18,
     supportFoot: 'left',

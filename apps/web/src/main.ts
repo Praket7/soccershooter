@@ -387,6 +387,12 @@ function copyIntent(intent: ReturnType<ActionMap['consumeFrame']>['intent']) {
   return { ...intent };
 }
 
+function interpolateYaw(from: number, to: number, alpha: number): number {
+  const tau = Math.PI * 2;
+  const delta = ((to - from + Math.PI) % tau + tau) % tau - Math.PI;
+  return from + delta * alpha;
+}
+
 function interpolatedPlayer(alpha: number): PlayerState {
   const output = clonePlayerState(player);
   output.position = {
@@ -394,6 +400,11 @@ function interpolatedPlayer(alpha: number): PlayerState {
     y: previousPlayer.position.y + (player.position.y - previousPlayer.position.y) * alpha,
     z: previousPlayer.position.z + (player.position.z - previousPlayer.position.z) * alpha,
   };
+  output.athleticMotion.bodyYaw = interpolateYaw(
+    previousPlayer.athleticMotion.bodyYaw,
+    player.athleticMotion.bodyYaw,
+    alpha,
+  );
   return output;
 }
 
@@ -519,6 +530,7 @@ function frame(now: number): void {
       // player to move multiple fixed ticks while the ball stood still during
       // slow frames, producing frame-rate-dependent dribble separation.
       footballPractice.update(FIXED_DT);
+      player = footballPractice.constrainCarryTurn(player, FIXED_DT);
     }
     jumpAcknowledgedThisFrame ||= player.actionHooks.jumpRequested;
     tackleAcknowledgedThisFrame ||= player.actionHooks.tackleRequested;

@@ -38,11 +38,12 @@ function requireApi(): Required<PlannerApi> | null {
 }
 
 function actor(player: Readonly<PlayerState>): FootballActorSnapshot {
-  const speed = Math.hypot(player.velocity.x, player.velocity.z);
   return {
     position: { ...player.position },
     velocity: { ...player.velocity },
-    facingYaw: speed > 0.3 ? Math.atan2(player.velocity.x, player.velocity.z) : player.facingYaw,
+    facingYaw: Math.hypot(player.velocity.x, player.velocity.z) > 0.35
+      ? Math.atan2(player.velocity.x, player.velocity.z)
+      : player.facingYaw,
     balance: player.athleticMotion.gait === 'plant' ? 0.76 : 1,
     pressure: 0,
     sprinting: false,

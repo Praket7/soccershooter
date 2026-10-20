@@ -366,10 +366,6 @@ export function buildControlTouch(input: Readonly<ControlTouchInput>): ControlTo
     : input.sprint
       ? 26 + 40 * recoverySteer
       : 42 + 18 * recoverySteer;
-  // A hard reversal needs the next touch to lead the ball into the new lane.
-  // Keeping the old 60–70 degree steering cap makes a 180 degree cut send the
-  // ball diagonally behind the carrier for several strides. Scale the steering
-  // allowance only for pronounced turns; the impulse remains bounded below.
   const reversalSeverity = clampFootball((turnSeverity - 0.72) / 0.28, 0, 1);
   const turnAllowanceDegrees = effortTurn
     ? baseTurnAllowanceDegrees + (165 - baseTurnAllowanceDegrees) * reversalSeverity

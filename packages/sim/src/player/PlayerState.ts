@@ -91,7 +91,7 @@ export function createPlayerState(init: PlayerStateInit = {}): PlayerState {
     locomotion: init.locomotion ?? 'idle',
     athleticMotion: init.athleticMotion
       ? cloneAthleticMotionState(init.athleticMotion)
-      : createAthleticMotionState(),
+      : createAthleticMotionState(init.facingYaw ?? 0),
     actionHooks: {
       jumpRequested: init.actionHooks?.jumpRequested ?? false,
       tackleRequested: init.actionHooks?.tackleRequested ?? false,

@@ -3,7 +3,8 @@ import { BALL_CONSTANTS, cloneBallState, createBallState, type BallState } from 
 import { MATCH_BALL_PROFILE } from '@soccershooter/physics/ball/aerodynamics';
 import { BALL_SUBSTEP_DT, STANDARD_GOAL_FRAME, crossedGoalPlane, stepBall } from '@soccershooter/physics/ball/trajectory';
 import type { InputIntent } from '@soccershooter/sim';
-import { PlayerActionBits, type PlayerState } from '@soccershooter/sim/player/PlayerState';
+import { PlayerActionBits, clonePlayerState, type PlayerState } from '@soccershooter/sim/player/PlayerState';
+import { constrainBodyTurnToBall } from '../../../../packages/sim/src/player/athleticMotion';
 import { DEFAULT_MOVEMENT_CONFIG, type MovementWorld } from '@soccershooter/sim/player/movement';
 import type { LegacyGauntlet } from '@soccershooter/progression/campaign';
 import { decodeFootballActionIntent } from '@soccershooter/sim/football/actionIntent';
@@ -45,7 +46,7 @@ import {
 } from '@soccershooter/sim/football/types';
 import { ActionDebugHud } from '../debug/ActionDebugHud';
 import { TechniqueDebugHud } from '../debug/TechniqueDebugHud';
-import { resolveDribbleIntent, resolveTravelFacingYaw, updateShotFacingLock } from '../input/FootballControl';
+import { resolveDribbleIntent, updateShotFacingLock } from '../input/FootballControl';
 import { PLAYER_VISUAL_LAYOUT } from '../presentation/PlayerVisualLayout';
 import { applyShotBuildModifier } from './shotBuildModifiers';
 import { resolveLiveLegacyModifiers, type LiveLegacyModifiers } from './legacyChallengeModifiers';
@@ -98,14 +99,14 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
-function playerDirection(player: Readonly<PlayerState>, restingYaw = player.facingYaw): { x: number; z: number } {
+function playerDirection(player: Readonly<PlayerState>): { x: number; z: number } {
   const speed = Math.hypot(player.velocity.x, player.velocity.z);
   return speed > 0.22
     ? normalizeHorizontal({ x: player.velocity.x, z: player.velocity.z })
-    : forwardFromYaw(restingYaw);
+    : forwardFromYaw(player.athleticMotion.bodyYaw);
 }
 
-function actorSnapshot(player: Readonly<PlayerState>, restingYaw = player.facingYaw): FootballActorSnapshot {
+function actorSnapshot(player: Readonly<PlayerState>): FootballActorSnapshot {
   const speed = Math.hypot(player.velocity.x, player.velocity.z);
   const movementBalance = player.locomotion === 'sharp-cut' ? 0.68 : player.grounded ? 1 : 0.58;
   const speedBalance = clamp(1 - Math.max(0, speed - 5.2) * 0.035, 0.72, 1);
@@ -114,7 +115,7 @@ function actorSnapshot(player: Readonly<PlayerState>, restingYaw = player.facing
     velocity: { ...player.velocity },
     facingYaw: player.athleticMotion.strikePreparation
       ? player.facingYaw
-      : resolveTravelFacingYaw(player.velocity, restingYaw, 0.22),
+      : speed > 0.22 ? Math.atan2(player.velocity.x, player.velocity.z) : player.athleticMotion.bodyYaw,
     balance: movementBalance * speedBalance,
     pressure: 0,
     sprinting: player.locomotion === 'sprint',
@@ -321,7 +322,6 @@ export class FootballPractice {
   #lastSuccess = true;
   #lastPlayer: PlayerState | null = null;
   #shotFacingYaw: number | null = null;
-  #lastTravelFacingYaw = 0;
   #lastAim = { x: 0, z: 1 };
   #worldAimTarget: FootballVec3 | null = null;
   #selectedReceiver = false;
@@ -415,6 +415,22 @@ export class FootballPractice {
   get contactTick(): number { return this.#contactTick; }
   get lastContactEventTick(): number | null { return this.#lastContactEventTick; }
 
+  constrainCarryTurn(player: Readonly<PlayerState>, deltaSeconds: number): PlayerState {
+    const ballDistance = Math.hypot(this.#state.position.x - player.position.x, this.#state.position.z - player.position.z);
+    if (this.#dribble.looseBall || this.#lastContactPlan?.kind !== 'dribble' || ballDistance > 1.5
+      || this.#pendingStrike || this.#pendingTechnique) return player as PlayerState;
+    const motion = constrainBodyTurnToBall(
+      player.athleticMotion,
+      player.position,
+      this.#state.position,
+      deltaSeconds,
+    );
+    if (motion.bodyYaw === player.athleticMotion.bodyYaw) return player as PlayerState;
+    const constrained = clonePlayerState(player);
+    constrained.athleticMotion = motion;
+    return constrained;
+  }
+
   get movementAuthority(): number {
     if (this.#defenderState.recoverySeconds >= 0.7) return 0.28;
     if (this.#defenderState.recoverySeconds > 0) return 0.58;
@@ -491,7 +507,7 @@ export class FootballPractice {
   }
 
   resetBallNear(player: Readonly<PlayerState>): void {
-    const forward = forwardFromYaw(resolveTravelFacingYaw(player.velocity, this.#lastTravelFacingYaw, 0.22));
+    const forward = forwardFromYaw(player.athleticMotion.bodyYaw);
     this.#state = createBallState({
       position: {
         x: player.position.x + forward.x * CONTROLLED_BALL_POCKET,
@@ -540,17 +556,14 @@ export class FootballPractice {
     this.#runtime = runtimeStep.state;
     this.#defenderState = stepDefenderActionState(this.#defenderState, Math.min(0.1, dt * this.#legacyModifiers.recoveryRate));
 
-    if (Math.hypot(player.velocity.x, player.velocity.z) > 0.22) {
-      this.#lastTravelFacingYaw = Math.atan2(player.velocity.x, player.velocity.z);
-    }
-    const actor = { ...actorSnapshot(player, this.#lastTravelFacingYaw), pressure: this.#legacyModifiers.pressure };
+    const actor = { ...actorSnapshot(player), pressure: this.#legacyModifiers.pressure };
     const snapshot = ballSnapshot(this.#state);
     const precision = (intent.actionBits & PlayerActionBits.Precision) !== 0;
     const tackle = (intent.actionBits & PlayerActionBits.Tackle) !== 0;
     const jump = (intent.actionBits & PlayerActionBits.Jump) !== 0;
     const decoded = decodeFootballActionIntent(intent.actionBits);
     const aim = this.#resolveAim(intent.aimYaw);
-    const dribbleIntent = resolveDribbleIntent(intent, playerDirection(player, this.#lastTravelFacingYaw));
+    const dribbleIntent = resolveDribbleIntent(intent, playerDirection(player));
     const shotFacing = updateShotFacingLock(this.#shotFacingYaw, intent.actionBits, player.facingYaw);
     this.#shotFacingYaw = shotFacing.latchedYaw;
     this.#lastAim = aim;
@@ -842,7 +855,6 @@ export class FootballPractice {
         ? actor
         : { ...actor, facingYaw: shotFacing.contactFacingYaw };
       const contactFacingYaw = shotFacing.contactFacingYaw ?? shotActor.facingYaw;
-      this.#lastTravelFacingYaw = contactFacingYaw;
       const releaseStyle = this.#specialistShotStyle === 'normal'
         ? runtimeStep.releasedShotStyle ?? decoded.shotStyle
         : this.#specialistShotStyle;

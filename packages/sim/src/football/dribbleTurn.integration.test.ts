@@ -11,11 +11,12 @@ const DT = 1 / 60;
 const WORLD = createFlatMovementWorld({ minX: -120, maxX: 120, minZ: -120, maxZ: 120 });
 
 function actor(player: Readonly<PlayerState>, pressure = 0, balance = 1): FootballActorSnapshot {
-  const speed = Math.hypot(player.velocity.x, player.velocity.z);
   return {
     position: { ...player.position },
     velocity: { ...player.velocity },
-    facingYaw: speed > 0.3 ? Math.atan2(player.velocity.x, player.velocity.z) : player.facingYaw,
+    facingYaw: Math.hypot(player.velocity.x, player.velocity.z) > 0.35
+      ? Math.atan2(player.velocity.x, player.velocity.z)
+      : player.facingYaw,
     balance,
     pressure,
     sprinting: player.locomotion === 'sprint',
@@ -153,8 +154,8 @@ function runJogCut(turnDegrees: number) {
     if (turning && result.contactApplied && firstTurnContactDirectionDot === null) {
       const ballSpeed = Math.hypot(result.ball.velocity.x, result.ball.velocity.z);
       if (ballSpeed > 1e-6) {
-        firstTurnContactDirectionDot = (result.ball.velocity.x * Math.sin(aimYaw)
-          + result.ball.velocity.z * Math.cos(aimYaw)) / ballSpeed;
+        firstTurnContactDirectionDot = (result.ball.velocity.x * Math.sin(player.athleticMotion.bodyYaw)
+          + result.ball.velocity.z * Math.cos(player.athleticMotion.bodyYaw)) / ballSpeed;
       }
     }
     if (tick === 48 && plannedVelocityBefore) {

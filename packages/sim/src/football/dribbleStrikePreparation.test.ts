@@ -23,6 +23,8 @@ const ball: FootballBallSnapshot = {
 };
 
 const motion: AthleticMotionState = {
+  bodyYaw: 0,
+  bodyYawRate: 0,
   gait: 'jog',
   gaitPhase: 0.22,
   supportFoot: 'left',
