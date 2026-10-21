@@ -101,14 +101,24 @@ function cadenceTicks(input: Readonly<PlannedDribbleInput>): number {
     -1,
     1,
   ));
-  if (isEffortTurn(input) || (horizontalMagnitude(input.actor.velocity) >= 2.5 && directionChange >= 0.12)) {
+  const carrierSpeed = horizontalMagnitude(input.actor.velocity);
+  // Sprint input can remain held through a sharp plant even after the athlete
+  // has shed most of their speed. Keep the tight-turn touch beat active in that
+  // window so the ball does not coast ahead while the carrier is braking.
+  const turningSpeedThreshold = 1.0;
+  const turningCarry = carrierSpeed >= turningSpeedThreshold && directionChange >= 0.12;
+  if (isEffortTurn(input) || turningCarry) {
     // Tight running curves need a touch inside the normal stride beat. Waiting
     // 8-10 ticks lets the player round the turn while the ball continues along
     // its old tangent, which reads as the ball trailing around the circle.
     if (directionChange >= 0.20 || Math.abs(input.motion.turnDemand) >= 0.06) {
-      return Math.round(clampFootball(strideTicks * 0.24, 4, 6));
+      return Math.round(input.sprint || input.precision
+        ? clampFootball(strideTicks * 0.24, 4, 6)
+        : clampFootball(strideTicks * 0.20, 4, 5));
     }
-    return Math.round(clampFootball(strideTicks * 0.42, 8, 10));
+    return Math.round(input.sprint || input.precision
+      ? clampFootball(strideTicks * 0.42, 8, 10)
+      : clampFootball(strideTicks * 0.34, 7, 9));
   }
   if (input.precision) return Math.round(clampFootball(strideTicks * 0.36, 7, 9));
   if (input.sprint) return Math.round(clampFootball(strideTicks * 0.42, 8, 10));
@@ -598,4 +608,25 @@ export function stepPlannedDribble(input: Readonly<PlannedDribbleInput>): Planne
   state.activePlan = created;
   state.looseBall = false;
   return { state, ball: unchangedBall, contactApplied: false, reason: 'contact-planned' };
+}
+
+/**
+ * Runs the normal gait-timed carry planner during a specialist move's windup.
+ * The move owns only its final contact beat(s); before that, ball control must
+ * continue to respond to the player's live movement and turns.
+ */
+export function stepTechniqueCarry(
+  input: Readonly<PlannedDribbleInput> & {
+    techniqueContactTick: number;
+    reserveContactTicks: number;
+  },
+): PlannedDribbleStep | null {
+  if (!Number.isSafeInteger(input.techniqueContactTick) || input.techniqueContactTick < 0) {
+    throw new RangeError('techniqueContactTick must be a non-negative safe integer');
+  }
+  if (!Number.isSafeInteger(input.reserveContactTicks) || input.reserveContactTicks < 0) {
+    throw new RangeError('reserveContactTicks must be a non-negative safe integer');
+  }
+  if (input.tick >= input.techniqueContactTick - input.reserveContactTicks) return null;
+  return stepPlannedDribble(input);
 }

@@ -7,10 +7,11 @@ import {
 } from './difficulty';
 import { personalityWeight, type BotPersonalityId } from './personalities';
 import { assignTeamRoles, type TeamRoleAssignment } from './roles';
-import { chooseCarrierAction, chooseDefensiveAction, chooseOffBallAction, type BotDecisionContext } from './utility';
+import { chooseCarrierAction, chooseDefensiveAction, chooseDribbleTarget, chooseOffBallAction, type BotDecisionContext } from './utility';
 import {
   attackingDirection,
   clamp01,
+  fieldClamp,
   findPlayer,
   horizontalDistance,
   normalizeHorizontal,
@@ -30,7 +31,11 @@ export interface TeamBotRuntimeConfig {
   tier?: BotDifficultyTier;
   seed?: number;
   personalitiesByPlayerId?: Readonly<Record<string, BotPersonalityId>>;
+  playstyle?: TeamPlaystyle;
 }
+
+export const TEAM_PLAYSTYLES = ['balanced', 'possession', 'counter', 'high-press', 'direct'] as const;
+export type TeamPlaystyle = (typeof TEAM_PLAYSTYLES)[number];
 
 export interface TeamBotIntent {
   playerId: string;
@@ -93,6 +98,7 @@ function contextForPlayer(
   playerId: string,
   difficulty: Readonly<BotDifficultyParameters>,
   config: Readonly<TeamBotRuntimeConfig>,
+  previousOffBallTarget?: Vec3,
 ): BotDecisionContext {
   return {
     personalityId: config.personalitiesByPlayerId?.[playerId] ?? 'balanced',
@@ -100,6 +106,8 @@ function contextForPlayer(
     passRiskTolerance: difficulty.passRiskTolerance,
     coordinatedRunFrequency: difficulty.coordinatedRunFrequency,
     defensiveAnticipation: difficulty.defensiveAnticipation,
+    playstyle: config.playstyle ?? 'balanced',
+    ...(previousOffBallTarget ? { previousOffBallTarget: { ...previousOffBallTarget } } : {}),
   };
 }
 
@@ -119,12 +127,36 @@ function targetForRole(
       utilityScore: personalityWeight(context?.personalityId ?? 'balanced', 'goalkeeper', decision.kind),
     };
   }
+  if (assignment.role === 'receiver') {
+    const horizon = Math.max(0, Math.min(0.8, context?.predictionHorizonSeconds ?? 0.35));
+    return {
+      target: fieldClamp(world, {
+        x: world.ball.position.x + world.ball.velocity.x * horizon,
+        y: 0,
+        z: world.ball.position.z + world.ball.velocity.z * horizon,
+      }, 0.45),
+      targetPlayerId: null,
+      action: 'receive',
+      utilityScore: 0.82,
+    };
+  }
   if (assignment.role === 'ball-carrier') {
     const decision = chooseCarrierAction(world, player.id, context);
     const direction = attackingDirection(team);
-    const actionTarget = decision.kind === 'dribble' || decision.kind === 'clear'
-      ? { x: 0, y: 0, z: opponentGoalZ(world, team) - direction * (decision.kind === 'dribble' ? 5 : 0) }
-      : assignment.targetPosition;
+    const actionTarget = decision.kind === 'pass' || decision.kind === 'shoot'
+      // Aim at the outlet or goal, but keep the movement target beside the
+      // physical ball so a legal pass/shot contact remains available. Running
+      // at the tactical destination can pull the carrier outside kick range.
+      ? {
+        x: world.ball.position.x,
+        y: 0,
+        z: world.ball.position.z + attackingDirection(team) * 0.45,
+      }
+      : decision.kind === 'dribble' || decision.kind === 'protect'
+      ? chooseDribbleTarget(world, player.id, context)
+      : decision.kind === 'clear'
+        ? { x: 0, y: 0, z: opponentGoalZ(world, team) }
+        : assignment.targetPosition;
     return {
       target: actionTarget,
       targetPlayerId: decision.targetPlayerId,
@@ -158,16 +190,40 @@ function targetForRole(
   };
 }
 
-function selectTechnique(action: string, repertoire: readonly string[]): string | null {
+export function selectShotTechnique(
+  world: Readonly<BotWorldSnapshot>,
+  playerId: string,
+  repertoire: readonly string[],
+): string | null {
+  const player = findPlayer(world, playerId);
+  const goalZ = opponentGoalZ(world, player.team);
+  const distance = Math.hypot(player.position.x, goalZ - player.position.z);
+  const angle = Math.atan2(Math.abs(player.position.x), Math.max(0.1, Math.abs(goalZ - player.position.z)));
+  const goalkeeper = world.players.find((candidate) => candidate.team !== player.team && candidate.goalkeeper);
+  const keeperAdvanced = goalkeeper && Math.abs(goalZ - goalkeeper.position.z) > 3.8;
+  if (keeperAdvanced && distance < 15 && repertoire.includes('chip-shot')) return 'chip-shot';
+  if (angle > 0.39 && repertoire.includes('finesse-shot')) return 'finesse-shot';
+  if (distance > 12.5 && repertoire.includes('driven-shot')) return 'driven-shot';
+  if (repertoire.includes('normal-shot')) return 'normal-shot';
+  if (angle > 0.30 && repertoire.includes('finesse-shot')) return 'finesse-shot';
+  return repertoire.find((item) => item.endsWith('-shot')) ?? null;
+}
+
+function selectTechnique(action: string, repertoire: readonly string[], passDistance = 0, world?: Readonly<BotWorldSnapshot>, playerId?: string): string | null {
+  if (action === 'distribute') {
+    return repertoire.find((item) => item === 'ground-pass')
+      ?? repertoire.find((item) => item === 'lofted-pass')
+      ?? repertoire.find((item) => item.endsWith('-pass'))
+      ?? null;
+  }
   if (action === 'pass') {
-    return repertoire.find((item) => item === 'through-pass')
+    return (passDistance >= 5 ? repertoire.find((item) => item === 'through-pass') : undefined)
+      ?? repertoire.find((item) => item === 'ground-pass')
       ?? repertoire.find((item) => item.endsWith('-pass'))
       ?? null;
   }
   if (action === 'shoot') {
-    return repertoire.find((item) => item === 'finesse-shot')
-      ?? repertoire.find((item) => item.endsWith('-shot'))
-      ?? null;
+    return world && playerId ? selectShotTechnique(world, playerId, repertoire) : repertoire.find((item) => item === 'normal-shot') ?? repertoire.find((item) => item.endsWith('-shot')) ?? null;
   }
   if (action === 'dribble') {
     return repertoire.find((item) => item.includes('dribble')) ?? null;
@@ -185,6 +241,32 @@ function steeringIntent(
 ): TeamBotIntent {
   const player = findPlayer(world, assignment.playerId);
   const tactical = targetForRole(world, team, assignment, context);
+  const playstyle = context?.playstyle ?? 'balanced';
+  if (playstyle !== 'balanced' && assignment.role !== 'goalkeeper') {
+    const direction = attackingDirection(team);
+    const ball = world.ball.position;
+    if (assignment.role === 'ball-carrier') {
+      if (playstyle === 'counter' && tactical.action !== 'shoot' && tactical.action !== 'clear' && tactical.action !== 'pass') {
+        tactical.target = { x: player.position.x * 0.65, y: 0, z: player.position.z + direction * 8.5 };
+      } else if (playstyle === 'direct' && tactical.action === 'dribble') {
+        tactical.target = { x: player.position.x * 0.35, y: 0, z: player.position.z + direction * 6.8 };
+      } else if (playstyle === 'possession' && tactical.action === 'dribble') {
+        tactical.target = { x: player.position.x * 0.8, y: 0, z: player.position.z + direction * 3.8 };
+      }
+    } else if (assignment.role === 'immediate-support' || assignment.role === 'width-support') {
+      if (playstyle === 'possession') {
+        tactical.target.z = Math.max(-world.field.halfLength + 0.8, Math.min(world.field.halfLength - 0.8, tactical.target.z + direction * 1.4));
+      } else if (playstyle === 'counter' || playstyle === 'direct') {
+        const forwardRun = playstyle === 'direct' ? 3.8 : 1.8;
+        tactical.target.z = Math.max(
+          -world.field.halfLength + 0.8,
+          Math.min(world.field.halfLength - 0.8, tactical.target.z + direction * forwardRun),
+        );
+      }
+    } else if (playstyle === 'high-press' && (assignment.role === 'presser' || assignment.role === 'cover-defender' || assignment.role === 'recovery-runner')) {
+      tactical.target = { x: ball.x * 0.82 + player.position.x * 0.18, y: 0, z: ball.z * 0.82 + player.position.z * 0.18 };
+    }
+  }
   const dx = tactical.target.x - player.position.x;
   const dz = tactical.target.z - player.position.z;
   const distance = Math.hypot(dx, dz);
@@ -192,13 +274,23 @@ function steeringIntent(
   const intensity = distance <= 0.12 ? 0 : clamp01(distance / 2.4);
   const moveX = direction.x * intensity;
   const moveY = direction.z * intensity;
+  const nearestOpponentDistance = Math.min(...world.players
+    .filter((candidate) => candidate.team !== player.team && !candidate.goalkeeper)
+    .map((candidate) => horizontalDistance(candidate.position, player.position)), Number.POSITIVE_INFINITY);
+  const openCarryRun = assignment.role === 'ball-carrier'
+    && tactical.action === 'dribble'
+    && distance > 5
+    && nearestOpponentDistance > 3.5;
   const sprint = distance > 4
-    && (assignment.role === 'presser' || assignment.role === 'recovery-runner' || assignment.role === 'width-support');
+    && (assignment.role === 'presser' || assignment.role === 'recovery-runner' || assignment.role === 'width-support' || assignment.role === 'receiver' || openCarryRun);
+  const goalkeeperRecoverySprint = assignment.role === 'goalkeeper' && distance > 1.1;
   const aimTarget = assignment.role === 'goalkeeper'
     ? world.ball.position
-    : tactical.targetPlayerId
-      ? findPlayer(world, tactical.targetPlayerId).position
-      : tactical.target;
+    : tactical.action === 'shoot'
+      ? { x: 0, y: 0, z: opponentGoalZ(world, team) }
+      : tactical.targetPlayerId
+        ? findPlayer(world, tactical.targetPlayerId).position
+        : tactical.target;
   let aimYaw = Math.atan2(aimTarget.x - player.position.x, aimTarget.z - player.position.z);
   if (difficulty && config) {
     aimYaw += deterministicDifficultyNoise(config.seed ?? 0x7007, world.tick, player.id, 'aim') * difficulty.aimErrorRadians;
@@ -211,10 +303,18 @@ function steeringIntent(
     moveX,
     moveY,
     aimYaw,
-    sprint,
+    sprint: sprint || goalkeeperRecoverySprint,
     action: tactical.action,
     utilityScore: tactical.utilityScore,
-    ...(difficulty ? { technique: selectTechnique(tactical.action, difficulty.skillRepertoire) } : {}),
+    ...(difficulty ? {
+      technique: selectTechnique(
+        tactical.action,
+        difficulty.skillRepertoire,
+        tactical.targetPlayerId ? horizontalDistance(player.position, findPlayer(world, tactical.targetPlayerId).position) : 0,
+        world,
+        player.id,
+      ),
+    } : {}),
   };
 }
 
@@ -344,11 +444,22 @@ export function stepTeamBotRuntime(
 ): TeamBotStepResult {
   if (!config) return legacyStep(world, team, state);
 
-  const difficulty = difficultyParameterSnapshot(config.tier ?? 'standard');
-  const cognitionWorld = perceivedWorld(world, config, difficulty);
+  const receivedPass = world.possessionTeam === team
+    && world.possessionPlayerId !== null
+    && world.passReceiverId === world.possessionPlayerId;
+  const effectiveConfig = config.playstyle || !receivedPass
+    ? config
+    : { ...config, playstyle: 'possession' as const };
+
+  const difficulty = difficultyParameterSnapshot(effectiveConfig.tier ?? 'standard');
+  const cognitionWorld = perceivedWorld(world, effectiveConfig, difficulty);
   const missingRoles = state.roles.assignments.length === 0;
   const possessionChanged = state.lastPossessionTeam !== world.possessionTeam
     || state.lastPossessionPlayerId !== world.possessionPlayerId;
+  const receiverChanged = state.roles.passReceiverId !== (world.passReceiverId ?? null);
+  const teammateNowControlsOrReceives = possessionChanged && world.possessionTeam === team
+    || receiverChanged && Boolean(world.passReceiverId
+      && world.players.some((player) => player.id === world.passReceiverId && player.team === team));
   const criticalBallEvent = ballEventIsCritical(world, state);
   const criticalChange = possessionChanged || criticalBallEvent;
   const pendingSince = state.pendingCriticalSinceSeconds
@@ -356,7 +467,7 @@ export function stepTeamBotRuntime(
   const criticalReady = criticalChange && pendingSince !== null
     && world.timeSeconds - pendingSince >= difficulty.reactionDelaySeconds - 1e-9;
   const intervalElapsed = world.timeSeconds - state.lastDecisionSeconds >= difficulty.tacticalEvaluationIntervalSeconds - 1e-9;
-  const reevaluated = missingRoles || criticalReady || (!criticalChange && intervalElapsed);
+  const reevaluated = missingRoles || teammateNowControlsOrReceives || criticalReady || (!criticalChange && intervalElapsed);
 
   if (!reevaluated && state.lastIntents?.length) {
     return {
@@ -371,8 +482,9 @@ export function stepTeamBotRuntime(
 
   const roles = reevaluated ? assignTeamRoles(cognitionWorld, team, state.roles) : state.roles;
   const baseIntents = roles.assignments.map((assignment) => {
-    const context = contextForPlayer(assignment.playerId, difficulty, config);
-    return steeringIntent(cognitionWorld, team, assignment, context, difficulty, config);
+    const previousTarget = state.lastIntents?.find((intent) => intent.playerId === assignment.playerId)?.targetPosition;
+    const context = contextForPlayer(assignment.playerId, difficulty, effectiveConfig, previousTarget);
+    return steeringIntent(cognitionWorld, team, assignment, context, difficulty, effectiveConfig);
   });
   const intents = applyTeammateSeparation(world, team, baseIntents);
   return {

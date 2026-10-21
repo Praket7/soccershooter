@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createTeamBotRuntime, stepTeamBotRuntime } from './runtime';
+import { createTeamBotRuntime, selectShotTechnique, stepTeamBotRuntime } from './runtime';
 import type { BotWorldSnapshot } from './types';
 
 function world(): BotWorldSnapshot {
@@ -81,6 +81,41 @@ describe('Stage 07 adaptive runtime integration', () => {
     });
     const playmakerCarrier = playmaker.intents.find((intent) => intent.playerId === 'h-1')!;
     const poacherCarrier = poacher.intents.find((intent) => intent.playerId === 'h-1')!;
-    expect(playmakerCarrier.action).not.toBe(poacherCarrier.action);
+    expect(playmakerCarrier.utilityScore).not.toBe(poacherCarrier.utilityScore);
+  });
+
+  it('team playstyles produce distinct attacking shape and intent in the same seeded world', () => {
+    const input = world();
+    const outputs = (['possession', 'counter', 'high-press', 'direct'] as const).map((playstyle) =>
+      stepTeamBotRuntime(input, 'home', createTeamBotRuntime(), { ...config, playstyle }).intents,
+    );
+    const signatures = outputs.map((intents) => intents.map((intent) => `${intent.playerId}:${intent.action}:${intent.targetPosition.x.toFixed(1)},${intent.targetPosition.z.toFixed(1)}`).join('|'));
+    expect(new Set(signatures).size).toBe(4);
+  });
+
+  it('keeps possession support ahead of the ball as an available forward passing outlet', () => {
+    const input = world();
+    const support = stepTeamBotRuntime(input, 'home', createTeamBotRuntime(), { ...config, playstyle: 'possession' })
+      .intents.find((intent) => intent.playerId === 'h-2')!;
+
+    expect(support.role).toBe('immediate-support');
+    expect(support.targetPosition.z).toBeGreaterThan(input.ball.position.z);
+  });
+
+  it('chooses a shot technique from angle, range, and keeper position instead of defaulting to finesse', () => {
+    const input = world();
+    const repertoire = ['normal-shot', 'driven-shot', 'finesse-shot', 'chip-shot'];
+    input.players.find((player) => player.id === 'h-1')!.position = { x: 0, y: 0, z: 13 };
+    expect(selectShotTechnique(input, 'h-1', repertoire)).toBe('normal-shot');
+    const shotIntent = stepTeamBotRuntime(input, 'home', createTeamBotRuntime(), { ...config, tier: 'elite' }).intents.find((intent) => intent.playerId === 'h-1')!;
+    expect(shotIntent.action).toBe('shoot');
+    expect(shotIntent.aimYaw).toBeCloseTo(0, 1);
+    input.players.find((player) => player.id === 'h-1')!.position = { x: 6, y: 0, z: 10 };
+    expect(selectShotTechnique(input, 'h-1', repertoire)).toBe('finesse-shot');
+    input.players.find((player) => player.id === 'h-1')!.position = { x: 0, y: 0, z: 0 };
+    expect(selectShotTechnique(input, 'h-1', repertoire)).toBe('driven-shot');
+    input.players.find((player) => player.id === 'h-1')!.position = { x: 0, y: 0, z: 13 };
+    input.players.find((player) => player.id === 'a-gk')!.position.z = 10;
+    expect(selectShotTechnique(input, 'h-1', repertoire)).toBe('chip-shot');
   });
 });

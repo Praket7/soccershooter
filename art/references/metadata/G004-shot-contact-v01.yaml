@@ -1,0 +1,18 @@
+id: G004
+category: global-shot-contact
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 1672x941
+purpose: Golden target for strike contact, planted support, restrained impact, defender pressure and keeper/goal context.
+asset_targets: [driven shot contact, ball departure, shot camera, impact-effects restraint]
+copy: [clear boot-ball contact, grounded support leg, readable keeper and goal, minimal effects]
+avoid: [exaggerated VFX, hidden ball, stretched limbs, real identities or marks]
+camera: {type: third_person_gameplay, focal_length_equiv_mm: 55}
+lighting: {type: neutral_stadium_daylight, color_temperature_k: null}
+palette: [forest green, deep garnet, dark navy, warm white]
+measurements: {player_height_m: 1.82, ball_diameter_m: 0.22}
+notes: Selected as an internal golden target; rendered ball/contact frame is visual guidance, not a measured animation contact event.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

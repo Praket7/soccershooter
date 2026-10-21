@@ -1,0 +1,18 @@
+id: U008
+category: ui-kit-team-select
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 1672x941
+purpose: Team and kit selection target showing fictional clubs, home/away variants and full front/back garment read.
+asset_targets: [team select, kit select, garment front/back views, confirmation action]
+copy: [four fictional team names, selected team, home/away choice, confirm action]
+avoid: [real club badges, copied kit layouts, sponsor/manufacturer marks, low-contrast team separation]
+camera: {type: front_back_mannequin_display, focal_length_equiv_mm: 85}
+lighting: {type: neutral_stadium_studio, color_temperature_k: null}
+palette: [deep navy, garnet, royal blue, warm white, gold]
+measurements: {aspect_ratio: 16/9}
+notes: Generated composition reference; team crests and kit marks are placeholders. Redraw original public-safe badges and kits in native vector/texture assets before shipping.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

@@ -44,16 +44,15 @@ describe('football locomotion realism envelope', () => {
     expect(tenMeters).toBeLessThanOrEqual(1.75);
   });
 
-  test('a full-speed release carries visible braking distance instead of stopping on rails', () => {
+  test('a full-speed release has visible but responsive braking instead of stopping on rails', () => {
     const stop = fullSpeedStop();
 
-    // Real football deceleration is progressive across several braking steps.
-    // This envelope is intentionally more responsive than laboratory averages,
-    // but still requires enough time/distance for momentum to be visually legible.
-    expect(stop.seconds).toBeGreaterThanOrEqual(0.5);
-    expect(stop.seconds).toBeLessThanOrEqual(1.1);
-    expect(stop.distance).toBeGreaterThanOrEqual(2.4);
-    expect(stop.distance).toBeLessThanOrEqual(4.8);
+    // Match movement.test.ts: the player should show a short planted brake,
+    // while avoiding the long skating glide that made ball control feel loose.
+    expect(stop.seconds).toBeGreaterThanOrEqual(0.45);
+    expect(stop.seconds).toBeLessThanOrEqual(0.55);
+    expect(stop.distance).toBeGreaterThanOrEqual(1.9);
+    expect(stop.distance).toBeLessThanOrEqual(2.2);
   });
 
   test('a 90-degree carry cut redirects at least as quickly as a shifty first step', () => {

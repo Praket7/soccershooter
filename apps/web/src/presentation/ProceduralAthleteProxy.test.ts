@@ -64,11 +64,27 @@ describe('Stage 05R procedural athlete proxy', () => {
     expect(proxy.pose.contactFoot).toBe('right');
     expect(proxy.pose.contactVisible).toBe(true);
     expect(proxy.pose.contactErrorMeters).toBeLessThanOrEqual(plan.geometryTolerance);
-    expect(proxy.getFootWorldPosition('right').distanceTo({
+    expect(proxy.getFootContactWorldPosition('right').distanceTo({
       x: plan.expectedFootPoint.x,
       y: plan.expectedFootPoint.y,
       z: plan.expectedFootPoint.z,
     })).toBeLessThanOrEqual(plan.geometryTolerance);
+    proxy.dispose();
+  });
+
+  test('keeps anatomical leg lengths fixed through both a planned touch and a missed reach', () => {
+    const proxy = new ProceduralAthleteProxy(new Scene());
+    const player = createPlayerState({ position: { x: 0, y: 0, z: 0 }, facingYaw: 0 });
+    const upper = proxy.group.getObjectByName('right-upper-leg') as import('three').Mesh;
+    const lower = proxy.group.getObjectByName('right-lower-leg') as import('three').Mesh;
+
+    proxy.update({ player, plan: contactPlan({ x: 0.15, y: 0.05, z: 0.62 }), simulationTick: 10, interpolationAlpha: 0 });
+    expect(upper.scale.y).toBeCloseTo(0.525, 4);
+    expect(lower.scale.y).toBeCloseTo(0.525, 4);
+    proxy.update({ player, plan: contactPlan({ x: 1.2, y: 0.05, z: 0.62 }), simulationTick: 10, interpolationAlpha: 0 });
+    expect(upper.scale.y).toBeCloseTo(0.525, 4);
+    expect(lower.scale.y).toBeCloseTo(0.525, 4);
+    expect(proxy.pose.contactVisible).toBe(false);
     proxy.dispose();
   });
 

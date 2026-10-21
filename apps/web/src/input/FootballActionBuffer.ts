@@ -7,6 +7,7 @@ export const FOOTBALL_EDGE_ACTION_BITS = (
   | PlayerActionBits.ThroughPass
   | PlayerActionBits.LoftedPass
   | PlayerActionBits.Receive
+  | PlayerActionBits.Elastico
   | PlayerActionBits.ShootReleased
 ) >>> 0;
 

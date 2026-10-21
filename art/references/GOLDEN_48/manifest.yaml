@@ -1,0 +1,22 @@
+status: in_progress
+required: 48
+selected:
+  global_style:
+    G001: ../LOCKED_192/global/G001-live-possession-v01.png
+    G002: ../LOCKED_192/global/G002-sprint-transition-v01.png
+    G003: ../LOCKED_192/global/G003-shot-preparation-v01.png
+    G004: ../LOCKED_192/global/G004-shot-contact-v01.png
+    G005: ../LOCKED_192/global/G005-goal-release-v01.png
+    G006: ../LOCKED_192/global/G006-defensive-duel-v01.png
+    G007: ../LOCKED_192/global/G007-aerial-duel-v02.png
+    G008: ../LOCKED_192/global/G008-night-arena-wide-v01.png
+    G009: ../LOCKED_192/global/G009-athlete-menu-hero-v01.png
+    G010: ../LOCKED_192/global/G010-road-to-legend-v01.png
+    G011: ../LOCKED_192/global/G011-replay-cinematic-v01.png
+    G012: ../LOCKED_192/global/G012-low-spec-comparison-v01.png
+  character_kit: {}
+  arena_lighting: {}
+  ui_vfx_replay:
+    menu_progression_1: ../LOCKED_192/ui/U003-home-hub-v02.png
+    menu_progression_2: ../LOCKED_192/ui/U004-road-to-legend-hub-v01.png
+    menu_progression_3: ../LOCKED_192/ui/U005-road-to-legend-match-node-v01.png

@@ -1,0 +1,18 @@
+id: G008
+category: global-night-arena-wide
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 1672x941
+purpose: Golden target for night stadium structure, floodlight atmosphere, crowd density and pitch readability.
+asset_targets: [Foundry night lighting, stadium structure, crowd density, overall scale]
+copy: [coherent trusses and stands, readable full pitch, bright playable field against night sky, restrained concourse light]
+avoid: [copying a real stadium, unreadable black field, excessive bloom, real signage or branding]
+camera: {type: high_corner_wide, focal_length_equiv_mm: 35}
+lighting: {type: night_floodlights, color_temperature_k: null}
+palette: [midnight navy, neutral white, warm amber, pitch green]
+measurements: {pitch_length_m: 36, pitch_width_m: 24}
+notes: Selected as an internal golden target. Current frame is a visual direction concept and does not lock the actual Foundry architecture or prove in-game lighting.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

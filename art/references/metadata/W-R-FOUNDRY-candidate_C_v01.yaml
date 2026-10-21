@@ -1,0 +1,18 @@
+id: W-R-FOUNDRY-C
+category: arena-foundry-night
+status: working
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 1672x941
+purpose: Elevated Foundry corner candidate; assess small-sided pitch scale, four-side stand continuity, lighting coverage, and replay sightlines.
+asset_targets: [art/arenas/foundry]
+copy: [compact intimate bowl, continuous perimeter circulation, clear two-goal layout, readable green pitch under night lighting]
+avoid: [real stadium likeness, copied architecture, sponsor or club marks, generated image as final runtime art]
+camera: {type: elevated_corner_gameplay_readability, focal_length_equiv_mm: 55}
+lighting: {type: blue_night_with_warm_pitch_lighting, color_temperature_k: null}
+palette: [night blue, deep green, charcoal, warm white, restrained amber]
+measurements: {pitch_width_m: 24, pitch_length_m: 36, goal_width_m: 7.32}
+notes: Working concept only. Strongest geometry/readability candidate so far, but generated proportions and elevated angle must not override the spatial plan. Not in LOCKED_192.
+approval: {approved_by: null, approved_date: null}

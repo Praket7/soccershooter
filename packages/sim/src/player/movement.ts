@@ -126,6 +126,7 @@ const PLANT_CUT_MIN_SPEED = 6.1;
 // support steps, not a large instantaneous sideways velocity correction.
 const MIN_DIRECTIONAL_BRAKING = 6.5;
 const MAX_DIRECTIONAL_BRAKING = 8.5;
+const RELEASE_BRAKING = 18.5;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -377,12 +378,16 @@ export function stepPlayerMovement(
 
   let velocity: { x: number; z: number };
   if (move.magnitude <= 0.01) {
+    // Releasing the stick is a deliberate stop command. Use a planted, quick
+    // braking response so the body does not keep skating while the gait cycles
+    // on behind it; direction changes still use the slower, momentum-preserving
+    // directional braking above.
     velocity = moveVectorToward(
       state.velocity.x,
       state.velocity.z,
       0,
       0,
-      config.braking * deltaSeconds,
+      RELEASE_BRAKING * deltaSeconds,
     );
   } else {
     velocity = directionalVelocity(

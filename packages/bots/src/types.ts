@@ -48,12 +48,15 @@ export interface BotWorldSnapshot {
   players: BotPlayerSnapshot[];
   possessionTeam: TeamId | null;
   possessionPlayerId: string | null;
+  /** Intended receiver of a currently traveling physical pass, if known. */
+  passReceiverId?: string | null;
   matchState?: BotMatchState;
 }
 
 export type BotRole =
   | 'goalkeeper'
   | 'ball-carrier'
+  | 'receiver'
   | 'immediate-support'
   | 'width-support'
   | 'presser'
@@ -105,6 +108,10 @@ export function opponentGoalZ(world: Readonly<BotWorldSnapshot>, team: TeamId): 
 
 export function phaseForTeam(world: Readonly<BotWorldSnapshot>, team: TeamId): TeamPhase {
   if (world.possessionTeam === team) return 'attack';
+  if (world.passReceiverId) {
+    const receiver = world.players.find((player) => player.id === world.passReceiverId);
+    if (receiver) return receiver.team === team ? 'attack' : 'defend';
+  }
   if (world.possessionTeam === null) return 'loose';
   return 'defend';
 }

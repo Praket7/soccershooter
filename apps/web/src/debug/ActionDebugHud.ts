@@ -53,6 +53,11 @@ export class ActionDebugHud {
 
   update(snapshot: Readonly<ActionDebugSnapshot>): void {
     const quality = snapshot.controlQuality === null ? '—' : `${Math.round(snapshot.controlQuality * 100)}%`;
+    const resultText = snapshot.action === 'ready'
+      ? 'Ready for your next touch'
+      : snapshot.success
+        ? 'Action accepted'
+        : 'Adjust your touch and try again';
     this.root.dataset.action = snapshot.action;
     this.root.dataset.success = String(snapshot.success);
     this.root.dataset.reason = snapshot.reason;
@@ -65,13 +70,13 @@ export class ActionDebugHud {
     this.root.dataset.passType = snapshot.passType;
     this.root.innerHTML = `
       <div class="action-debug-heading">
-        <span>Stage 05 action</span>
+        <span>Session status</span>
         <strong>${snapshot.action.toUpperCase()}</strong>
       </div>
-      <div class="action-debug-result" data-ok="${snapshot.success}">${snapshot.success ? 'LEGAL' : 'DENIED'} · ${snapshot.reason}</div>
+      <div class="action-debug-result" data-ok="${snapshot.success}">${resultText}</div>
       <div class="action-debug-grid">
-        <span>control <b>${quality}</b></span>
-        <span>charge <b>${Math.round(snapshot.shotCharge * 100)}%</b></span>
+        <span>touch <b>${quality}</b></span>
+        <span>shot power <b>${Math.round(snapshot.shotCharge * 100)}%</b></span>
         <span>recovery <b>${snapshot.tackleRecovery.toFixed(2)}s</b></span>
         <span>shot <b>${snapshot.shotStyle}</b></span>
         <span>pass <b>${snapshot.passType}</b></span>

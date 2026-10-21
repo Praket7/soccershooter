@@ -1,0 +1,18 @@
+id: U007-reject-v01
+category: ui-athlete-profile
+status: rejected
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: false
+resolution: 1672x941
+purpose: Rejected athlete-profile draft.
+asset_targets: []
+copy: []
+avoid: [public figure name Alex Morgan]
+camera: {type: front_three_quarter_profile}
+lighting: {type: neutral_tunnel_stadium}
+palette: []
+measurements: {}
+notes: Rejected because the generated profile used the exact name of a well-known real athlete; retained as audit trail only.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

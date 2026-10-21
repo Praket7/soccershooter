@@ -1,0 +1,18 @@
+id: U009
+category: ui-quick-match-setup
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 1672x941
+purpose: Quick-match setup target with team contrast, game mode, difficulty, venue, duration and one start action.
+asset_targets: [quick match setup, team selection, difficulty selection, match duration, start match]
+copy: [3v3, Professional, The Foundry, 6 minutes, Start Match]
+avoid: [conflicting options, excessive decoration, unreadable stadium preview, copied identities]
+camera: {type: flat_ui_with_stadium_preview}
+lighting: {type: dusk_stadium_preview, color_temperature_k: null}
+palette: [deep navy, soft white, garnet, pale blue-gray, interaction lime]
+measurements: {aspect_ratio: 16/9}
+notes: Generated concept; verify that visible options match supported game modes and settings.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

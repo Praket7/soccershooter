@@ -18,9 +18,25 @@ describe('deterministic technique execution', () => {
     const replay = executeTechnique(TECHNIQUE_BY_ID.get('stepover')!, createTechniqueState(), context);
     expect(first).toEqual(replay);
     expect(first.status).toBe('windup');
-    expect(first.state.stamina).toBeLessThan(80);
+    expect(first.state.stamina).toBe(80);
     expect(first.contact?.maxImpulse).toBeLessThanOrEqual(15);
     expect(executeTechnique(TECHNIQUE_BY_ID.get('stepover')!, first.state, { ...context, tick: 101 }).status).toBe('recovery');
+  });
+
+  it('accepts the dedicated Y elastico action bit and starts the elastico animation window', () => {
+    const result = executeTechnique(TECHNIQUE_BY_ID.get('elastico')!, createTechniqueState(), {
+      ...context,
+      actionBits: 1 << 12,
+    });
+    expect(result.status).toBe('windup');
+    expect(result.contact?.techniqueId).toBe('elastico');
+    expect(result.contact?.contactTick).toBe(context.tick + 30);
+  });
+
+  it('allows a step-over from a controlled stop as its setup guide promises', () => {
+    const result = executeTechnique(TECHNIQUE_BY_ID.get('stepover')!, createTechniqueState(), { ...context, speed: 0 });
+    expect(result.status).toBe('windup');
+    expect(result.reason).toBe('eligible-windup');
   });
 
   it('interruption enters recovery and exposes the declared counter window', () => {

@@ -1,0 +1,39 @@
+id: W-G001-A
+category: global-live-possession
+status: working
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 1672x941
+purpose: Candidate for the global third-person live-possession visual north star; defines camera distance, player-ball scale, readable team contrast, pitch detail, and gameplay visual density.
+asset_targets:
+  - art/art-bible/global-live-possession
+copy:
+  - naturalistic adult footballer proportions and grounded gait
+  - visible ball and clean separation from the player's feet
+  - garnet and navy home identity against a cool pale opponent kit
+  - readable goal and tactical context at gameplay distance
+  - subdued pitch and crowd detail that keeps play dominant
+avoid:
+  - real-world club or player likenesses
+  - treating the rendered frame as runtime art or a locked target before review
+  - embedded UI, sponsor, manufacturer, or recognizable crest marks
+camera:
+  type: third_person_gameplay
+  focal_length_equiv_mm: 55
+lighting:
+  type: late_afternoon_stadium
+  color_temperature_k: null
+palette:
+  - forest green
+  - deep garnet
+  - dark navy
+  - cool pale blue-gray
+measurements:
+  player_height_m: 1.82
+  ball_diameter_m: 0.22
+notes: First generated live-possession candidate. Review image at actual gameplay scale and compare with candidate B; not approved or part of LOCKED_192.
+approval:
+  approved_by: null
+  approved_date: null

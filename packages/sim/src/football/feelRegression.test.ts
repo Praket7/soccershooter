@@ -41,6 +41,7 @@ function motionAt(z: number): AthleticMotionState {
     brakingDemand: 0,
     propulsionDemand: 0.9,
     bodyLean: { forward: 0.12, lateral: 0 },
+    realizedAcceleration: { x: 0, z: 0 },
     plannedVelocity: { x: 0, z: 5 },
     trajectory: [
       { time: 0.15, position: { x: 0, z: z + 0.70 }, velocity: { x: 0, z: 4.8 } },

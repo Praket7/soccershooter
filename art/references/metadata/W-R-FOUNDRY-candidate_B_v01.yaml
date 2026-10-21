@@ -1,0 +1,18 @@
+id: W-R-FOUNDRY-B
+category: arena-foundry-night
+status: working
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 1672x941
+purpose: Foundry west-sideline atmosphere candidate; assess player-tunnel language, service-ring materials, roof depth, and near-side safety runoff.
+asset_targets: [art/arenas/foundry]
+copy: [industrial steel and concrete, warm entry lighting, visible service corridor, tactile low boards, subdued stands]
+avoid: [real stadium likeness, copied architecture, sponsor or club marks, generated image as final runtime art]
+camera: {type: west_sideline_diagonal, focal_length_equiv_mm: 55}
+lighting: {type: night_stadium_floodlight, color_temperature_k: null}
+palette: [graphite steel, concrete gray, deep green, copper amber]
+measurements: {pitch_width_m: 24, pitch_length_m: 36, goal_width_m: 7.32}
+notes: Working concept only. Tunnel and concourse are useful; unusually broad sideline path and perspective need comparison with the locked 3m runoff. Not in LOCKED_192.
+approval: {approved_by: null, approved_date: null}

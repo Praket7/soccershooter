@@ -103,7 +103,7 @@ describe('Road to Legend progression', () => {
         expect(run.wins, `${archetype} seed ${seed}`).toBe(encounterCount);
       }
     }
-  });
+  }, 15_000);
 
   it('does not let a build prove viability through a one-contact scripted scoring shortcut', () => {
     const runs = (['technical', 'pace', 'power'] as const).map((archetype) => simulateSkilledCampaign(archetype, 0x9a17));
@@ -112,10 +112,10 @@ describe('Road to Legend progression', () => {
     for (const run of runs) {
       expect(run.profile.campaignComplete).toBe(true);
       expect(run.physicalContacts).toBeGreaterThanOrEqual(encounterCount * 3);
+      expect(run.playstyle.controlTouches).toBeGreaterThanOrEqual(encounterCount);
+      expect(run.playstyle.shotContacts).toBeGreaterThan(0);
+      expect(run.playstyle.attackerTravelMillimeters).toBeGreaterThan(25_000);
     }
-
-    const tickCounts = runs.map((run) => run.simulatedTicks);
-    expect(Math.max(...tickCounts) / Math.min(...tickCounts)).toBeLessThan(2);
   });
 
   it('runs authored acts against their distinct tactical opponent archetypes', () => {

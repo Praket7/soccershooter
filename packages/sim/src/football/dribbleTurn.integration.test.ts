@@ -173,6 +173,36 @@ function runJogCut(turnDegrees: number) {
 }
 
 describe('Stage 05R sprint dribbling and effort-turn integration', () => {
+  test('switching from a fast sideways carry to forward redirects the first dribble touch into the requested lane', () => {
+    let player = createPlayerState({
+      position: { x: 0, y: 0, z: 0 },
+      velocity: { x: 5.2, y: 0, z: 0 },
+      facingYaw: Math.PI / 2,
+    });
+    let ball = createBallState({ position: { x: 0.68, y: BALL_CONSTANTS.radius, z: 0 }, velocity: { x: 4.8, y: 0, z: 0 }, grounded: true });
+    let planner = createPlannedDribbleState();
+    let firstForwardTouchDot: number | null = null;
+
+    for (let tick = 0; tick < 36; tick += 1) {
+      player = stepPlayerMovement(player, { moveX: 0, moveY: 1, aimYaw: 0, sprint: false, actionBits: 0 }, WORLD, DT);
+      const result = stepPlannedDribble({
+        tick, state: planner, actor: actor(player), motion: player.athleticMotion,
+        ball: snapshot(ball), desiredDirection: { x: 0, z: 1 }, precision: false,
+        sprint: false, pressure: 0, moveIntentMagnitude: 1, receiveMode: null,
+      });
+      planner = result.state;
+      if (result.contactApplied && firstForwardTouchDot === null) {
+        const speed = Math.hypot(result.ball.velocity.x, result.ball.velocity.z);
+        firstForwardTouchDot = result.ball.velocity.z / speed;
+      }
+      ball = applyPlannerBall(ball, result);
+      ball = stepBall(stepBall(ball, BALL_SUBSTEP_DT, MATCH_BALL_PROFILE, null), BALL_SUBSTEP_DT, MATCH_BALL_PROFILE, null);
+    }
+
+    expect(firstForwardTouchDot).not.toBeNull();
+    expect(firstForwardTouchDot!).toBeGreaterThan(0.82);
+  });
+
   test('ordinary jog cuts and a full reversal keep the ball inside the legal control envelope', () => {
     for (const degrees of [90, 120]) {
       const cut = runJogCut(degrees);

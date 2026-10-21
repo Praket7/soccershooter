@@ -125,7 +125,11 @@ const ENCOUNTER_START_Z: Readonly<Record<CampaignEncounter['tacticalProblem'], n
   'deep-block': 10.6,
   counterattack: 9.8,
   'aerial-team': 8.9,
-  'elite-keeper': 11.4,
+  // A goalkeeper challenge is still a contested six-metre finish, but a
+  // farther central setup let one save decide the entire authored encounter.
+  // Give the attacker a realistic high-value chance so the keeper is tested
+  // over the full physical response, not by an unplayable long-range funnel.
+  'elite-keeper': 14,
   'possession-overload': 9.4,
   'aggressive-marking': 10.1,
 });
@@ -158,6 +162,12 @@ const PLAYER_BUILD_PERSONALITIES: Readonly<Record<PlayerArchetype, Readonly<Reco
   pace: Object.freeze({ 'h-1': 'winger', 'h-2': 'aggressive-presser', 'h-gk': 'calm-keeper' }),
   power: Object.freeze({ 'h-1': 'aggressive-presser', 'h-2': 'anchor', 'h-gk': 'calm-keeper' }),
 });
+
+const PLAYER_BUILD_PLAYSTYLES = Object.freeze({
+  technical: 'possession',
+  pace: 'counter',
+  power: 'high-press',
+} as const);
 
 function createEmptyPlaystyle(): CampaignPlaystyleMetrics {
   return {
@@ -224,12 +234,18 @@ function simulateEncounter(
   for (let tick = 0; tick < CAMPAIGN_MATCH_TICKS; tick += 1) {
     const previousContacts = state.contactCount;
     const previousPossessionChanges = state.possessionChanges;
+    const previousHomeScore = state.score.home;
     const previousAttacker = state.players.find((player) => player.id === 'h-1');
     if (!previousAttacker) throw new Error('physical campaign scenario lost its attacker');
     const previousX = previousAttacker.position.x;
     const previousZ = previousAttacker.position.z;
 
-    state = stepPhysicalScrimmage(state, 1 / 60, 'standard', personalities);
+    state = stepPhysicalScrimmage(state, 1 / 60, 'standard', personalities, undefined, {
+      home: encounter.tacticalProblem === 'elite-keeper'
+        ? 'high-press'
+        : PLAYER_BUILD_PLAYSTYLES[playerArchetype],
+      away: 'balanced',
+    });
     playstyle.attackTicks += 1;
     const currentAttacker = state.players.find((player) => player.id === 'h-1');
     if (!currentAttacker) throw new Error('physical campaign scenario lost its attacker');
@@ -243,10 +259,10 @@ function simulateEncounter(
       if (event) countContact(playstyle, event.kind);
     }
     playstyle.possessionChanges += Math.max(0, state.possessionChanges - previousPossessionChanges);
-    const scored = state.ball.position.z > state.field.halfLength
-      && Math.abs(state.ball.position.x) < state.field.goalHalfWidth
-      && state.ball.position.y < 2.44;
-    if (scored) {
+    // The physical scrimmage resolves a goal and immediately resets the ball
+    // for kickoff, so campaign logic must observe the authoritative score
+    // transition instead of looking for a ball that has already been reset.
+    if (state.score.home > previousHomeScore) {
       return { goal: true, ticks: tick + 1, contacts: state.contactCount - initialContacts, playstyle, checksum: state.checksum };
     }
   }
@@ -290,6 +306,7 @@ export function simulateSkilledCampaign(archetype: PlayerArchetype = 'technical'
       highlights.push(highlight);
       profile.highlights = [...profile.highlights, highlight].slice(-256);
       checksum = (Math.imul(checksum ^ encounterSeed ^ goalsFor ^ goalsAgainst ^ simulation.ticks ^ simulation.contacts, 0x01000193) ^ Number.parseInt(simulation.checksum, 16)) >>> 0;
+      checksum = Math.imul(checksum ^ simulation.playstyle.attackerTravelMillimeters, 0x01000193) >>> 0;
       if (!simulation.goal) return {
         profile,
         encounterIds,

@@ -1,0 +1,18 @@
+id: G009
+category: global-athlete-menu-hero
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 1536x1024
+purpose: Golden target for athlete character presentation and menu portrait composition.
+asset_targets: [athlete select/profile, kit fabric close-up, character lighting]
+copy: [credible adult face and build, subtle knit and stitch detail, negative space for menu, focused non-celebrity appearance]
+avoid: [real-person identity, pore exaggeration, beauty-ad look, marks or text]
+camera: {type: three_quarter_portrait, focal_length_equiv_mm: 85}
+lighting: {type: tunnel_practical_and_stadium_edge, color_temperature_k: null}
+palette: [deep navy, garnet, warm neutral skin, soft white]
+measurements: {player_height_m: 1.82}
+notes: Selected as an internal golden target; rendered concept only, not the current in-game character asset.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

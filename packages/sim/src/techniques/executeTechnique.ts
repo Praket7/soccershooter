@@ -131,7 +131,7 @@ export function executeTechnique(
   if (context.tick < state.recoveryUntilTick) return failed(state, 'recovery', 'recovery-active');
   if (context.tick < state.cooldownUntilTick) return failed(state, 'cooldown', 'cooldown-active');
   if (state.active) return failed(state, 'recovery', 'technique-already-active');
-  if ((context.actionBits & (1 << 6)) === 0) return failed(state, 'ineligible', 'technique-input-missing');
+  if ((context.actionBits & ((1 << 6) | (1 << 12))) === 0) return failed(state, 'ineligible', 'technique-input-missing');
   if (technique.eligibility.requiresGrounded && !context.grounded) return failed(state, 'ineligible', 'ground-contact-required');
   if (context.ballHeight < technique.eligibility.minimumBallHeight || context.ballHeight > technique.eligibility.maximumBallHeight) {
     return failed(state, 'ineligible', 'wrong-ball-height');

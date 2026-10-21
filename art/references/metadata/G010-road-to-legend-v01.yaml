@@ -1,0 +1,18 @@
+id: G010
+category: global-road-to-legend-hub
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 1672x941
+purpose: Golden target for progression hub composition, athlete/environment balance and next-action hierarchy.
+asset_targets: [Road to Legend home, progression nodes, challenge CTA, athlete presentation]
+copy: [clear primary action, compact progress path, strong type hierarchy, navy foundation and lime interaction accent]
+avoid: [generic card grids, unreadable microcopy, false implementation claims, real branding]
+camera: {type: game-menu-composite, focal_length_equiv_mm: 55}
+lighting: {type: cinematic_tunnel_to_pitch, color_temperature_k: null}
+palette: [deep navy, soft white, interaction lime, garnet]
+measurements: {}
+notes: UI concept uses generated visible copy; verify exact product states, progression wording, keyboard focus and responsive layout in implementation before treating as a literal screen spec.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

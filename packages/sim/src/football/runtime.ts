@@ -20,6 +20,7 @@ export type {
 export {
   createPlannedDribbleState,
   stepPlannedDribble,
+  stepTechniqueCarry,
 } from './dribblePlanner';
 export type {
   PlannedDribbleInput,

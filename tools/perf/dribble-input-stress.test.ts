@@ -42,5 +42,7 @@ describe('Stage 05R player-input retention stress', () => {
     expect(byName.get('tight-circle-sprint')?.maxBehindMeters).toBeLessThan(0.20);
     expect(byName.get('tight-circle-sprint')?.meanBallPlayerSpeedDeltaMetersPerSecond).toBeLessThan(0.70);
     expect(byName.get('tight-circle-sprint')?.looseBallRate).toBe(0);
+    expect(byName.get('tight-circle-jog')?.maxSeparationMeters).toBeLessThan(0.74);
+    expect(byName.get('tight-circle-sprint')?.maxSeparationMeters).toBeLessThan(0.72);
   });
 });

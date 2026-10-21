@@ -77,7 +77,7 @@ function boundedClaimTarget(
   const direction = attackingDirection(goalkeeper.team);
   const goalZ = ownGoalZ(world, goalkeeper.team);
   const requestedDepth = direction * (interceptPoint.z - goalZ);
-  const claimDepth = clamp(requestedDepth, 1.0, 3.35);
+  const claimDepth = clamp(requestedDepth, 1.0, 5.2);
   return fieldClamp(world, {
     x: clamp(interceptPoint.x, -world.field.goalHalfWidth - 1.1, world.field.goalHalfWidth + 1.1),
     y: 0,
@@ -108,7 +108,13 @@ export function computeGoalkeeperDecision(
   if (world.possessionTeam === goalkeeper.team && world.possessionPlayerId === goalkeeperId) {
     const targets = teamPlayers(world, goalkeeper.team)
       .filter((player) => player.id !== goalkeeperId && !player.goalkeeper)
-      .map((player) => ({ player, score: scorePassOption(world, goalkeeperId, player.id) }))
+      .map((player) => ({
+        player,
+        // Keep goalkeeper distribution short and controlled. A keeper should
+        // not choose a speculative through-ball while teammates are available
+        // nearby to receive a safe outlet.
+        score: scorePassOption(world, goalkeeperId, player.id) - horizontalDistance(goalkeeper.position, player.position) * 0.035,
+      }))
       .sort((a, b) => b.score - a.score || (a.player.id < b.player.id ? -1 : 1));
     return { kind: 'distribute', targetPosition: home, distributionTargetId: targets[0]?.player.id ?? null };
   }
@@ -125,8 +131,10 @@ export function computeGoalkeeperDecision(
   }
 
   const intercept = predictBallIntercept(goalkeeper, world.ball, 1.25);
-  const closeDanger = horizontalDistance(world.ball.position, { x: 0, y: 0, z: ownGoalZ(world, goalkeeper.team) }) < 6.2;
-  if (closeDanger && ballIsLooseEnoughToClaim(world, goalkeeperId) && intercept.reachable && intercept.timeSeconds <= 0.95) {
+  const closeDanger = horizontalDistance(world.ball.position, { x: 0, y: 0, z: ownGoalZ(world, goalkeeper.team) }) < 8.0;
+  const nearbyLooseBall = horizontalDistance(goalkeeper.position, world.ball.position) <= 3.8;
+  if (closeDanger && ballIsLooseEnoughToClaim(world, goalkeeperId)
+    && (nearbyLooseBall || (intercept.reachable && intercept.timeSeconds <= 1.05))) {
     return { kind: 'claim', targetPosition: boundedClaimTarget(world, goalkeeperId, intercept.point), distributionTargetId: null };
   }
   return { kind: 'position', targetPosition: home, distributionTargetId: null };

@@ -1,0 +1,18 @@
+id: G011
+category: global-replay-cinematic
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 1672x941
+purpose: Golden target for replay framing that adds cinematic warmth while preserving ball and play readability.
+asset_targets: [replay camera, replay grading, lower replay UI safe area]
+copy: [clear ball near carrier, visible attacking lane and goal, warm light, modest lower negative space]
+avoid: [motion blur hiding contact, real identities or branding, false ball trajectory]
+camera: {type: low_sideline_replay, focal_length_equiv_mm: 45}
+lighting: {type: late_afternoon_cinematic, color_temperature_k: null}
+palette: [warm gold, pitch green, garnet, pale blue-gray]
+measurements: {ball_diameter_m: 0.22}
+notes: Generated concept; inspect team marks for fictional originality and compare ball/contact framing against actual replay capture.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

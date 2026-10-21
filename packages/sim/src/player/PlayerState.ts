@@ -23,6 +23,7 @@ export const PlayerActionBits = Object.freeze({
   Receive: 1 << 9,
   DrivenModifier: 1 << 10,
   ChipModifier: 1 << 11,
+  Elastico: 1 << 12,
 });
 
 export type LocomotionState =

@@ -1,0 +1,18 @@
+id: U004
+category: ui-road-to-legend-hub
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 1672x941
+purpose: Campaign hub composition with ordered match progression, selected next match and venue/difficulty context.
+asset_targets: [campaign map, next match panel, career continuation CTA, athlete identity]
+copy: [progression route, visible current node, clear continue action, concise tactical focus]
+avoid: [ambiguous progression state, false reward data, confusing selected state, real club or stadium references]
+camera: {type: flat_ui_with_character_and_stadium}
+lighting: {type: night_stadium, color_temperature_k: null}
+palette: [deep navy, soft white, interaction lime, garnet]
+measurements: {aspect_ratio: 16/9}
+notes: Generated visual concept; generated team crests and labels are placeholders for original fictional team identities. Validate all copy and progression behavior in product.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

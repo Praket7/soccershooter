@@ -1,0 +1,18 @@
+id: W-R-FOUNDRY-A
+category: arena-foundry-night
+status: working
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 1672x941
+purpose: Foundry night-arena candidate from a behind-goal view; assess full-field sightline, industrial roof rhythm, and goal/ball contrast.
+asset_targets: [art/arenas/foundry]
+copy: [compact small-sided venue scale, restrained steel trusses, warm-neutral floodlights, green turf with clear white marks, low safety boards]
+avoid: [real stadium likeness, copied architecture, sponsor or club marks, generated image as final runtime art]
+camera: {type: behind_goal_player_scale, focal_length_equiv_mm: 55}
+lighting: {type: night_stadium_floodlight, color_temperature_k: null}
+palette: [graphite steel, deep green, soft white, restrained amber]
+measurements: {pitch_width_m: 24, pitch_length_m: 36, goal_width_m: 7.32}
+notes: Working concept only. Sightline is readable and industrial mood is strong; field/runoff proportions need validation against the spatial SVG. Not in LOCKED_192.
+approval: {approved_by: null, approved_date: null}

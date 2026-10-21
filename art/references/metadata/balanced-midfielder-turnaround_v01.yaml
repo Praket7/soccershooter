@@ -1,0 +1,36 @@
+id: A-BM-W01
+category: athlete-concept
+status: working
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 1536x1024
+purpose: Initial balanced midfielder turnaround concept to guide a real-time hero athlete model.
+asset_targets:
+  - char_balanced_midfielder_v01
+copy:
+  - realistic human silhouette and joint proportions
+  - lean professional build without exaggerated musculature
+  - restrained garnet and navy color blocking
+  - close fitting fabric with subtle seams and folds
+avoid:
+  - shoe marks or recognizable footwear branding
+  - direct identity replication; generated likeness is not a person reference
+  - photoreal face detail at the expense of gameplay-distance readability
+camera:
+  type: orthographic_turnaround
+  focal_length_equiv_mm: 100
+lighting:
+  type: neutral_three_point
+  color_temperature_k: 5500
+palette:
+  - deep garnet
+  - dark navy
+  - warm neutral skin
+measurements:
+  height_m: 1.79
+  shoulder_width_m: 0.44
+notes: Four-view sheet has coherent identity and clear kit silhouette; working concept only, not a locked or golden reference. Check inconsistent arm pose and footwear marks before promotion.
+approved_by: null
+approved_date: null

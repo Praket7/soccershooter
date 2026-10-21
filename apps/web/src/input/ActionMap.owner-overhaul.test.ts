@@ -40,6 +40,12 @@ describe('owner control overhaul input contract', () => {
     expect(lofted.actionBits & PlayerActionBits.LoftedPass).toBe(PlayerActionBits.LoftedPass);
   });
 
+  test('Y requests the elastico move independently of the selected T technique', () => {
+    const elastico = keyboardStateToIntent({ keys: new Set(['KeyY']), aimYaw: 0 });
+    expect(elastico.actionBits & PlayerActionBits.Elastico).toBe(PlayerActionBits.Elastico);
+    expect(elastico.actionBits & PlayerActionBits.Technique).toBe(0);
+  });
+
   test('Ctrl is the lift modifier and no longer doubles as a tackle key', () => {
     const left = keyboardStateToIntent({ keys: new Set(['ControlLeft']), aimYaw: 0 });
     const right = keyboardStateToIntent({ keys: new Set(['ControlRight']), aimYaw: 0 });

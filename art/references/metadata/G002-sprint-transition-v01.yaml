@@ -1,0 +1,18 @@
+id: G002
+category: global-sprint-transition
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 1672x941
+purpose: Golden gameplay target for sprint acceleration, moving support, open channel and controlled ball spacing.
+asset_targets: [sprint locomotion, sprint dribble, transition camera, ball-to-player readability]
+copy: [grounded acceleration posture, plausible counterbalance, ball remains within a playable touch, tactical depth]
+avoid: [excessive motion blur, floating feet, ball separated from player beyond a controlled sprint touch, real identities or marks]
+camera: {type: third_person_gameplay, focal_length_equiv_mm: 55}
+lighting: {type: late_afternoon_stadium, color_temperature_k: null}
+palette: [forest green, deep garnet, dark navy, warm white]
+measurements: {player_height_m: 1.82, ball_diameter_m: 0.22}
+notes: Selected as an internal golden target; generated reference only, not a runtime capture. Inspect its ball spacing against live gameplay before using as an implementation acceptance image.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

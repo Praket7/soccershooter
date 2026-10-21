@@ -53,6 +53,7 @@ const EDGE_KEY_ACTION_BITS = (
   | PlayerActionBits.ThroughPass
   | PlayerActionBits.LoftedPass
   | PlayerActionBits.Receive
+  | PlayerActionBits.Elastico
 ) >>> 0;
 const MODIFIABLE_PASS_EDGE_BITS = (
   PlayerActionBits.Pass
@@ -100,6 +101,7 @@ function actionBitsForCode(code: string): number {
   if (code === 'KeyR') return PlayerActionBits.LoftedPass;
   if (code === 'KeyF') return PlayerActionBits.Receive;
   if (code === 'KeyT') return PlayerActionBits.Technique;
+  if (code === 'KeyY') return PlayerActionBits.Elastico;
   return 0;
 }
 
@@ -163,6 +165,7 @@ export function keyboardStateToIntent(sample: Readonly<KeyboardIntentSample>): I
   if (pressed(sample.keys, 'KeyQ')) actionBits |= PlayerActionBits.ThroughPass;
   if (pressed(sample.keys, 'KeyR')) actionBits |= PlayerActionBits.LoftedPass;
   if (pressed(sample.keys, 'KeyF')) actionBits |= PlayerActionBits.Receive;
+  if (pressed(sample.keys, 'KeyY')) actionBits |= PlayerActionBits.Elastico;
   if (pressed(sample.keys, 'ControlLeft', 'ControlRight')) actionBits |= PlayerActionBits.ChipModifier;
   return {
     moveX: move.x,

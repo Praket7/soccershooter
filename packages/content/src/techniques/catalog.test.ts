@@ -6,7 +6,8 @@ describe('fictional football technique catalog', () => {
     expect(TECHNIQUES.length).toBeGreaterThanOrEqual(12);
     expect(new Set(TECHNIQUES.map((item) => item.id)).size).toBe(TECHNIQUES.length);
     expect(new Set(TECHNIQUES.map((item) => item.family))).toEqual(new Set(['dribble', 'pass-shot', 'aerial']));
-    expect(TECHNIQUES.every((item) => item.contact.maxImpulse <= 18 && item.eligibility.maximumBallDistance <= 0.76)).toBe(true);
+    expect(TECHNIQUES.every((item) => item.contact.maxImpulse <= 18
+      && item.eligibility.maximumBallDistance <= (item.id === 'stepover' ? 1.22 : item.id === 'elastico' ? 1.12 : 0.76))).toBe(true);
   });
 
   it('provides four evolution chains that change execution mechanics', () => {

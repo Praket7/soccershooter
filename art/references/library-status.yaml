@@ -1,0 +1,25 @@
+status: in_progress
+locked_reference_target: 192
+locked_reference_files: 26
+golden_target: 48
+golden_selected: 15
+rejected_candidates: 4
+last_updated: 2026-10-21
+image_groups:
+  G: {target: 12, present: 12}
+  U: {target: 18, present: 10}
+  C: {target: 12, present: 4}
+  M: {target: 18, present: 0}
+  A: {target: 36, present: 0}
+  T: {target: 24, present: 0}
+  E: {target: 10, present: 0}
+  P: {target: 18, present: 0}
+  R: {target: 28, present: 0}
+  V: {target: 8, present: 0}
+  X: {target: 4, present: 0}
+  H: {target: 4, present: 0}
+known_quality_gaps:
+  - UI concepts are 1672x941, below the plan minimum 1920x1080; regenerate or make a documented quality-preserving enlargement before final lock.
+  - Athlete blueprint target 2048x2048 minimum has not yet been produced.
+  - Golden character-kit, arena-lighting and UI/VFX/replay subselections are incomplete.
+  - Generated concepts are visual direction; runtime art, gameplay parity and performance still need in-engine verification.

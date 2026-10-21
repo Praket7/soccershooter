@@ -1,0 +1,18 @@
+id: U001
+category: ui-launch-loading
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 1672x941
+purpose: Loading-screen visual target for a detailed ball hero, stadium atmosphere, restrained branding and clear progress state.
+asset_targets: [loading screen, title lockup, progress indicator, gameplay tip]
+copy: [large clean ball detail, strong contrast, one concise hint, legible progress indicator]
+avoid: [unlicensed branding, long fake copy, busy action behind title, unclear loading state]
+camera: {type: low_pitch_level_product_detail, focal_length_equiv_mm: 55}
+lighting: {type: cool_floodlight, color_temperature_k: null}
+palette: [deep navy, soft white, garnet, interaction lime]
+measurements: {}
+notes: Generated concept; visible copy is intentionally short. Compare against implemented loading states and accessibility contrast.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

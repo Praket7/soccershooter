@@ -1,0 +1,18 @@
+id: G012
+category: global-low-spec-comparison
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 1672x941
+purpose: Golden target for visual-quality reduction while preserving player, ball and opponent readability.
+asset_targets: [low/medium/high quality comparisons, crowd/lighting scaling, readability acceptance]
+copy: [same composition on both sides, simpler low preset, ball and players stay legible]
+avoid: [quality changes that alter gameplay clarity, hidden ball, mismatched camera or play state]
+camera: {type: third_person_gameplay_split_comparison, focal_length_equiv_mm: 55}
+lighting: {type: high_vs_low_quality, color_temperature_k: null}
+palette: [forest green, garnet, navy, pale blue-gray]
+measurements: {ball_diameter_m: 0.22}
+notes: Image is a concept comparison, not a measured render benchmark. Confirm matching camera/state and actual graphics presets in the running game.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

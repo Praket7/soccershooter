@@ -1,0 +1,18 @@
+id: U003-reject-v01
+category: ui-home-hub
+status: rejected
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: false
+resolution: 1672x941
+purpose: Rejected home-hub draft.
+asset_targets: []
+copy: []
+avoid: [brand-like apparel marks]
+camera: {type: menu_character_composite}
+lighting: {type: tunnel_to_stadium_practical}
+palette: []
+measurements: {}
+notes: Rejected because the generated kit included sportswear-style marks despite the plain-kit constraint; retained only for provenance.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

@@ -1,0 +1,18 @@
+id: G006
+category: global-defensive-duel
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 1672x941
+purpose: Golden target for legal shoulder pressure, ball visibility, player balance and defensive contest readability.
+asset_targets: [shielding, shoulder duel, defensive contact, ball retention/readability]
+copy: [balanced low stance, legal shoulder contact, visible ball, grounded feet, readable escape lane]
+avoid: [pushing arms, unsafe contact, limbs intersecting, hidden ball, real identity or protected branding]
+camera: {type: gameplay_player_height, focal_length_equiv_mm: 55}
+lighting: {type: neutral_stadium_daylight, color_temperature_k: null}
+palette: [forest green, deep garnet, dark navy, pale blue-gray]
+measurements: {player_height_m: 1.82, ball_diameter_m: 0.22}
+notes: Selected as an internal golden target. Actual collision and possession logic must be validated separately.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

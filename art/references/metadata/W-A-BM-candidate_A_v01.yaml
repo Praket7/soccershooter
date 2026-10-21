@@ -1,0 +1,18 @@
+id: W-A-BM-A
+category: athlete-concept-balanced-midfielder
+status: working
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 1254x1254
+purpose: Candidate A of a balanced midfielder hero-athlete orthographic sheet; compare anatomy, kit construction, and silhouette.
+asset_targets: [char_balanced_midfielder_v01]
+copy: [credible adult proportions, unbranded garnet/navy kit, clear full-body views, plain background]
+avoid: [using as rigging truth without measurement, real person identity, logo marks, accessories]
+camera: {type: four-view_orthographic_turnaround, focal_length_equiv_mm: 100}
+lighting: {type: neutral_three_point, color_temperature_k: 5500}
+palette: [deep garnet, dark navy, warm neutral skin]
+measurements: {target_height_m: 1.82, shoulder_width_m: null}
+notes: Full body and identity read well, but the output is 1254px and poses are relaxed rather than a precise A-pose. Working concept only; below the modeling-reference long-edge requirement and not in LOCKED_192.
+approval: {approved_by: null, approved_date: null}

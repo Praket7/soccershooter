@@ -17,6 +17,11 @@ const FORWARD: InputIntent = { moveX: 0, moveY: 1, aimYaw: 0, sprint: false, act
 const SPRINT: InputIntent = { ...FORWARD, sprint: true };
 const NEUTRAL: InputIntent = { moveX: 0, moveY: 0, aimYaw: 0, sprint: false, actionBits: 0 };
 
+function yawDelta(from: number, to: number): number {
+  const tau = Math.PI * 2;
+  return ((to - from + Math.PI) % tau + tau) % tau - Math.PI;
+}
+
 function horizontalSpeed(state: ReturnType<typeof createPlayerState>): number {
   return Math.hypot(state.velocity.x, state.velocity.z);
 }
@@ -35,6 +40,25 @@ describe('Stage 03 deterministic movement', () => {
     const after = stepPlayerMovement(createPlayerState(), right, world, CONTROL_DT);
     expect(after.velocity.x).toBeLessThan(0);
     expect(Math.abs(after.velocity.z)).toBeLessThan(1e-8);
+  });
+
+  test('releasing movement brakes a sprint promptly so the player and gait settle together', () => {
+    const world = createFlatMovementWorld();
+    let state = createPlayerState({
+      velocity: { x: 0, y: 0, z: DEFAULT_MOVEMENT_CONFIG.sprintSpeed },
+      facingYaw: 0,
+    });
+    const startZ = state.position.z;
+    let stopTicks = 0;
+    while (horizontalSpeed(state) > 0.01 && stopTicks < 60) {
+      state = stepPlayerMovement(state, NEUTRAL, world, CONTROL_DT);
+      stopTicks += 1;
+    }
+
+    expect(stopTicks, 'stopping should finish within a realistic short braking sequence').toBeLessThanOrEqual(33);
+    expect(Math.abs(state.position.z - startZ), 'released input should not leave a long skating glide').toBeLessThan(2.1);
+    expect(state.athleticMotion.gait).toBe('idle');
+    expect(state.athleticMotion.supportFoot).toBe('both');
   });
 
   test('sharp reverse input shows a braking phase before re-accelerating backward', () => {
@@ -71,6 +95,22 @@ describe('Stage 03 deterministic movement', () => {
     expect(maxForwardDrift).toBeLessThan(4.5);
     expect(state.velocity.x).toBeLessThan(-3.2);
     expect(Math.abs(state.velocity.z)).toBeLessThan(5.0);
+  });
+
+  test('a fast sideways carry settles into forward travel as the body completes its turn', () => {
+    const world = createFlatMovementWorld();
+    let state = createPlayerState({
+      velocity: { x: -6.4, y: 0, z: 0 },
+      facingYaw: -Math.PI / 2,
+      locomotion: 'sprint',
+    });
+    const forward: InputIntent = { moveX: 0, moveY: 1, aimYaw: 0, sprint: true, actionBits: 0 };
+
+    for (let tick = 0; tick < 60; tick += 1) state = stepPlayerMovement(state, forward, world, CONTROL_DT);
+
+    expect(Math.abs(state.velocity.x)).toBeLessThan(0.25);
+    expect(state.velocity.z).toBeGreaterThan(3.5);
+    expect(Math.abs(yawDelta(state.athleticMotion.bodyYaw, 0))).toBeLessThan(0.15);
   });
 
   test('stepping off raised ground becomes a short deterministic fall instead of a vertical teleport', () => {

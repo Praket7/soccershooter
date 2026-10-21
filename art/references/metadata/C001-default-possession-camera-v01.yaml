@@ -1,0 +1,18 @@
+id: C001
+category: camera-default-possession
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 1672x941
+purpose: Default third-person possession camera framing and readability reference.
+asset_targets: [default gameplay camera, player screen occupancy, ball visibility, tactical context]
+copy: [ball remains near controlled player, goal visible in play direction, enough field to read support and pressure]
+avoid: [camera too high or too far, hidden ball, excessive blur, UI covering play]
+camera: {type: third_person_gameplay, height_above_root_m: 1.4, distance_m: 5.5, focal_length_equiv_mm: 55}
+lighting: {type: bright_stadium_daylight, color_temperature_k: null}
+palette: [field green, deep garnet, navy, pale blue-gray]
+measurements: {player_height_m: 1.82, ball_diameter_m: 0.22}
+notes: Generated composition reference, not a camera measurement captured from the current runtime. Validate camera height/distance and screen occupancy in game.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

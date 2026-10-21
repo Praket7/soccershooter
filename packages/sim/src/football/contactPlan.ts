@@ -27,6 +27,8 @@ export interface FootballContactPlanSeed {
   maxLinearImpulse: number;
   maxAngularImpulse: number;
   timingWindowTicks: number;
+  /** Optional skill-specific reach; timing tolerance must never grant reach. */
+  maximumContactReach?: number;
   geometryTolerance: number;
   quality: number;
   reason: string;
@@ -108,6 +110,7 @@ function stablePlanPayload(seed: Readonly<FootballContactPlanSeed>): string {
     q(seed.maxLinearImpulse),
     q(seed.maxAngularImpulse),
     seed.timingWindowTicks,
+    seed.maximumContactReach === undefined ? '' : q(seed.maximumContactReach),
     q(seed.geometryTolerance),
     q(seed.quality),
     seed.reason,
@@ -158,6 +161,9 @@ export function createFootballContactPlan(seed: Readonly<FootballContactPlanSeed
     maxLinearImpulse: Math.max(0, finiteFootball(seed.maxLinearImpulse)),
     maxAngularImpulse: Math.max(0, finiteFootball(seed.maxAngularImpulse)),
     timingWindowTicks,
+    ...(seed.maximumContactReach === undefined
+      ? {}
+      : { maximumContactReach: Math.max(0, finiteFootball(seed.maximumContactReach)) }),
     geometryTolerance: Math.max(0, finiteFootball(seed.geometryTolerance)),
     quality: clampFootball(finiteFootball(seed.quality), 0, 1),
     reason: seed.reason,

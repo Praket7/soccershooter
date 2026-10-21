@@ -1,0 +1,18 @@
+id: G007
+category: global-aerial-duel
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 1672x941
+purpose: Golden target for aerial contest spacing, ball height, landing zones and readable jump silhouettes.
+asset_targets: [aerial-ball framing, jump animation, landing response, aerial duel readability]
+copy: [ball clearly above both athletes, safe body spacing, plausible jump posture, visible landing area]
+avoid: [body collision intersections, impossible joints, hidden ball, real identities or branding]
+camera: {type: player_height_wide_gameplay, focal_length_equiv_mm: 55}
+lighting: {type: clear_stadium_daylight, color_temperature_k: null}
+palette: [forest green, garnet, navy, pale blue-gray]
+measurements: {player_height_m: 1.82, ball_diameter_m: 0.22}
+notes: Revision v02 was selected after rejecting v01 for unsolicited brand-like marks. Visual reference only; the flight and collision simulation must be validated independently.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}
