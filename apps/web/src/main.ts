@@ -15,12 +15,14 @@ import {
 import { ActionMap } from './input/ActionMap';
 import { GamepadAdapter } from './input/GamepadAdapter';
 import { mergeInputSources } from './input/InputMerge';
+import { resolveStepOverExitIntent } from './input/FootballControl';
 import { intersectAimRayWithGround, intersectAimRayWithPlaneZ } from './input/WorldAim';
 import { ThirdPersonCamera, type CameraObstacle } from './camera/ThirdPersonCamera';
 import { buildPracticeGoalCameraObstacles, resolveBallAwareCameraFocus } from './camera/FootballPracticeCamera';
 import { MovementHud } from './debug/MovementHud';
 import { BallLab } from './dev/BallLab';
 import { FootballPractice } from './dev/FootballPractice';
+import { installMovementCheckPanel } from './dev/MovementCheckPanel';
 import { playerVisualFootY } from './presentation/PlayerVisualLayout';
 import { ProceduralAthleteProxy } from './presentation/ProceduralAthleteProxy';
 import { ContactDebugOverlay } from './presentation/ContactDebugOverlay';
@@ -42,9 +44,9 @@ app.innerHTML = `
   <div class="movement-lab-shell">
     <header class="lab-header">
       <div>
-        <p class="eyebrow">Stage 05–07 · owner control overhaul</p>
-        <h1>SoccerShooter Physical Football Lab</h1>
-        <p class="subtitle">The ball stays independent. The player now gives explicit football intent: carry, receive, pass through a lane, or shoot at a visible world target.</p>
+        <p class="eyebrow">SOCCERSHOOTER · PRACTICE</p>
+        <h1>SoccerShooter</h1>
+        <p class="subtitle">Train your touch, movement, passing and finishing.</p>
       </div>
       <div class="header-actions">
         <div class="mode-switch" role="group" aria-label="Practice mode">
@@ -59,29 +61,24 @@ app.innerHTML = `
       <div id="game-viewport" class="game-viewport"></div>
       <div class="camera-capture-overlay" data-camera-capture>CLICK TO CONTROL CAMERA</div>
       <div class="center-reticle" data-center-reticle hidden aria-hidden="true"><i></i><b></b></div>
-      <aside class="control-card">
-        <strong>Football controls</strong>
-        <span>WASD · move / exact carry direction</span>
-        <span>Mouse / right stick · camera + center-reticle world aim</span>
-        <span>Shift / L3 · sprint with short carry touches</span>
-        <span>RMB / LT · close-control dribble</span>
-        <span>F · receive / trap · F + WASD controlled exit</span>
-        <span>E · ground pass · Q · through pass · R · lofted pass</span>
-        <span>RMB+E · driven ground pass · Ctrl+Q · chipped through ball</span>
-        <span>LMB · hold power / release shot · RMB+LMB finesse · Ctrl+LMB chip</span>
-        <span>C / B · challenge · Shift+C committed · Space aerial</span>
-        <span>G · reset ball in practice only</span>
-        <span>Practice panel · select technique · T to execute within its contact window</span>
-      </aside>
+      <details class="control-card">
+        <summary><strong>Football controls</strong></summary>
+        <div class="control-list">
+          <span>WASD / left stick · move and carry direction</span>
+          <span>Mouse / right stick · camera and world aim</span>
+          <span>Shift / L3 · sprint with short carry touches</span>
+          <span>RMB / LT · close-control precision</span>
+          <span>F / View · receive or trap · add movement for an exit touch</span>
+          <span>E / X · ground pass · Q · through pass · R / LB · lofted pass</span>
+          <span>RMB+E / LT+X · driven ground pass · Ctrl+Q / R3+Y · chipped through</span>
+          <span>LMB / RT · hold power, release to shoot · RMB+LMB finesse · Ctrl+LMB chip</span>
+          <span>C or B · challenge · Shift+C commits · Space / A · aerial</span>
+          <span>G · reset practice ball · T · selected practice technique · Y · Elastico</span>
+        </div>
+      </details>
       <aside class="action-feedback" data-action-feedback data-action="idle" aria-live="polite">
         <strong>PLAY READY</strong>
         <span>Click once to capture the camera. That click never performs a football action.</span>
-      </aside>
-      <aside class="course-card">
-        <strong>Repair focus</strong>
-        <span>visible world aim</span><span>buffered receive</span><span>sharp-turn touch</span>
-        <span>aim-first pass lane</span><span>physical shooting</span><span>keeper read</span>
-        <span>challenge timing</span><span>no welded ball</span>
       </aside>
     </section>
     <footer class="lab-footer">
@@ -232,6 +229,7 @@ const hud = new MovementHud(document.body);
 const ballLab = new BallLab({ scene, host: viewport });
 let roadToLegend: RoadToLegendScreen | null = null;
 const footballPractice = new FootballPractice({ scene, host: viewport, onGoalScored: () => { void roadToLegend?.notifyCampaignGoal(); } });
+if (import.meta.env.DEV) installMovementCheckPanel(footballPractice.root, playerProbe);
 roadToLegend = new RoadToLegendScreen(document.body, () => {
   footballPractice.setCampaignChallenge(null);
   setMode('practice');
@@ -255,6 +253,7 @@ const EDGE_ACTION_BITS = (
   | PlayerActionBits.LoftedPass
   | PlayerActionBits.Receive
   | PlayerActionBits.Technique
+  | PlayerActionBits.Elastico
   | PlayerActionBits.ShootReleased
 ) >>> 0;
 const HELD_ACTION_BITS = (
@@ -387,6 +386,12 @@ function copyIntent(intent: ReturnType<ActionMap['consumeFrame']>['intent']) {
   return { ...intent };
 }
 
+function interpolateYaw(from: number, to: number, alpha: number): number {
+  const tau = Math.PI * 2;
+  const delta = ((to - from + Math.PI) % tau + tau) % tau - Math.PI;
+  return from + delta * alpha;
+}
+
 function interpolatedPlayer(alpha: number): PlayerState {
   const output = clonePlayerState(player);
   output.position = {
@@ -394,6 +399,11 @@ function interpolatedPlayer(alpha: number): PlayerState {
     y: previousPlayer.position.y + (player.position.y - previousPlayer.position.y) * alpha,
     z: previousPlayer.position.z + (player.position.z - previousPlayer.position.z) * alpha,
   };
+  output.athleticMotion.bodyYaw = interpolateYaw(
+    previousPlayer.athleticMotion.bodyYaw,
+    player.athleticMotion.bodyYaw,
+    alpha,
+  );
   return output;
 }
 
@@ -510,6 +520,16 @@ function frame(now: number): void {
     }
     if (recording && playbackIndex === null) recordedIntents.push(copyIntent(tickIntent));
 
+    const techniqueExit = practiceMode ? footballPractice.stepOverCue : null;
+    if (techniqueExit?.kind === 'stepover' && footballPractice.contactTick >= techniqueExit.contactTick) {
+      // A step-over needs a committed exit step. Elastico already preserves
+      // the user's locomotion; forcing this lane after its snap causes a
+      // second, unrequested movement beat.
+      // Without the step-over assist, an input tap leaves the player planted
+      // while its physical ball continues away from the completed touch.
+      tickIntent = resolveStepOverExitIntent(tickIntent, techniqueExit.exitDirection);
+    }
+
     const beforeVelocity = player.velocity;
     player = stepPlayerMovement(player, tickIntent, practiceMode ? footballPractice.movementWorld(practiceWorld) : world, FIXED_DT, practiceMode ? footballPractice.movementConfig : DEFAULT_MOVEMENT_CONFIG);
     if (practiceMode) {
@@ -519,6 +539,7 @@ function frame(now: number): void {
       // player to move multiple fixed ticks while the ball stood still during
       // slow frames, producing frame-rate-dependent dribble separation.
       footballPractice.update(FIXED_DT);
+      player = footballPractice.constrainCarryTurn(player, FIXED_DT);
     }
     jumpAcknowledgedThisFrame ||= player.actionHooks.jumpRequested;
     tackleAcknowledgedThisFrame ||= player.actionHooks.tackleRequested;
@@ -580,10 +601,19 @@ function frame(now: number): void {
 
   const alpha = Math.max(0, Math.min(1, accumulator / FIXED_DT));
   const displayPlayer = interpolatedPlayer(alpha);
+  const shotFacingYaw = footballPractice.activeShotFacingYaw;
+  const athletePlayer = shotFacingYaw === null
+    ? displayPlayer
+    : {
+      ...displayPlayer,
+      facingYaw: shotFacingYaw,
+      athleticMotion: { ...displayPlayer.athleticMotion, strikePreparation: true },
+    };
   const contactPlan = footballPractice.activeContactPlan ?? footballPractice.lastContactPlan;
   const athletePose = athleteProxy.update({
-    player: displayPlayer,
+    player: athletePlayer,
     plan: contactPlan,
+    stepOver: footballPractice.stepOverCue,
     simulationTick: footballPractice.contactTick,
     interpolationAlpha: alpha,
   });
@@ -594,6 +624,11 @@ function frame(now: number): void {
   athleteProxyProbe.dataset.contactTick = athletePose.contactTick === null ? '' : String(athletePose.contactTick);
   athleteProxyProbe.dataset.contactVisible = String(athletePose.contactVisible);
   athleteProxyProbe.dataset.contactErrorMeters = athletePose.contactErrorMeters.toFixed(6);
+  const leftBoot = athleteProxy.getFootWorldPosition('left');
+  const rightBoot = athleteProxy.getFootWorldPosition('right');
+  athleteProxyProbe.dataset.leftBootBottomY = (leftBoot.y - 0.05).toFixed(6);
+  athleteProxyProbe.dataset.rightBootBottomY = (rightBoot.y - 0.05).toFixed(6);
+  athleteProxyProbe.dataset.supportFoot = athletePose.supportFoot ?? '';
   const eventTick = footballPractice.lastContactEventTick;
   const isLatestContact = eventTick !== null && athletePose.contactTick === eventTick;
   if (eventTick === null) {
@@ -670,12 +705,15 @@ function frame(now: number): void {
   playerProbe.dataset.y = String(player.position.y);
   playerProbe.dataset.z = String(player.position.z);
   playerProbe.dataset.facingYaw = String(player.facingYaw);
+  playerProbe.dataset.bodyYaw = displayPlayer.athleticMotion.bodyYaw.toFixed(6);
   playerProbe.dataset.visualFootY = playerVisualFootY(displayPlayer.position.y).toFixed(6);
   playerProbe.dataset.cameraFocusBias = cameraFocusBias.toFixed(6);
   playerProbe.dataset.tick = String(simTick);
   playerProbe.dataset.inputToSimulationMs = inputToSimulationMs === null ? '' : inputToSimulationMs.toFixed(3);
   playerProbe.dataset.inputToRenderMs = inputToRenderMs === null ? '' : inputToRenderMs.toFixed(3);
   playerProbe.dataset.speed = speed.toFixed(3);
+  playerProbe.dataset.velocityX = player.velocity.x.toFixed(6);
+  playerProbe.dataset.velocityZ = player.velocity.z.toFixed(6);
   playerProbe.dataset.sprinting = String(intent.sprint);
   playerProbe.dataset.jumpHook = String(jumpAcknowledgedThisFrame);
   playerProbe.dataset.tackleHook = String(tackleAcknowledgedThisFrame);

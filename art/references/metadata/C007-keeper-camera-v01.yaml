@@ -1,0 +1,20 @@
+id: C007
+category: camera-goalkeeper
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 2560x1440
+source_resolution: 1672x941
+upscale: Apple sips Lanczos resampling; generated source retained in working/
+purpose: Goalkeeper camera reference framing the keeper's set position, goal mouth, ball carrier, and recovery threats.
+asset_targets: [goalkeeper view, goal width, attacker approach, ball visibility, defensive recovery]
+copy: [goal frame at edges, keeper foreground silhouette, attacker and ball centered in open sightline, enough context for decisions]
+avoid: [first-person hands, keeper blocking the ball, crop hiding goalposts, unrealistic opponent spacing]
+camera: {type: goalkeeper_follow_oblique, estimated_height_m: 1.7, focal_length_equiv_mm: 32, position: behind_keeper_center}
+lighting: {type: daylight_stadium, color_temperature_k: null}
+palette: [natural grass, green keeper kit, burgundy, ivory]
+measurements: {aspect_ratio: 16/9, horizon_line: 0.2, controlled_player_screen_occupancy: 0.19, ball_screen_occupancy: 0.002, goal_visible: true, edge_ui_safe_regions: [top_6%, bottom_8%]}
+notes: Values are visual estimates only. Source enlarged from 1672x941 by Lanczos. Validate keeper locomotion, post visibility and shot tracking in the live camera system.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

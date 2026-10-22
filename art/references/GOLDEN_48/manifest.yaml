@@ -1,0 +1,55 @@
+status: complete
+required: 48
+selected:
+  global_style:
+    G001: ../LOCKED_192/global/G001-live-possession-v01.png
+    G002: ../LOCKED_192/global/G002-sprint-transition-v01.png
+    G003: ../LOCKED_192/global/G003-shot-preparation-v01.png
+    G004: ../LOCKED_192/global/G004-shot-contact-v01.png
+    G005: ../LOCKED_192/global/G005-goal-release-v01.png
+    G006: ../LOCKED_192/global/G006-defensive-duel-v01.png
+    G007: ../LOCKED_192/global/G007-aerial-duel-v02.png
+    G008: ../LOCKED_192/global/G008-night-arena-wide-v01.png
+    G009: ../LOCKED_192/global/G009-athlete-menu-hero-v01.png
+    G010: ../LOCKED_192/global/G010-road-to-legend-v01.png
+    G011: ../LOCKED_192/global/G011-replay-cinematic-v01.png
+    G012: ../LOCKED_192/global/G012-low-spec-comparison-v01.png
+  character_kit:
+    archetype_1: ../LOCKED_192/athletes/A006-agile-winger-action-hero-v01.png
+    archetype_2: ../LOCKED_192/athletes/A012-compact-technician-action-hero-v01.png
+    archetype_3: ../LOCKED_192/athletes/A018-balanced-midfielder-action-hero-v01.png
+    archetype_4: ../LOCKED_192/athletes/A024-power-forward-action-hero-v01.png
+    archetype_5: ../LOCKED_192/athletes/A030-tall-defender-action-hero-v01.png
+    archetype_6: ../LOCKED_192/athletes/A036-goalkeeper-action-hero-v01.png
+    kit_1: ../LOCKED_192/teams/T006-blaugrena-hero-v01.png
+    kit_2: ../LOCKED_192/teams/T012-royal-whites-hero-v01.png
+    kit_3: ../LOCKED_192/teams/T018-oil-company-north-hero-v01.png
+    kit_4: ../LOCKED_192/teams/T024-oil-company-capital-hero-v01.png
+    material_1: ../LOCKED_192/teams/T005-blaugrena-fabric-v01.png
+    material_2: ../LOCKED_192/equipment/E001-match-ball-v01.png
+  arena_lighting:
+    pitch_wide_1: ../LOCKED_192/arena/R003-foundry-sideline-wide-v01.png
+    pitch_wide_2: ../LOCKED_192/arena/R005-foundry-center-player-height-v01.png
+    pitch_wide_3: ../LOCKED_192/arena/R021-argentine-street-court-3v3-v01.png
+    player_height_1: ../LOCKED_192/arena/R006-foundry-player-height-attacking-third-v01.png
+    player_height_2: ../LOCKED_192/arena/R019-foundry-goal-end-readability-v01.png
+    player_height_3: ../LOCKED_192/arena/R020-foundry-midfield-readability-v01.png
+    goal_end_1: ../LOCKED_192/arena/R016-foundry-goal-net-boards-v01.png
+    goal_end_2: ../LOCKED_192/arena/R026-foundry-home-end-landmark-v01.png
+    material_1: ../LOCKED_192/arena/R010-foundry-brick-concrete-wall-v01.png
+    material_2: ../LOCKED_192/arena/R013-foundry-floodlight-fixture-v01.png
+    night_1: ../LOCKED_192/arena/R018-foundry-night-flagship-v01.png
+    night_2: ../LOCKED_192/arena/R022-foundry-warm-cool-light-contrast-v01.png
+  ui_vfx_replay:
+    menu_progression_1: ../LOCKED_192/ui/U003-home-hub-v02.png
+    menu_progression_2: ../LOCKED_192/ui/U004-road-to-legend-hub-v01.png
+    menu_progression_3: ../LOCKED_192/ui/U005-road-to-legend-match-node-v01.png
+    hud_1: ../LOCKED_192/ui/U011-in-match-hud-normal-possession-v01.png
+    hud_2: ../LOCKED_192/ui/U012-in-match-hud-shot-preparation-v01.png
+    hud_3: ../LOCKED_192/ui/U013-in-match-hud-defense-v01.png
+    leaderboard_1: ../LOCKED_192/ui/U015-global-leaderboard-v01.png
+    leaderboard_2: ../LOCKED_192/ui/U016-weekly-challenge-leaderboard-v01.png
+    vfx_1: ../LOCKED_192/vfx/V005-goal-burst-v01.png
+    vfx_2: ../LOCKED_192/vfx/V003-save-impact-v01.png
+    replay_1: ../LOCKED_192/replay/H001-sideline-tracking-v01.png
+    replay_2: ../LOCKED_192/replay/H002-low-hero-contact-v01.png

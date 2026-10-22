@@ -1,0 +1,20 @@
+id: M001
+category: movement-acceleration
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 2560x1440
+source_resolution: 1672x941
+upscale: Apple sips Lanczos resampling; generated source retained in working/
+purpose: Show an athlete transitioning from upright stance into the first two acceleration steps.
+asset_targets: [standing-start pose, first push-off, second step, forward inclination, arm drive]
+copy: [progressive lean, foot strike under body, opposite arm action, grounded first push, consistent body scale]
+avoid: [sprinter blocks, hands touching turf, exaggerated torso collapse, airborne first contact]
+camera: {type: lateral_full_body_motion_study, focal_length_equiv_mm: 85}
+lighting: {type: neutral_soft_daylight, color_temperature_k: null}
+palette: [charcoal kit, turf green, neutral background]
+measurements: {aspect_ratio: 16/9, full_body_and_feet_visible: true}
+notes: Generated concept enlarged from 1672x941 using Lanczos; upscaling adds no detail. Sequential positions are illustrative; use motion-capture or sports-science review before deriving final animation curves.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

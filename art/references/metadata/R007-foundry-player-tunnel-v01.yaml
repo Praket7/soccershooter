@@ -1,0 +1,20 @@
+id: R007
+category: arena-tunnel-entry
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 2560x1440
+source_resolution: 1672x941
+upscale: Apple sips Lanczos resampling; generated source retained in working/
+purpose: West-side player-tunnel and pitch-entry reference aligned with the Foundry spatial plan.
+asset_targets: [main player tunnel, accessible pitch entrance, brick/concrete finish, field/goal sightline]
+copy: [warm practical lighting, modest tunnel length, uncluttered clear path, centered pitch view, visible goal beyond]
+avoid: [props in egress route, confusing extra openings, goal hidden by entrance frame, overly theatrical scale]
+camera: {type: standing_player_tunnel_to_pitch, estimated_height_m: 1.6, focal_length_equiv_mm: 30}
+lighting: {type: warm_tunnel_to_neutral_field_transition, color_temperature_k: null}
+palette: [aged brick, dark steel, warm amber, turf green]
+measurements: {aspect_ratio: 16/9, pitch_visible_from_entry: true, goal_visible: true}
+notes: Source enlarged from 1672x941 by Lanczos. Spatial position should match the west midline player tunnel shown in R001; accessibility and crowd flow require separate validation.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

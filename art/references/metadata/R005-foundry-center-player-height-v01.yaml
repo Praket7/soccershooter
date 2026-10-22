@@ -1,0 +1,20 @@
+id: R005
+category: arena-player-height-center-pitch
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 2560x1440
+source_resolution: 1672x941
+upscale: Apple sips Lanczos resampling; generated source retained in working/
+purpose: Player-height center-pitch reference for horizon, goal alignment, low sightline clutter, and the Foundry's modest arena scale.
+asset_targets: [center pitch camera view, center circle, far goal, steel truss, spectator sightline]
+copy: [human-height framing, centered far goal, readable center marking, open goal corridor, compact stands]
+avoid: [support crossing goal silhouette, empty oversized stadium, camera too high, stadium-scale pitch]
+camera: {type: player_height_pitch_center, estimated_height_m: 1.6, focal_length_equiv_mm: 35, position: behind_center_circle}
+lighting: {type: warm_late_afternoon, color_temperature_k: null}
+palette: [turf green, charcoal steel, brick, amber sunset]
+measurements: {aspect_ratio: 16/9, horizon_line: 0.34, goal_visible: true, center_circle_foreground: true}
+notes: Generated architectural direction; source enlarged from 1672x941 by Lanczos. Verify camera height against the live design envelope and ensure goal/camera corridor remains clear in the 3D blockout.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

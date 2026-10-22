@@ -1,0 +1,19 @@
+id: P018
+category: action-pose-missed-touch-recovery
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 256x341
+source_resolution: 1536x1024 contact sheet crop
+purpose: Recovery after a missed dribble touch.
+asset_targets: [balance recovery, ball separation, grounded stance]
+copy: [truthful contact state, readable recovery, stable anatomy]
+avoid: [invented ball contact, stretched limbs]
+camera: {type: full-body-action, focal_length_equiv_mm: 85}
+lighting: {type: neutral-soft-daylight, color_temperature_k: null}
+palette: [charcoal kit, turf green]
+measurements: {aspect_ratio: 3/4}
+notes: Cropped from approved action contact sheet row 3 column 6.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

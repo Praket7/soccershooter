@@ -1,0 +1,21 @@
+id: U014
+category: ui-post-match-results
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 2560x1440
+source_resolution: 1672x941
+upscale: Apple sips Lanczos resampling; generated source retained in working/
+purpose: Post-match recap target with final score, essential team statistics, player-of-match summary, and clear next actions.
+asset_targets: [post-match results, match statistics, player of match, continue action, match report action]
+copy: [score hierarchy, compact paired statistics, relevant featured athlete, one clearly focused primary action]
+avoid: [dense full-box-score clutter, ambiguous result state, fabricated live user data, copied club crests]
+camera: {type: flat_ui_with_dimmed_stadium_backdrop, focal_length_equiv_mm: null}
+lighting: {type: dusk_stadium_practicals, color_temperature_k: null}
+palette: [deep navy, burgundy, ivory, restrained blue accent]
+measurements: {aspect_ratio: 16/9, safe_area: 5%}
+annotations: {primary_action: continue, secondary_action: match_report, gamepad_focus_order: continue_then_match_report, keyboard_shortcuts: menu_navigation_from_live_settings, sibling_states: focused_hover_narrow_empty_loading_error_required_before_implementation}
+notes: Source was enlarged from 1672x941 to 2560x1440 by Lanczos resampling; the larger canvas adds no detail. Generated statistics and team marks are placeholders, not product truth.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

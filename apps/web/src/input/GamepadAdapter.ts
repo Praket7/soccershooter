@@ -38,6 +38,7 @@ const GAMEPAD_EDGE_ACTION_BITS = (
   | PlayerActionBits.LoftedPass
   | PlayerActionBits.Receive
   | PlayerActionBits.Technique
+  | PlayerActionBits.Elastico
 ) >>> 0;
 
 function wrapYaw(yaw: number): number {

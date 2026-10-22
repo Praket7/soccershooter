@@ -1,0 +1,20 @@
+id: C011
+category: camera-replay-sideline
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 2560x1440
+source_resolution: 1672x941
+upscale: Apple sips Lanczos resampling; generated source retained in working/
+purpose: Wide sideline replay reference for reading passing lanes, touchline context, and team shape during an attacking sequence.
+asset_targets: [replay sideline camera, tactical replay, touchline event, team spacing]
+copy: [wide tactical context, crisp pitch markings, player/ball scale, readable attacking direction]
+avoid: [excessive height, ball too small, cinematic crop, audience dominating play]
+camera: {type: elevated_sideline_broadcast, estimated_height_m: 14, focal_length_equiv_mm: 50, position: halfway_line_sideline}
+lighting: {type: neutral_daylight, color_temperature_k: null}
+palette: [natural grass, burgundy, ivory, neutral stands]
+measurements: {aspect_ratio: 16/9, horizon_line: 0.12, controlled_player_screen_occupancy: 0.03, ball_screen_occupancy: 0.001, goal_visible: true, edge_ui_safe_regions: [top_6%, bottom_8%]}
+notes: Estimated camera data is not physically calibrated. Source enlarged from 1672x941 by Lanczos; verify against the match replay system and preserve motion/event timing.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

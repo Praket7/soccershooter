@@ -1,0 +1,18 @@
+id: U005
+category: ui-road-to-legend-match-node
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 1672x941
+purpose: Match-node detail target for campaign progression, opponent context, stadium, difficulty and tactical brief.
+asset_targets: [campaign node detail, tactical brief, match preview, primary play action]
+copy: [clear selected match, one concise tactical prompt, visible difficulty and venue]
+avoid: [generated result data represented as real, illegible tactical prose, hidden selected node]
+camera: {type: ui_character_map_and_match_detail}
+lighting: {type: night_campaign_map, color_temperature_k: null}
+palette: [deep navy, soft white, interaction lime, garnet]
+measurements: {aspect_ratio: 16/9}
+notes: Generated concept; map icons and team names are placeholders pending team-identity bible and product validation.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

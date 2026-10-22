@@ -12,6 +12,7 @@ async function loadDeveloperLabs(): Promise<void> {
   await import('./BotTacticalLab');
   await import('./AdaptiveBotLab');
   await import('./PhysicalBotScrimmage');
+  await import('./StageTestingGuide');
 }
 
 void loadDeveloperLabs();

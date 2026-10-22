@@ -1,0 +1,18 @@
+id: C004
+category: camera-shooting-aim
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 1672x941
+purpose: Shooting-aim camera framing with visible ball, target goal, and approach context.
+asset_targets: [shot preparation camera, player-ball relation, goal mouth, aim direction]
+copy: [goal and ball remain legible, shot lane is clear, transition does not hide contact point]
+avoid: [goal offscreen, extreme camera snap, aim presentation covering gameplay]
+camera: {type: third_person_shot_aim, height_above_root_m: null, distance_m: null, focal_length_equiv_mm: null}
+lighting: {type: generated_gameplay_concept, color_temperature_k: null}
+palette: []
+measurements: {aspect_ratio: 16/9}
+notes: Existing generated reference; camera values were not measured. Validate shot framing and aim transition in the game.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

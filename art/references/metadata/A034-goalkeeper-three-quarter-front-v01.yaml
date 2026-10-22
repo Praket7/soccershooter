@@ -1,0 +1,19 @@
+id: A34
+category: athlete-goalkeeper-three-quarter-front
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 203x214
+source_resolution: 1222x1287
+purpose: Athlete archetype modeling reference for SoccerShooter.
+asset_targets: [adult anatomy, kit fit, limb proportions, boots, neutral and action pose]
+copy: [stable proportions, readable joints, grounded feet, consistent identity within archetype]
+avoid: [real player likeness, brand marks, cropped hands or feet, distorted limbs]
+camera: {type: near_orthographic_studio, focal_length_equiv_mm: 100}
+lighting: {type: neutral_three_point, color_temperature_k: 5500}
+palette: [neutral gray background, unbranded team kit]
+measurements: {aspect_ratio: 0.95, full_body_visible: true}
+notes: Cropped from the approved 6x6 athlete contact sheet at row 5 column 4. The panel is a visual direction reference; the source is below the preferred 2048x2048 modeling minimum and must be replaced by a high-resolution turnaround before production modeling.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

@@ -2,7 +2,8 @@ import { expect, test } from '@playwright/test';
 
 test('Physical 3v3 runs six bots around one independently simulated ball', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Physical 3v3', exact: true }).click();
+  await page.getByRole('button', { name: 'Adaptive Bot Playtest', exact: true }).click();
+  await page.locator('[data-physical-bot-scrimmage]').getByRole('button', { name: 'Watch bot match', exact: true }).click();
 
   const lab = page.locator('[data-physical-bot-scrimmage]');
   const probe = page.locator('[data-physical-state]');
@@ -20,7 +21,8 @@ test('Physical 3v3 runs six bots around one independently simulated ball', async
 
 test('Physical 3v3 naturally produces loose-ball windows and contact-driven control changes', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Physical 3v3', exact: true }).click();
+  await page.getByRole('button', { name: 'Adaptive Bot Playtest', exact: true }).click();
+  await page.locator('[data-physical-bot-scrimmage]').getByRole('button', { name: 'Watch bot match', exact: true }).click();
   const probe = page.locator('[data-physical-state]');
 
   await expect.poll(async () => Number(await probe.getAttribute('data-loose-ball-ticks')), { timeout: 8000 })
@@ -32,7 +34,7 @@ test('Physical 3v3 naturally produces loose-ball windows and contact-driven cont
 
 test('difficulty and personality alter cognition controls while physical constants stay invariant', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Physical 3v3', exact: true }).click();
+  await page.getByRole('button', { name: 'Adaptive Bot Playtest', exact: true }).click();
   const probe = page.locator('[data-physical-state]');
 
   await page.locator('[data-physical-tier]').selectOption('elite');

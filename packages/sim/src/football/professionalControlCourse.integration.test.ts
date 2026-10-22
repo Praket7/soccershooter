@@ -11,11 +11,12 @@ const DT = 1 / 60;
 const WORLD = createFlatMovementWorld({ minX: -100, maxX: 100, minZ: -100, maxZ: 100 });
 
 function actorSnapshot(player: Readonly<PlayerState>): FootballActorSnapshot {
-  const speed = Math.hypot(player.velocity.x, player.velocity.z);
   return {
     position: { ...player.position },
     velocity: { ...player.velocity },
-    facingYaw: speed > 0.35 ? Math.atan2(player.velocity.x, player.velocity.z) : player.facingYaw,
+    facingYaw: Math.hypot(player.velocity.x, player.velocity.z) > 0.35
+      ? Math.atan2(player.velocity.x, player.velocity.z)
+      : player.facingYaw,
     balance: player.grounded ? 1 : 0.58,
     pressure: 0,
     sprinting: player.locomotion === 'sprint',

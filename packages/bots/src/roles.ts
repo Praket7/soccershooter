@@ -25,6 +25,7 @@ export interface TeamRoleAssignment {
   switchCount: number;
   phase: TeamPhase;
   possessionPlayerId: string | null;
+  passReceiverId?: string | null;
   generatedAtSeconds: number;
 }
 
@@ -46,7 +47,9 @@ function roleTarget(
   }
   if (role === 'presser') return fieldClamp(world, { x: ball.x, y: 0, z: ball.z });
   if (role === 'cover-defender') {
-    return fieldClamp(world, { x: ball.x * 0.42, y: 0, z: ball.z - direction * 4.2 });
+    const coverSide = ball.x >= 0 ? -1 : 1;
+    const coverWidth = Math.min(3.4, world.field.halfWidth * 0.32);
+    return fieldClamp(world, { x: ball.x * 0.42 + coverSide * coverWidth, y: 0, z: ball.z - direction * 4.2 });
   }
   const side = ordinal % 2 === 0 ? -1 : 1;
   return fieldClamp(world, {
@@ -121,6 +124,7 @@ export function assignTeamRoles(
   if (isPreviousAssignment(previous)
     && previous.phase === phase
     && previous.possessionPlayerId === (world.possessionTeam === team ? world.possessionPlayerId : null)
+    && previous.passReceiverId === world.passReceiverId
     && world.timeSeconds - previous.generatedAtSeconds >= 0
     && world.timeSeconds - previous.generatedAtSeconds < 0.28
     && previous.assignments.every((entry) => players.some((player) => player.id === entry.playerId))) {
@@ -129,6 +133,7 @@ export function assignTeamRoles(
       switchCount: 0,
       phase,
       possessionPlayerId: previous.possessionPlayerId,
+      passReceiverId: previous.passReceiverId ?? null,
       generatedAtSeconds: world.timeSeconds,
     };
   }
@@ -140,10 +145,17 @@ export function assignTeamRoles(
   const fieldPlayers = players.filter((player) => player.id !== keeper.id);
 
   let remaining = [...fieldPlayers];
-  if (phase === 'attack' && world.possessionPlayerId && remaining.some((player) => player.id === world.possessionPlayerId)) {
-    const carrier = remaining.find((player) => player.id === world.possessionPlayerId)!;
-    assignments.push({ playerId: carrier.id, role: 'ball-carrier', targetPosition: { ...world.ball.position, y: 0 } });
-    remaining = remaining.filter((player) => player.id !== carrier.id);
+  if (phase === 'attack' && (world.possessionPlayerId || world.passReceiverId)) {
+    const carrierId = world.possessionPlayerId ?? world.passReceiverId;
+    const carrier = remaining.find((player) => player.id === carrierId);
+    if (carrier) {
+      assignments.push({
+        playerId: carrier.id,
+        role: world.possessionPlayerId ? 'ball-carrier' : 'receiver',
+        targetPosition: { ...world.ball.position, y: 0 },
+      });
+      remaining = remaining.filter((player) => player.id !== carrier.id);
+    }
     const slots: Array<{ role: Exclude<BotRole, 'goalkeeper' | 'ball-carrier'>; targetPosition: Vec3 }> = [];
     if (remaining.length >= 1) slots.push({ role: 'immediate-support', targetPosition: roleTarget(world, team, 'immediate-support', 0) });
     if (remaining.length >= 2) slots.push({ role: 'width-support', targetPosition: roleTarget(world, team, 'width-support', 1) });
@@ -171,6 +183,7 @@ export function assignTeamRoles(
     switchCount,
     phase,
     possessionPlayerId: world.possessionTeam === team ? world.possessionPlayerId : null,
+    passReceiverId: world.passReceiverId ?? null,
     generatedAtSeconds: world.timeSeconds,
   };
 }

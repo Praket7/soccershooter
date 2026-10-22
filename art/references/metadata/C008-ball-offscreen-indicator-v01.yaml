@@ -1,0 +1,20 @@
+id: C008
+category: camera-ball-offscreen-indicator
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 2560x1440
+source_resolution: 1672x941
+upscale: Apple sips Lanczos resampling; generated source retained in working/
+purpose: Readability reference for subtly indicating a ball that has rolled behind and outside the trailing camera view.
+asset_targets: [offscreen ball direction indicator, player camera composition, unobstructed forward play]
+copy: [small edge cue, clear direction, minimal visual weight, visible athlete and forward space]
+avoid: [false exact-position promise, large arrows, covering player, implying possession when loose]
+camera: {type: trailing_third_person_gameplay, estimated_height_m: 4, focal_length_equiv_mm: 34, position: behind_player}
+lighting: {type: daylight_stadium, color_temperature_k: null}
+palette: [natural grass, burgundy, ivory, soft neutral indicator]
+measurements: {aspect_ratio: 16/9, horizon_line: 0.16, controlled_player_screen_occupancy: 0.18, ball_screen_occupancy: 0, goal_visible: true, edge_ui_safe_regions: [top_6%, bottom_8%]}
+notes: Generated cue is directional only; it does not define possession state. Source enlarged from 1672x941 by Lanczos. Reproduce against actual camera projection and test false-positive behavior before implementation.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

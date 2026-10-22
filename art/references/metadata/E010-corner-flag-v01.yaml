@@ -1,0 +1,19 @@
+id: E010
+category: equipment-corner-flag
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 354x443
+source_resolution: 1774x887 contact sheet crop
+purpose: Corner flag and base equipment reference.
+asset_targets: [flag cloth, pole, weighted base, turf contact]
+copy: [simple durable construction, clear scale, realistic material response]
+avoid: [brand marks, unstable base]
+camera: {type: equipment-detail, focal_length_equiv_mm: 50}
+lighting: {type: neutral-soft, color_temperature_k: null}
+palette: [white, charcoal, turf green]
+measurements: {aspect_ratio: 4/5}
+notes: Cropped from approved equipment contact sheet row 2 column 5.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

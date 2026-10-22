@@ -59,7 +59,9 @@ function actorSnapshot(player: Readonly<PlayerState>, pressure: number, preferre
   const speedBalance = Math.max(0.72, Math.min(1, 1 - Math.max(0, speed - DEFAULT_MOVEMENT_CONFIG.jogSpeed) * 0.035));
   return {
     position: { ...player.position }, velocity: { ...player.velocity },
-    facingYaw: speed > 0.35 ? Math.atan2(player.velocity.x, player.velocity.z) : player.facingYaw,
+    facingYaw: Math.hypot(player.velocity.x, player.velocity.z) > 0.35
+      ? Math.atan2(player.velocity.x, player.velocity.z)
+      : player.facingYaw,
     balance: movementBalance * speedBalance, pressure, sprinting: player.locomotion === 'sprint', preferredFoot,
   };
 }

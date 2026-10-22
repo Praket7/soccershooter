@@ -1,0 +1,19 @@
+id: H004
+category: replay-final-whistle-wide
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 768x512
+source_resolution: 1536x1024 contact sheet crop
+purpose: Wide final-whistle replay and arena atmosphere framing.
+asset_targets: [full pitch, players, single goal, modest crowd, truthful replay composition]
+copy: [premium but readable staging, grounded subjects, restrained highlight treatment]
+avoid: [logos, readable text, excessive lens flare, invented ball trajectory]
+camera: {type: replay-wide-arena, focal_length_equiv_mm: 35}
+lighting: {type: authored-replay, color_temperature_k: null}
+palette: [turf green, charcoal, warm amber]
+measurements: {aspect_ratio: 3/2}
+notes: Cropped from the approved replay contact sheet at row 1 column 1; visual direction only.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

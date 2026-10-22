@@ -36,3 +36,6 @@ Thumbs.db
 # Local style-tool cache and nested stage worktrees
 apps/web/.impeccable/
 /work/
+
+# Generated reference archive is kept locally; GitHub rejects files over 100 MB.
+art/exports/SoccerShooter-reference-library-192.zip

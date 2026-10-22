@@ -126,6 +126,7 @@ const PLANT_CUT_MIN_SPEED = 6.1;
 // support steps, not a large instantaneous sideways velocity correction.
 const MIN_DIRECTIONAL_BRAKING = 6.5;
 const MAX_DIRECTIONAL_BRAKING = 8.5;
+const RELEASE_BRAKING = 18.5;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -278,6 +279,7 @@ function directionalVelocity(
   currentSpeed: number,
   turnDelta: number,
   plantCut: boolean,
+  sprinting: boolean,
   deltaSeconds: number,
   config: Readonly<MovementConfig>,
 ): { x: number; z: number } {
@@ -287,6 +289,11 @@ function directionalVelocity(
   const launchAcceleration = config.acceleration * turnPropulsionScale;
   const directionalBraking = MAX_DIRECTIONAL_BRAKING
     + (MIN_DIRECTIONAL_BRAKING - MAX_DIRECTIONAL_BRAKING) * speedFraction;
+  // At jogging pace there is less inertia to absorb, so a planted cut can
+  // shed the old travel direction faster. A sprint input gets the same help
+  // only once the sprint input is released; active sprints keep their heavier,
+  // more physical momentum.
+  const agilityBraking = sprinting ? 0 : Math.max(0, 1 - speedFraction) * 3.0;
 
   // Resolve velocity in a basis aligned to the user's requested travel. This
   // is the key difference from the old point-mass moveVectorToward response:
@@ -303,7 +310,7 @@ function directionalVelocity(
   const nextLateral = moveToward(
     lateralVelocity,
     0,
-    (plantCut ? config.braking : directionalBraking) * deltaSeconds,
+    (plantCut ? config.braking : directionalBraking + agilityBraking) * deltaSeconds,
   );
 
   let x = desiredX * nextForward + perpendicularX * nextLateral;
@@ -371,12 +378,16 @@ export function stepPlayerMovement(
 
   let velocity: { x: number; z: number };
   if (move.magnitude <= 0.01) {
+    // Releasing the stick is a deliberate stop command. Use a planted, quick
+    // braking response so the body does not keep skating while the gait cycles
+    // on behind it; direction changes still use the slower, momentum-preserving
+    // directional braking above.
     velocity = moveVectorToward(
       state.velocity.x,
       state.velocity.z,
       0,
       0,
-      config.braking * deltaSeconds,
+      RELEASE_BRAKING * deltaSeconds,
     );
   } else {
     velocity = directionalVelocity(
@@ -388,6 +399,7 @@ export function stepPlayerMovement(
       currentSpeed,
       turnDelta,
       plantCut,
+      sprinting,
       deltaSeconds,
       config,
     );
@@ -459,6 +471,10 @@ export function stepPlayerMovement(
   state.athleticMotion = stepAthleticMotion(previous.athleticMotion, {
     position: { x: nextX, z: nextZ },
     currentVelocity: { x: nextVelocityX, z: nextVelocityZ },
+    realizedAcceleration: {
+      x: (nextVelocityX - previous.velocity.x) / deltaSeconds,
+      z: (nextVelocityZ - previous.velocity.z) / deltaSeconds,
+    },
     desiredDirection: { x: desiredX, z: desiredZ },
     moveMagnitude: move.magnitude,
     sprinting,

@@ -1,0 +1,18 @@
+id: U007
+category: ui-athlete-profile
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 1672x941
+purpose: Fictional athlete profile target with concise identity, position, physical scale and gameplay attributes.
+asset_targets: [athlete profile, player edit entry, attribute display]
+copy: [fictional name, position, height, four readable attributes and values]
+avoid: [public-figure names/likenesses, marks on kit, stat clutter]
+camera: {type: front_three_quarter_profile, focal_length_equiv_mm: 85}
+lighting: {type: neutral_tunnel_stadium, color_temperature_k: null}
+palette: [deep navy, soft white, interaction lime, garnet]
+measurements: {height_m: 1.82}
+notes: Revision v02 selected with fictional name Mateo Reyes after rejecting v01 because it used the name of a well-known public athlete. Verify stat labels and fictional identity in production.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

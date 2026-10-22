@@ -1,0 +1,18 @@
+id: U010
+category: ui-multiplayer-lobby
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 1672x941
+purpose: Multiplayer lobby target showing roster, team balance, readiness, voice state and lobby privacy.
+asset_targets: [multiplayer lobby, readiness controls, team balance, voice controls, privacy]
+copy: [four anonymous player slots, ready state, host state, invite-only privacy]
+avoid: [real player identities, exposing user data, misleading voice/chat states, clutter]
+camera: {type: flat_ui_roster_grid}
+lighting: {type: cool_stadium_ambient, color_temperature_k: null}
+palette: [deep navy, soft white, interaction lime, balanced team accents]
+measurements: {aspect_ratio: 16/9}
+notes: Generated concept; actual privacy and network state must be represented by live data and accessible controls.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

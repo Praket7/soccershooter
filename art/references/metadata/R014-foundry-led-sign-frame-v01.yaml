@@ -1,0 +1,20 @@
+id: R014
+category: arena-led-sign-frame
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 2560x1440
+source_resolution: 1672x941
+upscale: Apple sips Lanczos resampling; generated source retained in working/
+purpose: Discreet modular LED information-frame housing and mounting reference.
+asset_targets: [narrow LED panel, charcoal enclosure, support brackets, service access, pitch-side placement]
+copy: [thin robust housing, low visual dominance, believable mount and wiring access, subtle abstract display color]
+avoid: [readable text, real brands, excessive brightness, ad-wall scale, obstruction of goal or play]
+camera: {type: close_oblique_pitchside_detail, estimated_height_m: 1.5, focal_length_equiv_mm: 50}
+lighting: {type: neutral_indoor_sports_lighting, color_temperature_k: null}
+palette: [charcoal housing, subtle cool blue and muted red, brick, turf green]
+measurements: {aspect_ratio: 16/9, frame_mounting_and_pitch_visible: true}
+notes: Generated concept enlarged from 1672x941 using Lanczos; upscaling adds no detail. Treat display content as non-legible visual placeholder; final in-game UI must be independently designed and tested.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

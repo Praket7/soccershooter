@@ -1,4 +1,9 @@
 import { describe, expect, test } from 'vitest';
+import { BALL_CONSTANTS, createBallState } from '../../../physics/src/ball/BallState';
+import { MATCH_BALL_PROFILE } from '../../../physics/src/ball/aerodynamics';
+import { BALL_SUBSTEP_DT, stepBall } from '../../../physics/src/ball/trajectory';
+import { createPlayerState } from '../player/PlayerState';
+import { createFlatMovementWorld, DEFAULT_MOVEMENT_CONFIG, stepPlayerMovement } from '../player/movement';
 import type { AthleticMotionState } from '../player/athleticMotion';
 import * as runtimeModule from './runtime';
 import type { FootballActorSnapshot, FootballBallSnapshot, FootballHorizontalDirection } from './types';
@@ -44,6 +49,10 @@ interface PlannerApi {
     moveIntentMagnitude: number;
     receiveMode?: 'kill' | 'controlled-exit' | null;
   }) => PlannerStep;
+  stepTechniqueCarry?: (input: Parameters<NonNullable<PlannerApi['stepPlannedDribble']>>[0] & {
+    techniqueContactTick: number;
+    reserveContactTicks: number;
+  }) => PlannerStep | null;
 }
 
 const api = runtimeModule as unknown as PlannerApi;
@@ -88,9 +97,12 @@ function motion(overrides: Partial<AthleticMotionState> = {}): AthleticMotionSta
     strideSeconds: 0.42,
     plantIntensity: 0,
     turnDemand: 0,
+    bodyYaw: 0,
+    bodyYawRate: 0,
     brakingDemand: 0,
     propulsionDemand: 0.9,
     bodyLean: { forward: 0.12, lateral: 0 },
+    realizedAcceleration: { x: 0, z: 0 },
     plannedVelocity: { x: 0, z: 5.0 },
     trajectory: [
       { time: 0.15, position: { x: 0, z: 0.68 }, velocity: { x: 0, z: 4.7 } },
@@ -131,6 +143,116 @@ function step(
 }
 
 describe('Stage 05R contact-planned normal and precision dribbling', () => {
+  test('skill windup keeps gait-timed carry contacts active until its reserved move-contact window', () => {
+    expect(typeof api.stepTechniqueCarry).toBe('function');
+    const plannerApi = requireApi();
+    if (!plannerApi || !api.stepTechniqueCarry) return;
+    const input = {
+      tick: 10,
+      state: plannerApi.createPlannedDribbleState(),
+      actor: actor(),
+      motion: motion(),
+      ball: ball(),
+      desiredDirection: { x: 0, z: 1 },
+      precision: false,
+      sprint: false,
+      pressure: 0,
+      moveIntentMagnitude: 1,
+      techniqueContactTick: 54,
+      reserveContactTicks: 6,
+    };
+    const windup = plannerApi.stepTechniqueCarry(input);
+    expect(windup?.state.activePlan).not.toBeNull();
+    expect(windup?.contactApplied).toBe(false);
+
+    const contactTick = windup!.state.activePlan!.contactTick;
+    const carryContact = plannerApi.stepTechniqueCarry({
+      ...input,
+      tick: contactTick,
+      state: windup!.state,
+      ball: ball({ position: { ...windup!.state.activePlan!.expectedBallPoint } }),
+    });
+    expect(carryContact?.contactApplied).toBe(true);
+    expect(plannerApi.stepTechniqueCarry({ ...input, tick: 48 })).toBeNull();
+  });
+
+  test('a skill windup keeps the ball in the runner pocket through live cuts', () => {
+    expect(typeof api.stepTechniqueCarry).toBe('function');
+    const plannerApi = requireApi();
+    if (!plannerApi || !api.stepTechniqueCarry) return;
+    let state = plannerApi.createPlannedDribbleState();
+    let player = createPlayerState({ stamina: DEFAULT_MOVEMENT_CONFIG.staminaMax });
+    let liveBall = createBallState({
+      position: { x: 0, y: BALL_CONSTANTS.radius, z: 0.68 },
+      grounded: true,
+    });
+    let maximumSeparation = 0;
+    let carryContacts = 0;
+    const world = createFlatMovementWorld({ minX: -100, maxX: 100, minZ: -100, maxZ: 100 });
+
+    for (let tick = 0; tick < 38; tick += 1) {
+      const moveX = tick < 10 ? 0 : tick < 24 ? -0.6 : 0.6;
+      const moveY = 1;
+      player = stepPlayerMovement(player, {
+        moveX, moveY, aimYaw: 0, sprint: true, actionBits: 0,
+      }, world, 1 / 60);
+      const rawDirection = { x: -moveX, z: moveY };
+      const directionLength = Math.hypot(rawDirection.x, rawDirection.z);
+      const direction = { x: rawDirection.x / directionLength, z: rawDirection.z / directionLength };
+      const runner: FootballActorSnapshot = {
+        position: { ...player.position },
+        velocity: { ...player.velocity },
+        facingYaw: Math.hypot(player.velocity.x, player.velocity.z) > 0.35
+          ? Math.atan2(player.velocity.x, player.velocity.z)
+          : player.facingYaw,
+        balance: player.grounded ? 1 : 0.58,
+        pressure: 0,
+        sprinting: player.locomotion === 'sprint',
+        preferredFoot: 'right',
+      };
+      const liveBallSnapshot: FootballBallSnapshot = {
+        position: { ...liveBall.position },
+        velocity: { ...liveBall.velocity },
+        angularVelocity: { ...liveBall.angularVelocity },
+        radius: BALL_CONSTANTS.radius,
+        mass: BALL_CONSTANTS.mass,
+        grounded: liveBall.grounded,
+      };
+      const result = api.stepTechniqueCarry({
+        tick,
+        state,
+        actor: runner,
+        motion: player.athleticMotion,
+        ball: liveBallSnapshot,
+        desiredDirection: direction,
+        precision: false,
+        sprint: true,
+        pressure: 0,
+        moveIntentMagnitude: 1,
+        techniqueContactTick: 44,
+        reserveContactTicks: 6,
+      });
+      expect(result).not.toBeNull();
+      state = result!.state;
+      if (result!.contactApplied) {
+        carryContacts += 1;
+        liveBall = {
+          ...liveBall,
+          velocity: { ...result!.ball.velocity },
+          angularVelocity: { ...result!.ball.angularVelocity },
+        };
+      }
+      maximumSeparation = Math.max(maximumSeparation,
+        Math.hypot(liveBall.position.x - player.position.x, liveBall.position.z - player.position.z));
+      liveBall = stepBall(liveBall, BALL_SUBSTEP_DT, MATCH_BALL_PROFILE, null);
+      liveBall = stepBall(liveBall, BALL_SUBSTEP_DT, MATCH_BALL_PROFILE, null);
+    }
+
+    expect(carryContacts).toBeGreaterThanOrEqual(3);
+    expect(state.looseBall).toBe(false);
+    expect(maximumSeparation).toBeLessThan(1.25);
+  });
+
   test('standing still beside a settled ball produces no repeated micro-touch plan', () => {
     const plannerApi = requireApi();
     if (!plannerApi) return;
@@ -229,5 +351,28 @@ describe('Stage 05R contact-planned normal and precision dribbling', () => {
     expect(miss.state.looseBall).toBe(true);
     expect(miss.state.activePlan).toBeNull();
     expect(miss.ball).toEqual(escaped);
+  });
+
+  test('a missed touch stays dispossessed until the player turns back and recovers the ball', () => {
+    const plannerApi = requireApi();
+    if (!plannerApi) return;
+    const planned = step(plannerApi, plannerApi.createPlannedDribbleState(), 90);
+    const contactTick = planned.state.activePlan!.contactTick;
+    const escaped = ball({ position: { x: 1.6, y: 0.11, z: 2.1 }, velocity: { x: 1.2, y: 0, z: 5.5 } });
+    const lost = step(plannerApi, planned.state, contactTick, { ball: escaped });
+
+    expect(lost.state.looseBall).toBe(true);
+    expect(lost.state.activePlan).toBeNull();
+    expect(lost.reason).toBe('geometry-miss');
+
+    const stillLost = step(plannerApi, lost.state, contactTick + 1, { ball: escaped });
+    expect(stillLost.state.looseBall).toBe(true);
+    expect(stillLost.reason).toBe('loose-ball-chase');
+
+    const recovered = step(plannerApi, stillLost.state, 14, {
+      ball: ball({ position: { x: 0, y: 0.11, z: 0.58 } }),
+    });
+    expect(recovered.state.looseBall).toBe(false);
+    expect(recovered.reason).toBe('contact-planned');
   });
 });

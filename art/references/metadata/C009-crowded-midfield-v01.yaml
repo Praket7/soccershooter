@@ -1,0 +1,20 @@
+id: C009
+category: camera-crowded-midfield-readability
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 2560x1440
+source_resolution: 1672x941
+upscale: Apple sips Lanczos resampling; generated source retained in working/
+purpose: Crowded 3v3 midfield reference showing the ball carrier under close pressure while retaining one useful support lane.
+asset_targets: [small-sided midfield camera, ball contrast under pressure, player silhouettes, support lane]
+copy: [visible ball at carrier foot, compact press cluster, one open teammate option, clear team color distinction]
+avoid: [ball hidden by feet, all players overlapping, excessive open-field negative space, extreme top-down view]
+camera: {type: elevated_player_follow, estimated_height_m: 4.5, focal_length_equiv_mm: 38, position: behind_centerline}
+lighting: {type: neutral_daylight, color_temperature_k: null}
+palette: [natural grass, burgundy, ivory, neutral barriers]
+measurements: {aspect_ratio: 16/9, horizon_line: 0.15, controlled_player_screen_occupancy: 0.1, ball_screen_occupancy: 0.002, goal_visible: false, edge_ui_safe_regions: [top_6%, bottom_8%]}
+notes: Source enlarged from 1672x941 with Lanczos. Use as a framing reference only; the scene shows a compact possession, not the full 3v3 roster. Validate controlled athlete and ball contrast in real 3v3 play.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

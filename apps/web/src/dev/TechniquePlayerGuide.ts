@@ -40,7 +40,7 @@ export function describeTechniqueForPlayer(technique: Readonly<TechniqueDefiniti
     setup: setupLabel(technique),
     speed: `Player speed ${technique.eligibility.minimumSpeed.toFixed(1)}–${technique.eligibility.maximumSpeed.toFixed(1)} m/s`,
     pressure: `Works up to ${Math.round(technique.eligibility.maximumPressure * 100)}% pressure · ball within ${technique.eligibility.maximumBallDistance.toFixed(2)} m`,
-    cost: `${technique.cost.stamina} stamina · ${technique.timing.recoveryTicks} tick recovery`,
+    cost: `${technique.cost.stamina === 0 ? 'No stamina' : `${technique.cost.stamina} stamina`} · ${technique.timing.recoveryTicks} tick recovery`,
     contact: `${technique.contact.targetSpeed.toFixed(1)} m/s contact · ${technique.contact.launchElevationDegrees.toFixed(0)}° launch · ${spinLabel(technique.contact.spinAxis)}`,
     risk: technique.counter.vulnerable
       ? `${technique.counter.windowTicks} tick counter window · ${technique.failure.recoveryTicks} tick recovery on a miss`

@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="840" height="980" viewBox="0 0 840 980" role="img" aria-labelledby="title desc">
+  <title id="title">Foundry arena spatial plan v01</title>
+  <desc id="desc">Top-down small-sided football venue with a 24 by 36 meter pitch, 3 meter safety runoff, goals, stands, player tunnels, service ring, and live-camera corridor.</desc>
+  <defs>
+    <pattern id="grass" width="48" height="48" patternUnits="userSpaceOnUse">
+      <rect width="48" height="48" fill="#315a46"/>
+      <rect width="24" height="48" fill="#37634d"/>
+    </pattern>
+    <pattern id="seats" width="10" height="10" patternUnits="userSpaceOnUse">
+      <rect width="10" height="10" fill="#263244"/>
+      <circle cx="3" cy="3" r="1.2" fill="#8493a6"/>
+      <circle cx="8" cy="7" r="1.1" fill="#53677b"/>
+    </pattern>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto-start-reverse">
+      <path d="M0 0L8 4L0 8Z" fill="#d8f25a"/>
+    </marker>
+    <style>
+      text{font-family:Inter,Arial,sans-serif;fill:#edf2f6}.dim{stroke:#d8f25a;stroke-width:1.5;marker-start:url(#arrow);marker-end:url(#arrow)}
+      .note{font-size:13px;fill:#b8c3cf}.label{font-size:14px;font-weight:700;letter-spacing:.04em}.small{font-size:11px;fill:#c4ced8}
+    </style>
+  </defs>
+  <rect width="840" height="980" fill="#111925"/>
+  <text x="48" y="50" font-size="23" font-weight="800" letter-spacing=".07em">THE FOUNDRY · SPATIAL PLAN v01</text>
+  <text x="48" y="76" class="note">Working blockout · 3v3 · dimensions from current physical scrimmage field</text>
+  <!-- Outer concourse and building envelope -->
+  <rect x="106" y="118" width="628" height="756" rx="26" fill="#202b39" stroke="#607184" stroke-width="2"/>
+  <text x="420" y="143" text-anchor="middle" class="small">PERIMETER SERVICE / CONCOURSE RING · EXITS · LIGHTING</text>
+  <!-- Stands and concourse breaks -->
+  <rect x="184" y="172" width="472" height="84" rx="12" fill="url(#seats)" stroke="#718198" stroke-width="2"/>
+  <rect x="184" y="726" width="472" height="84" rx="12" fill="url(#seats)" stroke="#718198" stroke-width="2"/>
+  <rect x="184" y="256" width="68" height="470" rx="12" fill="url(#seats)" stroke="#718198" stroke-width="2"/>
+  <rect x="588" y="256" width="68" height="470" rx="12" fill="url(#seats)" stroke="#718198" stroke-width="2"/>
+  <text x="420" y="226" text-anchor="middle" class="label">NORTH END STAND / MAIN SCOREBOARD</text>
+  <text x="420" y="778" text-anchor="middle" class="label">SOUTH END STAND / TEAM TUNNELS</text>
+  <text x="218" y="491" text-anchor="middle" transform="rotate(-90 218 491)" class="small">WEST STAND · PLAYER TUNNEL</text>
+  <text x="622" y="491" text-anchor="middle" transform="rotate(90 622 491)" class="small">EAST STAND · SERVICE</text>
+  <!-- Low safety runoff and board boundary -->
+  <rect x="265" y="276" width="312" height="430" rx="4" fill="#4b5963" stroke="#efa94b" stroke-width="3" stroke-dasharray="8 5"/>
+  <text x="280" y="491" text-anchor="middle" transform="rotate(-90 280 491)" class="small">3 m CLEAR RUNOFF</text>
+  <!-- Pitch 24x36 (286x414 for diagram proportions) -->
+  <rect x="296" y="307" width="250" height="368" fill="url(#grass)" stroke="#e8efe8" stroke-width="2"/>
+  <path d="M296 491H546M296 307H546M296 675H546" stroke="#e8efe8" stroke-width="1.5" fill="none"/>
+  <circle cx="421" cy="491" r="46" fill="none" stroke="#e8efe8" stroke-width="1.5"/>
+  <circle cx="421" cy="491" r="3.2" fill="#e8efe8"/>
+  <!-- Areas and goals -->
+  <rect x="354" y="307" width="134" height="57" fill="none" stroke="#e8efe8" stroke-width="1.5"/>
+  <rect x="354" y="618" width="134" height="57" fill="none" stroke="#e8efe8" stroke-width="1.5"/>
+  <rect x="385" y="307" width="72" height="4" fill="#f3f6f7" stroke="#ffffff" stroke-width="2"/>
+  <rect x="385" y="671" width="72" height="4" fill="#f3f6f7" stroke="#ffffff" stroke-width="2"/>
+  <path d="M386 303V289H456V303M386 679V693H456V679" stroke="#d6dde3" stroke-width="2" fill="none"/>
+  <text x="421" y="340" text-anchor="middle" class="small">NORTH GOAL · 7.32 m</text>
+  <text x="421" y="650" text-anchor="middle" class="small">SOUTH GOAL · 7.32 m</text>
+  <!-- Live camera lanes -->
+  <path d="M420 606L342 360M420 606L500 360" stroke="#d8f25a" stroke-width="1.5" stroke-dasharray="7 6" opacity=".78"/>
+  <circle cx="420" cy="606" r="10" fill="#d8f25a" stroke="#101820" stroke-width="3"/>
+  <!-- Dimensions -->
+  <path d="M296 824V844M546 824V844M296 840H546" class="dim"/>
+  <text x="421" y="860" text-anchor="middle" class="label" fill="#d8f25a">24 m PLAYING WIDTH</text>
+  <path d="M746 307H768M746 675H768M760 307V675" class="dim"/>
+  <text x="788" y="491" transform="rotate(90 788 491)" text-anchor="middle" class="small" fill="#d8f25a">36 m PLAYING LENGTH</text>
+  <!-- Landmarks -->
+  <rect x="106" y="448" width="78" height="74" rx="9" fill="#39485a" stroke="#d8f25a" stroke-width="2"/>
+  <text x="145" y="477" text-anchor="middle" class="small">MAIN</text>
+  <text x="145" y="493" text-anchor="middle" class="small">PLAYER</text>
+  <text x="145" y="509" text-anchor="middle" class="small">TUNNEL</text>
+  <rect x="656" y="310" width="78" height="58" rx="9" fill="#39485a" stroke="#efa94b" stroke-width="2"/>
+  <text x="695" y="335" text-anchor="middle" class="small">RESERVE</text>
+  <text x="695" y="352" text-anchor="middle" class="small">ENTRY</text>
+  <rect x="656" y="614" width="78" height="58" rx="9" fill="#39485a" stroke="#efa94b" stroke-width="2"/>
+  <text x="695" y="639" text-anchor="middle" class="small">SERVICE</text>
+  <text x="695" y="656" text-anchor="middle" class="small">ENTRY</text>
+  <text x="48" y="916" class="note">World origin: pitch center · X = 24 m width · Z = 36 m length · Goals on ±Z</text>
+  <text x="48" y="940" class="small">Lime marker and dashed rays: live player camera corridor · Working geometry; validate sightlines before collision lock.</text>
+</svg>

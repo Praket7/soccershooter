@@ -1,0 +1,19 @@
+id: M018
+category: movement-stumble-recovery
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 330x297
+source_resolution: 1322x1190 contact sheet crop
+purpose: Stumble and recovery body-language reference.
+asset_targets: [off-balance recovery, foot regain, arm balance, grounded pose]
+copy: [recoverable momentum, plausible foot placement, stable limb lengths]
+avoid: [floating feet, broken joints, cartoon fall]
+camera: {type: full-body-motion-study, focal_length_equiv_mm: 85}
+lighting: {type: neutral-soft-daylight, color_temperature_k: null}
+palette: [charcoal kit, turf green]
+measurements: {aspect_ratio: 10/9}
+notes: Cropped from approved motion contact sheet row 3 column 3.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

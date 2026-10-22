@@ -1,0 +1,18 @@
+id: G005
+category: global-goal-release
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 1672x941
+purpose: Golden target for goal confirmation, ball-in-net readability, keeper response and restrained celebration.
+asset_targets: [goal state, net response, score feedback, post-goal staging]
+copy: [ball visible in net, readable goal geometry, restrained player response, natural goalkeeper landing]
+avoid: [oversized celebration VFX, obscured ball, real identity or protected branding]
+camera: {type: third_person_gameplay, focal_length_equiv_mm: 55}
+lighting: {type: late_afternoon_stadium, color_temperature_k: null}
+palette: [forest green, deep garnet, dark navy, warm white]
+measurements: {player_height_m: 1.82, ball_diameter_m: 0.22}
+notes: Selected as an internal golden target. Runtime net and score confirmation must be compared with this frame in-engine.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

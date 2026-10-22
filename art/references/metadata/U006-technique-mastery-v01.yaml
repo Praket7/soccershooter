@@ -1,0 +1,18 @@
+id: U006
+category: ui-technique-mastery
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 1672x941
+purpose: Technique skill-tree target showing prerequisite relationships, current focus and next drill.
+asset_targets: [technique mastery, skill tree, drill details, start-drill action]
+copy: [visible technique names, one selected skill, concise next step, clear progress state]
+avoid: [skill icon confusion, disconnected nodes, fake microcopy, decorative effects hiding the athlete]
+camera: {type: ui_with_training_demo}
+lighting: {type: stadium_training_night, color_temperature_k: null}
+palette: [deep navy, soft white, interaction lime]
+measurements: {aspect_ratio: 16/9}
+notes: Generated visual target; validate skill names and unlock rules against live technique catalog before implementation.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

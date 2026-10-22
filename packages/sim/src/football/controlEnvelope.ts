@@ -114,12 +114,12 @@ function corridorTuning(mode: ControlTouchMode): CorridorTuning {
     return { horizon: 0.14, gain: 0.86, maxAdvance: 0.42, maxRecovery: 4.0, maxLateral: 3.8 };
   }
   if (mode === 'sprint') {
-    return { horizon: 0.20, gain: 0.82, maxAdvance: 0.45, maxRecovery: 4.8, maxLateral: 3.3 };
+    return { horizon: 0.18, gain: 0.94, maxAdvance: 0.45, maxRecovery: 5.2, maxLateral: 4.6 };
   }
   if (mode === 'effort-turn') {
-    return { horizon: 0.11, gain: 0.92, maxAdvance: 2.4, maxRecovery: 5.2, maxLateral: 4.2 };
+    return { horizon: 0.10, gain: 1.08, maxAdvance: 2.4, maxRecovery: 6.0, maxLateral: 6.0 };
   }
-  return { horizon: 0.16, gain: 0.84, maxAdvance: 0.52, maxRecovery: 4.3, maxLateral: 3.5 };
+  return { horizon: 0.11, gain: 0.92, maxAdvance: 0.46, maxRecovery: 5.4, maxLateral: 4.0 };
 }
 
 /**
@@ -215,7 +215,7 @@ function straightTouchDistance(
   playerSpeed: number,
 ): number {
   if (precision) return CLOSE_CONTROL_CONTACT_DISTANCE;
-  if (sprint) return 0.50 + clampFootball(playerSpeed - 6, 0, 3) * 0.015;
+  if (sprint) return 0.44 + clampFootball(playerSpeed - 6, 0, 3) * 0.015;
   return CLOSE_CONTROL_CONTACT_DISTANCE;
 }
 
@@ -361,11 +361,15 @@ export function buildControlTouch(input: Readonly<ControlTouchInput>): ControlTo
   const closeRecovery = clampFootball((0.72 - reach) / 0.52, 0, 1);
   const trailingRecovery = clampFootball((0.35 - ballFacingDot) / 1.15, 0, 1);
   const recoverySteer = Math.max(closeRecovery, trailingRecovery, activeTurnBackRecovery ? 1 : 0);
-  const turnAllowanceDegrees = input.precision
-    ? 50 + 20 * recoverySteer
+  const baseTurnAllowanceDegrees = input.precision
+    ? 58 + 24 * recoverySteer
     : input.sprint
-      ? 26 + 40 * recoverySteer
-      : 42 + 18 * recoverySteer;
+      ? 42 + 48 * recoverySteer
+      : 48 + 28 * recoverySteer;
+  const reversalSeverity = clampFootball((turnSeverity - 0.72) / 0.28, 0, 1);
+  const turnAllowanceDegrees = effortTurn
+    ? baseTurnAllowanceDegrees + (165 - baseTurnAllowanceDegrees) * reversalSeverity
+    : baseTurnAllowanceDegrees;
   const controlDirection = effortTurn
     ? rotateDirectionToward(movingBallDirection, direction, turnAllowanceDegrees * Math.PI / 180)
     : direction;
@@ -421,11 +425,11 @@ export function buildControlTouch(input: Readonly<ControlTouchInput>): ControlTo
   const controlLateral = { x: controlDirection.z, z: -controlDirection.x };
   const relativeLateral = (input.ball.position.x - input.actor.position.x) * controlLateral.x
     + (input.ball.position.z - input.actor.position.z) * controlLateral.z;
-  const pocketSide = Math.abs(relativeLateral) > 0.05
-    ? Math.sign(relativeLateral)
-    : input.actor.preferredFoot === 'right' ? 1 : -1;
   const controlPocketOffset = curvedCarry
-    ? pocketSide * clampFootball(Math.abs(relativeLateral), input.precision ? 0.08 : 0.15, 0.35)
+    // Preserve a real lateral drift smoothly. Do not infer a side from the
+    // preferred foot when the ball is centered: that creates a fixed right
+    // pocket bias and a discontinuous 15 cm target jump on slight curves.
+    ? clampFootball(relativeLateral, -0.22, 0.22)
     : 0;
   const imperfection = buildTouchImperfection(
     input,
@@ -469,7 +473,7 @@ export function buildControlTouch(input: Readonly<ControlTouchInput>): ControlTo
     x: movingBallDirection.x * imperfection.momentumRetention,
     z: movingBallDirection.z * imperfection.momentumRetention,
   };
-  const desiredVelocity: FootballVec3 = trapRequested
+  let desiredVelocity: FootballVec3 = trapRequested
     ? {
         x: input.actor.velocity.x * 0.18,
         y: input.ball.grounded ? 0 : input.ball.velocity.y * 0.18,
@@ -481,11 +485,31 @@ export function buildControlTouch(input: Readonly<ControlTouchInput>): ControlTo
           y: input.ball.grounded ? 0 : input.ball.velocity.y * 0.12,
           z: direction.z * targetBallSpeed + momentumError.z,
         }
-      : {
+        : {
           x: controlDirection.x * targetBallSpeed + correction.x + momentumError.x,
           y: input.ball.grounded ? 0 : input.ball.velocity.y * (effortTurn ? 0.18 : 0.32),
           z: controlDirection.z * targetBallSpeed + correction.z + momentumError.z,
       };
+
+  // At low pace, a slightly long but centered touch should not turn into an
+  // accidental backward carry. Keep this safeguard to the short-startup
+  // window; faster team play and committed turns retain their existing impulse
+  // response, which preserves the sprint/circle possession envelope.
+  if (!trapRequested && !receiveExitRequested && !effortTurn && !input.precision
+    && moveIntentMagnitude >= 0.12 && input.ball.grounded
+    && playerSpeed <= 1.2 && desiredFacingDot >= 0.9
+    && ballFacingDot >= 0.75 && Math.abs(relativeLateral) <= 0.25) {
+    const forwardSpeed = desiredVelocity.x * controlDirection.x + desiredVelocity.z * controlDirection.z;
+    const minimumForwardSpeed = Math.min(0.72, targetBallSpeed * 0.55);
+    if (forwardSpeed < 0) {
+      const correctionAlongLane = minimumForwardSpeed - forwardSpeed;
+      desiredVelocity = {
+        ...desiredVelocity,
+        x: desiredVelocity.x + controlDirection.x * correctionAlongLane,
+        z: desiredVelocity.z + controlDirection.z * correctionAlongLane,
+      };
+    }
+  }
 
   const baseDeltaSpeed = trapRequested
     ? 9.5

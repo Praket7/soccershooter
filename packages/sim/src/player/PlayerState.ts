@@ -23,6 +23,7 @@ export const PlayerActionBits = Object.freeze({
   Receive: 1 << 9,
   DrivenModifier: 1 << 10,
   ChipModifier: 1 << 11,
+  Elastico: 1 << 12,
 });
 
 export type LocomotionState =
@@ -91,7 +92,7 @@ export function createPlayerState(init: PlayerStateInit = {}): PlayerState {
     locomotion: init.locomotion ?? 'idle',
     athleticMotion: init.athleticMotion
       ? cloneAthleticMotionState(init.athleticMotion)
-      : createAthleticMotionState(),
+      : createAthleticMotionState(init.facingYaw ?? 0),
     actionHooks: {
       jumpRequested: init.actionHooks?.jumpRequested ?? false,
       tackleRequested: init.actionHooks?.tackleRequested ?? false,

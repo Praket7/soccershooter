@@ -1,0 +1,19 @@
+id: X003
+category: accessibility-reduced-motion
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 256x256
+source_resolution: 1536x1024 source contact sheet, crop row 1 column 1
+purpose: Accessibility reference X003.
+asset_targets: [readable silhouette, realistic material and composition]
+copy: [clear focal subject, grounded lighting, believable scale]
+avoid: [real brands, logos, readable text, impossible anatomy or geometry]
+camera: {type: purpose-built-reference, focal_length_equiv_mm: null}
+lighting: {type: authored-reference, color_temperature_k: null}
+palette: []
+measurements: {aspect_ratio: 1/1}
+notes: Cropped from an approved category contact sheet; visual direction only and requires production validation.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

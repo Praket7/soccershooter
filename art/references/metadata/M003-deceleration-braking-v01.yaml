@@ -1,0 +1,19 @@
+id: M003
+category: movement-deceleration
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 1774x887
+source_resolution: 1672x941
+purpose: Show progressive momentum absorption from running into a balanced stop.
+asset_targets: [approach stride, braking plant, lowered hips, counterbalancing arms, settled stance]
+copy: [gradual stride shortening, flexed support leg, torso counterbalance, stable final base]
+avoid: [instant stop, sliding foot, backward fall, locked knees, airborne braking contact]
+camera: {type: lateral_full_body_motion_sequence, focal_length_equiv_mm: 85}
+lighting: {type: neutral_soft_daylight, color_temperature_k: null}
+palette: [charcoal kit, turf green]
+measurements: {aspect_ratio: 2/1, full_body_visible: true}
+notes: Generated concept retained at its 1774x887 source dimensions to preserve the original framing. Sequential poses are illustrative and should be checked against motion-capture or sports-biomechanics references before animation production.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

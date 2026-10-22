@@ -1,0 +1,20 @@
+id: R004
+category: arena-opposite-sideline-wide
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 2560x1440
+source_resolution: 1672x941
+upscale: Apple sips Lanczos resampling; generated source retained in working/
+purpose: Reverse long-side Foundry view that checks the far goal, center line, opposite stand/player tunnel, boards, and small-sided scale.
+asset_targets: [Foundry opposite sideline, center line, far short-end goal, west stand, clear long-side board]
+copy: [one goal only at short end, continuous sideline boards, compact brick/steel stand, centered entrance, readable rectangular pitch]
+avoid: [goal mouths on long sidelines, duplicate goals, inconsistent pitch topology, oversized stadium]
+camera: {type: east_sideline_to_west_stand, estimated_height_m: 1.6, focal_length_equiv_mm: 30, position: halfway_line_touchline}
+lighting: {type: neutral_overcast_daylight, color_temperature_k: null}
+palette: [dark steel, brick, turf green, soft daylight]
+measurements: {aspect_ratio: 16/9, pitch_long_side_visible: true, one_far_goal_visible: true}
+notes: The first version was rejected for adding goals to sidelines and is preserved with metadata in rejects/. Source v02 enlarged from 1672x941 by Lanczos. Verify view against R001 before production.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

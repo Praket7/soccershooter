@@ -1,0 +1,19 @@
+id: M002
+category: movement-full-sprint
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 1536x1024
+source_resolution: 1536x1024
+purpose: Full-speed locomotion silhouette and limb coordination reference.
+asset_targets: [sprint stride, forward inclination, arm swing, leg recovery, foot placement]
+copy: [stable torso, powerful but controlled stride, opposite arm-leg coordination, plausible body lean]
+avoid: [excessive vertical bounce, overstriding, distorted anatomy, motion blur obscuring contacts]
+camera: {type: lateral_three_quarter_full_body, focal_length_equiv_mm: 85}
+lighting: {type: neutral_soft_daylight, color_temperature_k: null}
+palette: [charcoal kit, turf green]
+measurements: {aspect_ratio: 3/2, full_body_visible: true}
+notes: Generated concept at source resolution; generated execution is illustrative and does not replace motion-capture or sports-biomechanics review.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

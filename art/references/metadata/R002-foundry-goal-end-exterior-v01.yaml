@@ -1,0 +1,20 @@
+id: R002
+category: arena-goal-end-exterior-identity
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 2560x1440
+source_resolution: 1672x941
+upscale: Apple sips Lanczos resampling; generated source retained in working/
+purpose: Exterior identity and massing reference for The Foundry small-sided football venue.
+asset_targets: [Foundry exterior, goal-end facade, steel roof truss, service entrance, original venue identity]
+copy: [compact industrial scale, dark steel structure, brick/concrete base, central entrance, warm wayfinding lights, restrained original venue sign]
+avoid: [giant stadium scale, real venue resemblance, sponsor signage, collision geometry inferred from image]
+camera: {type: centered_goal_end_exterior, focal_length_equiv_mm: 35}
+lighting: {type: dusk_with_warm_practicals, color_temperature_k: null}
+palette: [charcoal steel, warm brick, amber light, muted turf]
+measurements: {aspect_ratio: 16/9}
+notes: Visual direction only; source enlarged from 1672x941 by Lanczos. The generated building is a mood reference and must be reconciled with the exact R001 site plan before production.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

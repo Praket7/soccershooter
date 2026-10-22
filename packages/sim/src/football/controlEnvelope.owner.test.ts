@@ -24,6 +24,58 @@ const ball = (overrides: Partial<FootballBallSnapshot> = {}): FootballBallSnapsh
 });
 
 describe('Stage 05 owner dribble feedback', () => {
+  test('a curved carry does not snap a centered ball onto the preferred-foot side', () => {
+    const direction = { x: -0.3, z: Math.sqrt(0.91) };
+    const makeTouch = (lateralOffset: number) => buildControlTouch({
+      actor: actor({ velocity: { x: 0, y: 0, z: 5 } }),
+      ball: ball({
+        position: {
+          x: direction.x * 0.52 + direction.z * lateralOffset,
+          y: 0.11,
+          z: direction.z * 0.52 - direction.x * lateralOffset,
+        },
+        velocity: { x: 0, y: 0, z: 4.8 },
+      }),
+      desiredDirection: direction,
+      precision: false,
+      sprint: false,
+      pressure: 0,
+      moveIntentMagnitude: 1,
+    });
+    const lateral = { x: direction.z, z: -direction.x };
+    const lateralTarget = (offset: number) => {
+      const touch = makeTouch(offset);
+      expect(touch.eligible).toBe(true);
+      return touch.targetPoint.x * lateral.x + touch.targetPoint.z * lateral.z;
+    };
+
+    const centered = lateralTarget(0);
+    const justRight = lateralTarget(0.04);
+    const justLeft = lateralTarget(-0.04);
+    expect(centered).toBeCloseTo(0, 6);
+    expect(Math.abs(justRight - centered)).toBeLessThan(0.05);
+    expect(Math.abs(justLeft - centered)).toBeLessThan(0.05);
+  });
+
+  test('a curved carry brings an over-wide ball pocket back toward the player', () => {
+    const touch = buildControlTouch({
+      actor: actor({ velocity: { x: 0, y: 0, z: 5 } }),
+      ball: ball({
+        position: { x: 0.55, y: 0.11, z: 0.5 },
+        velocity: { x: 0, y: 0, z: 4.8 },
+      }),
+      desiredDirection: { x: -0.3, z: Math.sqrt(0.91) },
+      precision: false,
+      sprint: false,
+      pressure: 0,
+      moveIntentMagnitude: 1,
+    });
+
+    expect(touch.eligible).toBe(true);
+    expect(Math.hypot(touch.targetPoint.x, touch.targetPoint.z), 'turn touch target stays inside a compact outside-foot pocket')
+      .toBeLessThanOrEqual(0.52);
+  });
+
   test('a turning carry touch preserves its current foot side instead of steering through the centerline', () => {
     const touch = buildControlTouch({
       actor: actor({ velocity: { x: 0, y: 0, z: 5 } }),

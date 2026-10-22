@@ -4,9 +4,8 @@ import type { FootballBallSnapshot, FootballFoot, FootballVec3 } from './types';
 const TICK_HZ = 60;
 const MAX_STRIKE_REACH = 0.76;
 // Setup may begin while the ball is one normal dribble stride ahead. This is an
-// input-buffer envelope only: stepStrikeContact still enforces MAX_STRIKE_REACH
-// at the actual contact beat, so no extra physical reach or ball magnetism is
-// granted.
+// Input-buffer envelope only. Contact reach is carried explicitly by the plan
+// and rechecked on the actual beat; timing tolerance cannot silently widen it.
 const MAX_STRIKE_SETUP_REACH = 1.22;
 const MIN_CONTACT_DELAY_TICKS = 2;
 const MAX_CONTACT_DELAY_TICKS = 8;
@@ -27,6 +26,11 @@ export interface StrikeContactRequest {
   targetBallVelocity: Readonly<FootballVec3>;
   preferredFoot: Exclude<FootballFoot, 'both'>;
   balance: number;
+  /** Optional exact delay for moves with a visible setup before contact. */
+  contactDelayTicks?: number;
+  /** Skill-specific tolerance for the live contact beat. */
+  maximumContactReach?: number;
+  timingWindowTicks?: number;
 }
 
 export type StrikeContactStep =
@@ -102,15 +106,17 @@ function chooseContactCandidate(input: Readonly<StrikeContactRequest>, strideTic
   const actorVelocity = inferredActorVelocity(input);
   let best: ContactCandidate | null = null;
 
+  const minimumDelay = input.contactDelayTicks ?? MIN_CONTACT_DELAY_TICKS;
+  const maximumDelay = input.contactDelayTicks ?? MAX_CONTACT_DELAY_TICKS;
   for (const foot of [input.preferredFoot, oppositeFoot(input.preferredFoot)] as const) {
     const footOffset = foot === 'left' ? 0.5 : 0;
-    for (let delayTicks = MIN_CONTACT_DELAY_TICKS; delayTicks <= MAX_CONTACT_DELAY_TICKS; delayTicks += 1) {
+    for (let delayTicks = minimumDelay; delayTicks <= maximumDelay; delayTicks += 1) {
       const seconds = delayTicks / TICK_HZ;
       const expectedActorPoint = predictPoint(input.actorPosition, actorVelocity, seconds);
       const expectedBallPoint = predictPoint(input.ball.position, input.ball.velocity, seconds);
       expectedBallPoint.y = Math.max(input.ball.radius, expectedBallPoint.y);
       const reach = distance(expectedActorPoint, expectedBallPoint);
-      if (reach > MAX_STRIKE_REACH) continue;
+      if (reach > (input.maximumContactReach ?? MAX_STRIKE_REACH)) continue;
 
       const contactPhase = (phase + delayTicks / strideTicks + footOffset) % 1;
       const swingPhaseError = wrappedPhaseDistance(contactPhase, 0.72);
@@ -139,6 +145,10 @@ export function createStrikeContactPlan(
   if (!Number.isSafeInteger(input.tick) || input.tick < 0) throw new RangeError('tick must be a non-negative integer');
   if (!Number.isFinite(input.gaitPhase) || !Number.isFinite(input.strideSeconds) || input.strideSeconds <= 0) {
     throw new TypeError('gait phase and stride duration must be finite');
+  }
+  if (input.contactDelayTicks !== undefined
+    && (!Number.isSafeInteger(input.contactDelayTicks) || input.contactDelayTicks < MIN_CONTACT_DELAY_TICKS || input.contactDelayTicks > 60)) {
+    throw new RangeError('contactDelayTicks must be an integer from 2 to 60');
   }
   if (input.actorVelocity && ![input.actorVelocity.x, input.actorVelocity.y, input.actorVelocity.z].every(Number.isFinite)) {
     throw new TypeError('actor velocity must be finite');
@@ -172,7 +182,8 @@ export function createStrikeContactPlan(
     targetBallVelocity: { ...input.targetBallVelocity },
     maxLinearImpulse: input.kind === 'shot' ? 15.5 : 12.5,
     maxAngularImpulse: input.kind === 'shot' ? 64 : 22,
-    timingWindowTicks: 1,
+    timingWindowTicks: input.timingWindowTicks ?? 1,
+    ...(input.maximumContactReach === undefined ? {} : { maximumContactReach: input.maximumContactReach }),
     geometryTolerance: 0.24,
     quality: 0.55 + balance * 0.45,
     reason: balance < 0.45 ? 'rushed-off-balance-strike' : 'running-intercept-strike',
@@ -192,7 +203,7 @@ export function stepStrikeContact(
 ): StrikeContactStep {
   if (tick < plan.contactTick - plan.timingWindowTicks) return { status: 'preparing', plan };
   if (tick > plan.contactTick + plan.timingWindowTicks) return { status: 'missed', plan, reason: 'expired' };
-  if (distance(actorPosition, ball.position) > MAX_STRIKE_REACH) {
+  if (distance(actorPosition, ball.position) > (plan.maximumContactReach ?? MAX_STRIKE_REACH)) {
     return { status: 'missed', plan, reason: 'geometry-miss' };
   }
   return { status: 'contact', plan };

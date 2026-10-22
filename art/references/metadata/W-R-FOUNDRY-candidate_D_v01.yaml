@@ -1,0 +1,18 @@
+id: W-R-FOUNDRY-D
+category: arena-foundry-night
+status: rejected
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 1672x941
+purpose: Rejected Foundry atmosphere candidate retained to document a failed generation.
+asset_targets: []
+copy: []
+avoid: [unrequested scoreboard emblem, non-original branding, using as a production reference]
+camera: {type: low_centerline_gameplay, focal_length_equiv_mm: 55}
+lighting: {type: night_stadium_floodlight, color_temperature_k: null}
+palette: [graphite steel, deep green, warm amber]
+measurements: {pitch_width_m: null, pitch_length_m: null, goal_width_m: null}
+notes: Rejected because the image generator added a central emblem/mark on the scoreboard despite a no-mark prompt. The visual direction remains useful only as a negative example.
+approval: {approved_by: null, approved_date: null}

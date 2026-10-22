@@ -1,0 +1,38 @@
+id: W-G001-B
+category: global-live-possession
+status: working
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 1672x940
+purpose: Alternate candidate for the global third-person live-possession visual north star; compare composition, foreground athlete scale, stadium brightness, and ball readability against candidate A.
+asset_targets:
+  - art/art-bible/global-live-possession
+copy:
+  - plausible adult athlete silhouette and natural field-of-play pose
+  - readable opposition and goal context
+  - ball visibility with grounded contact spacing
+  - balanced contrast between turf, kits, and foreground athlete
+avoid:
+  - real-world club or player likenesses
+  - treating the rendered frame as runtime art or a locked target before review
+  - embedded UI, sponsor, manufacturer, or recognizable crest marks
+camera:
+  type: third_person_gameplay
+  focal_length_equiv_mm: 55
+lighting:
+  type: late_afternoon_stadium
+  color_temperature_k: null
+palette:
+  - forest green
+  - deep garnet
+  - dark navy
+  - cool pale blue-gray
+measurements:
+  player_height_m: 1.82
+  ball_diameter_m: 0.22
+notes: Second generated live-possession candidate. Review at actual gameplay scale and against candidate A; not approved or part of LOCKED_192.
+approval:
+  approved_by: null
+  approved_date: null

@@ -9,12 +9,12 @@ function installTechniqueGuide(): boolean {
   if (panel.querySelector('[data-technique-player-guide]')) return true;
 
   const eyebrow = root.querySelector<HTMLElement>('.football-practice-heading div > span');
-  if (eyebrow) eyebrow.textContent = 'TRAINING GROUND';
+  if (eyebrow) eyebrow.textContent = 'THE TRAINING GROUND';
   const heading = root.querySelector<HTMLElement>('.football-practice-heading strong');
-  if (heading) heading.textContent = 'Physical Football Practice';
+  if (heading) heading.textContent = 'Football Practice';
   const intro = Array.from(root.children).find((child): child is HTMLParagraphElement => child.tagName === 'P');
   if (intro) {
-    intro.textContent = 'Every touch uses the same independent physical ball as match play. Move with WASD, use RMB for close control, receive with F, and aim passes or shots through the center reticle.';
+    intro.textContent = 'Carry at pace with WASD. Use Shift to sprint and RMB for close control. F receives; aim passes and shots through the reticle.';
   }
 
   const guideRoot = document.createElement('section');

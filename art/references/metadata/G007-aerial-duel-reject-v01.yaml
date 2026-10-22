@@ -1,0 +1,18 @@
+id: G007-reject-v01
+category: global-aerial-duel
+status: rejected
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: false
+resolution: 1672x941
+purpose: Rejected aerial-duel draft.
+asset_targets: []
+copy: []
+avoid: [recognizable sportswear-style chest and footwear marks]
+camera: {type: player_height_wide_gameplay, focal_length_equiv_mm: 55}
+lighting: {type: clear_stadium_daylight, color_temperature_k: null}
+palette: []
+measurements: {}
+notes: Rejected because the generator added brand-like marks despite explicit no-logo constraints; retained only as an audit trail, not a production or locked reference.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

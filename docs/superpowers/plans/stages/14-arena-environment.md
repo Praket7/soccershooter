@@ -127,7 +127,7 @@ Measure:
 
 ## V2 reference-driven environment workflow
 
-Foundry production starts only from the spatially consistent R001–R028 arena reference set in `docs/art/FULL_IMAGE_PLAN.md`. The Blender Environment Agent uses `docs/tools/BLENDER_AI_PIPELINE.md` and `/3d-product` greybox/lookdev principles. Top-down geometry and gameplay sightlines lock before decorative detail or atmospheric rendering.
+Foundry production starts only from the spatially consistent R001–R028 arena reference set in `docs/art/FULL_IMAGE_PLAN.md`. The player-requested Argentine 3v3 street-court variant is R021 and must keep its compact hard-court identity distinct from Foundry. The Blender Environment Agent uses `docs/tools/BLENDER_AI_PIPELINE.md` and `/3d-product` greybox/lookdev principles. Top-down geometry and gameplay sightlines lock before decorative detail or atmospheric rendering.
 
 ## Exit gate
 - arena looks shareable in a screenshot/video

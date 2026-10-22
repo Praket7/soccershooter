@@ -1,0 +1,24 @@
+status: complete
+locked_reference_target: 192
+locked_reference_files: 192
+golden_target: 48
+golden_selected: 48
+rejected_candidates: 8
+last_updated: 2026-10-21
+image_groups:
+  G: {target: 12, present: 12}
+  U: {target: 18, present: 18}
+  C: {target: 12, present: 12}
+  M: {target: 18, present: 18}
+  A: {target: 36, present: 36}
+  T: {target: 24, present: 24}
+  E: {target: 10, present: 10}
+  P: {target: 18, present: 18}
+  R: {target: 28, present: 28}
+  V: {target: 8, present: 8}
+  X: {target: 4, present: 4}
+  H: {target: 4, present: 4}
+known_quality_gaps:
+  - Several generated concepts were cropped from contact sheets or enlarged with Lanczos; metadata records source size, and these operations add no detail.
+  - Athlete and kit sheets are visual direction at contact-sheet crop resolution; replace with high-resolution turnarounds before production modeling.
+  - Generated concepts are visual direction; runtime art, gameplay parity, lighting, animation, and performance still need in-engine verification.

@@ -1,0 +1,42 @@
+id: G001
+category: global-live-possession
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 1672x941
+purpose: Primary live gameplay north-star for third-person possession, player-ball relationship, tactical spacing, opponent/goal readability, pitch and stadium density.
+asset_targets:
+  - live-possession camera
+  - hero-athlete gameplay silhouette
+  - ball-to-player scale and position
+  - Foundry gameplay composition and visual density
+copy:
+  - grounded adult athlete proportions and plausible running posture
+  - visible ball within one close touch of the dribbler
+  - readable teammate, defender, goalkeeper and goal
+  - distinct garnet/navy and pale blue-gray fictional team palettes
+  - textured pitch and stadium depth with gameplay as focal point
+avoid:
+  - copying any real club crest, banner mark, uniform layout or athlete identity
+  - using this generated image as a runtime texture or claiming it proves in-engine quality
+  - adding decorative elements that obscure ball or player silhouettes
+camera:
+  type: third_person_gameplay
+  focal_length_equiv_mm: 55
+lighting:
+  type: late_afternoon_stadium
+  color_temperature_k: null
+palette:
+  - forest green
+  - deep garnet
+  - dark navy
+  - pale blue-gray
+measurements:
+  player_height_m: 1.82
+  ball_diameter_m: 0.22
+notes: Selected as the first internal golden target. The image is a generated visual reference, not an in-engine capture. Compare against the user's preserved gameplay reference and runtime before using as an implementation pass/fail target.
+approval:
+  approved_by: delegated_art_direction
+  approved_date: 2026-10-21

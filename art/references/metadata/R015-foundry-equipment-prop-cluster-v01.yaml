@@ -1,0 +1,20 @@
+id: R015
+category: arena-equipment-prop-cluster
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 2560x1440
+source_resolution: 1672x941
+upscale: Apple sips Lanczos resampling; generated source retained in working/
+purpose: Tidy sports-equipment corner props and materials at the Foundry pitch boundary.
+asset_targets: [ball rack, footballs, training cones, bench, folded pinnies, utility bin, safety board]
+copy: [separable prop silhouettes, believable scale, organized storage, restrained wear, practical venue materials]
+avoid: [clutter spilling into play space, visible brands, unsafe protrusions, overly pristine showroom styling]
+camera: {type: eye_level_oblique_prop_detail, estimated_height_m: 1.2, focal_length_equiv_mm: 40}
+lighting: {type: warm_practical_industrial, color_temperature_k: null}
+palette: [charcoal, aged steel, brick, turf green, muted training colors]
+measurements: {aspect_ratio: 16/9, individual_props_readable: true}
+notes: Generated concept enlarged from 1672x941 using Lanczos; upscaling adds no detail. Placement must remain outside the playable boundary defined by R001.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

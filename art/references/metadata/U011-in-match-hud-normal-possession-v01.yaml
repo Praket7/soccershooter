@@ -1,0 +1,21 @@
+id: U011
+category: ui-in-match-hud-possession
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 2560x1440
+source_resolution: 1672x941
+upscale: Apple sips Lanczos resampling from retained source in working/
+purpose: In-match possession HUD target with legible score/time, player stamina and generic gamepad hints while preserving the gameplay exclusion region.
+asset_targets: [in-match HUD, normal possession, score/time strip, stamina indicator, action prompts]
+copy: [16:9 safe margins, low visual weight, clear ball/player visibility, calm contrast, score centered on top, actions near bottom corners]
+avoid: [covering the ball, intrusive markers, unverified live state, real brands, clutter, illegible low-contrast text]
+camera: {type: third_person_gameplay, focal_length_equiv_mm: null}
+lighting: {type: daylight_stadium, color_temperature_k: null}
+palette: [deep navy, burgundy, soft white, restrained green]
+measurements: {aspect_ratio: 16/9, safe_area: 5%, gameplay_exclusion_region: central 70%}
+annotations: {primary_action: pass, secondary_actions: through_ball_shoot_sprint, gamepad_focus_order: score_then_player_status_then_actions, keyboard_shortcuts: match_controls_from_live_settings, sibling_states: focused_hover_narrow_empty_loading_error_required_before_implementation}
+notes: Original generated concept is retained in ../working/U011-in-match-hud-normal-possession-source-v01.png. Upscaling meets the planned canvas size but adds no image detail; generated HUD text is conceptual and live data bindings are not verified.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

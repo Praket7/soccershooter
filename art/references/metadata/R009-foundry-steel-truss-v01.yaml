@@ -1,0 +1,20 @@
+id: R009
+category: arena-steel-truss
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 2560x1440
+source_resolution: 1672x941
+upscale: Apple sips Lanczos resampling; generated source retained in working/
+purpose: Buildable roof-truss construction detail for the Foundry indoor arena.
+asset_targets: [roof steel trusses, bolted gusset plates, cross-bracing, cable runs, practical lights]
+copy: [credible steel member depth, visible bolted connections, layered cross-bracing, restrained warm work lights, maintained industrial character]
+avoid: [impossible spans, paper-thin beams, decorative excess, readable branding, crowd or players dominating the frame]
+camera: {type: upward_oblique_architectural_detail, estimated_height_m: 4.5, focal_length_equiv_mm: 35}
+lighting: {type: warm_practicals_on_graphite_steel, color_temperature_k: null}
+palette: [graphite steel, aged metal, charcoal, warm amber]
+measurements: {aspect_ratio: 16/9, truss_connection_detail_visible: true}
+notes: Generated concept enlarged from 1672x941 using Lanczos; upscaling adds no detail. Structural member sizes and supports must be reconciled with the R001 arena blockout before production modeling.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

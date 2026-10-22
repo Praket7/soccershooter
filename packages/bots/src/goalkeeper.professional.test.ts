@@ -94,5 +94,20 @@ describe('professional goalkeeper decisions', () => {
     );
 
     expect(decision.kind).toBe('claim');
+    expect(decision.targetPosition.z).toBeGreaterThan(-14.5);
+  });
+
+  test('moves across the goal mouth toward an imminent shot crossing', () => {
+    const world = snapshot(
+      { x: 1.8, y: 0.11, z: -10 },
+      { x: 0.4, y: 0, z: -18 },
+      'away',
+      'a-2',
+    );
+
+    const decision = computeGoalkeeperDecision(world, 'h-gk');
+
+    expect(['dive', 'parry']).toContain(decision.kind);
+    expect(decision.targetPosition.x).toBeGreaterThan(0.5);
   });
 });

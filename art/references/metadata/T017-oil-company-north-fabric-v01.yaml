@@ -1,0 +1,19 @@
+id: T017
+category: team-kit-oil-company
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 256x256
+source_resolution: 1024x1536
+purpose: Fictional team kit and material identity reference.
+asset_targets: [jersey silhouette, shorts, socks, goalkeeper separation, fabric, team palette]
+copy: [clear fictional color system, realistic fit, knit and seam response, readable team separation]
+avoid: [real club marks, sponsors, manufacturer logos, player likeness]
+camera: {type: full_body_studio_or_pitch, focal_length_equiv_mm: 85}
+lighting: {type: neutral_soft, color_temperature_k: 5500}
+palette: [oil]
+measurements: {aspect_ratio: 1/1, full_body_visible: true}
+notes: Cropped from the approved 4x6 team-kit contact sheet; the source is below preferred production texture resolution and is visual direction only.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

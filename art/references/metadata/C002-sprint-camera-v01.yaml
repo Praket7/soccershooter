@@ -1,0 +1,18 @@
+id: C002
+category: camera-sprint
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 1672x941
+purpose: Sprint camera framing, controlled-athlete occupancy, and forward-space readability.
+asset_targets: [sprint follow camera, player framing, ball visibility, forward field context]
+copy: [retain useful lead space, keep athlete and ball readable during acceleration, preserve enough pitch context]
+avoid: [excessive camera lag, clipped player, ball outside the readable play area]
+camera: {type: third_person_sprint_gameplay, height_above_root_m: null, distance_m: null, focal_length_equiv_mm: null}
+lighting: {type: generated_gameplay_concept, color_temperature_k: null}
+palette: []
+measurements: {aspect_ratio: 16/9}
+notes: Existing generated reference; camera values were not measured. Validate actual framing and motion in the game.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

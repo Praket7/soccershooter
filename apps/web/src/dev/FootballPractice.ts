@@ -3,7 +3,8 @@ import { BALL_CONSTANTS, cloneBallState, createBallState, type BallState } from 
 import { MATCH_BALL_PROFILE } from '@soccershooter/physics/ball/aerodynamics';
 import { BALL_SUBSTEP_DT, STANDARD_GOAL_FRAME, crossedGoalPlane, stepBall } from '@soccershooter/physics/ball/trajectory';
 import type { InputIntent } from '@soccershooter/sim';
-import { PlayerActionBits, type PlayerState } from '@soccershooter/sim/player/PlayerState';
+import { PlayerActionBits, clonePlayerState, type PlayerState } from '@soccershooter/sim/player/PlayerState';
+import { constrainBodyTurnToBall } from '../../../../packages/sim/src/player/athleticMotion';
 import { DEFAULT_MOVEMENT_CONFIG, type MovementWorld } from '@soccershooter/sim/player/movement';
 import type { LegacyGauntlet } from '@soccershooter/progression/campaign';
 import { decodeFootballActionIntent } from '@soccershooter/sim/football/actionIntent';
@@ -29,6 +30,7 @@ import {
   markKick,
   stepFootballRuntime,
   stepPlannedDribble,
+  stepTechniqueCarry,
   type FootballRuntimeState,
   type PlannedDribbleState,
 } from '@soccershooter/sim/football/runtime';
@@ -40,11 +42,12 @@ import {
   type BallContactCommand,
   type FootballActorSnapshot,
   type FootballBallSnapshot,
+  type FootballHorizontalDirection,
   type FootballVec3,
 } from '@soccershooter/sim/football/types';
 import { ActionDebugHud } from '../debug/ActionDebugHud';
 import { TechniqueDebugHud } from '../debug/TechniqueDebugHud';
-import { resolveDribbleIntent, resolveTravelFacingYaw, updateShotFacingLock } from '../input/FootballControl';
+import { resolveDribbleIntent, resolveElasticoBallAnchor, resolveElasticoBallVelocity, resolveElasticoExitDirectionForFoot, resolveElasticoOutsideTouchVelocity, resolveStepOverBallVelocity, resolveTechniqueExitDirection, resolveTechniqueMovementAuthority, updateShotFacingLock } from '../input/FootballControl';
 import { PLAYER_VISUAL_LAYOUT } from '../presentation/PlayerVisualLayout';
 import { applyShotBuildModifier } from './shotBuildModifiers';
 import { resolveLiveLegacyModifiers, type LiveLegacyModifiers } from './legacyChallengeModifiers';
@@ -62,7 +65,15 @@ export interface FootballBuildModifiers {
 }
 
 type PendingStrike =
-  | { kind: 'shot'; plan: Readonly<FootballContactPlan>; style: ShotStyle; charge: number }
+  | {
+    kind: 'shot';
+    plan: Readonly<FootballContactPlan>;
+    style: ShotStyle;
+    charge: number;
+    facingYaw: number;
+    aim: FootballHorizontalDirection;
+    aimTarget: FootballVec3 | null;
+  }
   | { kind: 'pass'; plan: Readonly<FootballContactPlan>; passType: PassType };
 
 interface PendingTechnique {
@@ -71,9 +82,21 @@ interface PendingTechnique {
   contact: TechniqueContactIntent;
   targetVelocity: FootballVec3;
   angularVelocity: FootballVec3;
+  firstElasticoTouchApplied: boolean;
 }
 
-const CONTROLLED_BALL_POCKET = 0.68;
+interface StepOverCue {
+  kind: 'stepover' | 'elastico';
+  startTick: number;
+  contactTick: number;
+  endTick: number;
+  feintFoot: 'left' | 'right';
+  exitFoot: 'left' | 'right';
+  exitDirection: FootballHorizontalDirection;
+  ballStartLocal: { x: number; z: number };
+}
+
+const CONTROLLED_BALL_POCKET = 0.50;
 // The practice player spawns at z=-13 facing +z. Start the free ball in the
 // same compact pocket used by G/reset so the first input is a dribble, not an
 // emergency recovery from an already stretched 1.3 m separation.
@@ -91,9 +114,9 @@ function clamp(value: number, min: number, max: number): number {
 
 function playerDirection(player: Readonly<PlayerState>): { x: number; z: number } {
   const speed = Math.hypot(player.velocity.x, player.velocity.z);
-  return speed > 0.35
+  return speed > 0.22
     ? normalizeHorizontal({ x: player.velocity.x, z: player.velocity.z })
-    : forwardFromYaw(player.facingYaw);
+    : forwardFromYaw(player.athleticMotion.bodyYaw);
 }
 
 function actorSnapshot(player: Readonly<PlayerState>): FootballActorSnapshot {
@@ -103,7 +126,9 @@ function actorSnapshot(player: Readonly<PlayerState>): FootballActorSnapshot {
   return {
     position: { ...player.position },
     velocity: { ...player.velocity },
-    facingYaw: resolveTravelFacingYaw(player.velocity, player.facingYaw),
+    facingYaw: player.athleticMotion.strikePreparation
+      ? player.facingYaw
+      : speed > 0.22 ? Math.atan2(player.velocity.x, player.velocity.z) : player.athleticMotion.bodyYaw,
     balance: movementBalance * speedBalance,
     pressure: 0,
     sprinting: player.locomotion === 'sprint',
@@ -291,6 +316,7 @@ export class FootballPractice {
   #lastContactEventTick: number | null = null;
   #pendingStrike: PendingStrike | null = null;
   #pendingTechnique: PendingTechnique | null = null;
+  #stepOverCue: StepOverCue | null = null;
   #techniqueState: TechniqueState = createTechniqueState();
   #selectedTechniqueId = 'stepover';
   #accumulator = 0;
@@ -341,17 +367,17 @@ export class FootballPractice {
     this.root.dataset.footballPractice = 'true';
     this.root.innerHTML = `
       <div class="football-practice-heading">
-        <div><span>Stage 05R sprint + turn slice</span><strong>Football Practice</strong></div>
-        <span class="football-practice-live"><i></i> independent physical ball</span>
+        <div><span>THE TRAINING GROUND</span><strong>Football Practice</strong></div>
+        <span class="football-practice-live"><i></i> free ball</span>
       </div>
-      <p>WASD keeps planned foot touches close in jog or sprint. RMB slows your movement for close control; Shift sprints with short carry touches. Hard cuts brake and plant before effort contacts. F is receive/trap: F alone kills the ball; F + WASD takes the first touch out. Aim through the center reticle.</p>
+      <p>Carry at pace with WASD. Use Shift to sprint and RMB for close control. F receives; aim passes and shots through the reticle.</p>
       <div class="practice-actions">
         <button type="button" data-football-reset>Reset ball <kbd>G</kbd></button>
         <span><kbd>E</kbd> ground · <kbd>Q</kbd> through · <kbd>R</kbd> lofted · <kbd>RMB+E</kbd> driven · <kbd>Ctrl+Q</kbd> chipped through</span>
       </div>
       <div class="practice-actions" data-shot-controls-guide>
         <strong>SHOOTING</strong>
-        <span>Aim with the center reticle · hold <kbd>LMB</kbd> for power · LMB only = NORMAL · RMB anytime while charging = FINESSE · Ctrl anytime while charging = CHIP · Release LMB to strike</span>
+        <span>Aim with the center reticle · hold <kbd>LMB</kbd> for power · RMB while charging = finesse · Ctrl while charging = chip · release LMB to strike</span>
       </div>
       <details class="practice-technique-panel">
         <summary>Practice-only specialist contacts</summary>
@@ -360,7 +386,7 @@ export class FootballPractice {
           ${SPECIALIST_SHOT_STYLES.map((style) => `<button type="button" data-shot-style="${style}" data-active="${style === this.#specialistShotStyle}">${style}</button>`).join('')}
         </div>
         <label class="technique-selector">Technique <select data-technique-select aria-label="Practice technique">${TECHNIQUES.map((item) => `<option value="${item.id}">${item.displayName}</option>`).join('')}</select></label>
-        <p>Choose a technique and press <kbd>T</kbd> in context. Defenders can punish its recovery window.</p>
+        <p>Choose a move and press <kbd>T</kbd>. Press <kbd>Y</kbd> for Elastico.</p>
       </details>
       <div class="practice-intent-status" aria-live="polite"><strong data-practice-intent>READY</strong><span data-practice-reason>point, move, receive, pass, or shoot</span></div>
       <p data-campaign-objective hidden></p>
@@ -396,14 +422,37 @@ export class FootballPractice {
   get shotStyle(): ShotStyle { return this.#shotStyle; }
   get visible(): boolean { return this.#visible; }
   get activeContactPlan(): Readonly<FootballContactPlan> | null { return this.#pendingTechnique?.plan ?? this.#pendingStrike?.plan ?? this.#dribble.activePlan; }
+  get stepOverCue(): Readonly<StepOverCue> | null {
+    return this.#stepOverCue && this.#contactTick <= this.#stepOverCue.endTick ? this.#stepOverCue : null;
+  }
+  get activeShotFacingYaw(): number | null {
+    return this.#pendingStrike?.kind === 'shot' ? this.#pendingStrike.facingYaw : null;
+  }
   get lastContactPlan(): Readonly<FootballContactPlan> | null { return this.#lastContactPlan; }
   get contactTick(): number { return this.#contactTick; }
   get lastContactEventTick(): number | null { return this.#lastContactEventTick; }
 
+  constrainCarryTurn(player: Readonly<PlayerState>, deltaSeconds: number): PlayerState {
+    const ballDistance = Math.hypot(this.#state.position.x - player.position.x, this.#state.position.z - player.position.z);
+    if (this.#dribble.looseBall || this.#lastContactPlan?.kind !== 'dribble' || ballDistance > 1.5
+      || this.#pendingStrike || this.#pendingTechnique) return player as PlayerState;
+    const motion = constrainBodyTurnToBall(
+      player.athleticMotion,
+      player.position,
+      this.#state.position,
+      deltaSeconds,
+    );
+    if (motion.bodyYaw === player.athleticMotion.bodyYaw) return player as PlayerState;
+    const constrained = clonePlayerState(player);
+    constrained.athleticMotion = motion;
+    return constrained;
+  }
+
   get movementAuthority(): number {
-    if (this.#defenderState.recoverySeconds >= 0.7) return 0.28;
-    if (this.#defenderState.recoverySeconds > 0) return 0.58;
-    return 1;
+    const defenderAuthority = this.#defenderState.recoverySeconds >= 0.7
+      ? 0.28
+      : this.#defenderState.recoverySeconds > 0 ? 0.58 : 1;
+    return resolveTechniqueMovementAuthority(defenderAuthority, this.#pendingTechnique !== null);
   }
 
   movementWorld(base: Readonly<MovementWorld>): MovementWorld {
@@ -476,7 +525,7 @@ export class FootballPractice {
   }
 
   resetBallNear(player: Readonly<PlayerState>): void {
-    const forward = forwardFromYaw(resolveTravelFacingYaw(player.velocity, player.facingYaw));
+    const forward = forwardFromYaw(player.athleticMotion.bodyYaw);
     this.#state = createBallState({
       position: {
         x: player.position.x + forward.x * CONTROLLED_BALL_POCKET,
@@ -565,15 +614,13 @@ export class FootballPractice {
 
         let command: BallContactCommand | undefined;
         if (pending.kind === 'shot') {
-          const shotActor: FootballActorSnapshot = shotFacing.contactFacingYaw === null
-            ? actor
-            : { ...actor, facingYaw: shotFacing.contactFacingYaw };
+          const shotActor: FootballActorSnapshot = { ...actor, facingYaw: pending.facingYaw };
           const solution = buildShot({
             style: pending.style,
             shooter: shotActor,
             ball: snapshot,
-            aim,
-            ...(this.#worldAimTarget ? { aimTarget: this.#worldAimTarget } : {}),
+            aim: pending.aim,
+            ...(pending.aimTarget ? { aimTarget: pending.aimTarget } : {}),
             charge: pending.charge,
             spinInput: pending.style === 'finesse' ? 0.82 : pending.style === 'outside-foot' ? 0.68 : 0.18,
             pressure: actor.pressure,
@@ -634,10 +681,59 @@ export class FootballPractice {
           contactTick,
         ).state;
         this.#pendingTechnique = null;
+        this.#stepOverCue = null;
       } else {
         const pending = this.#pendingTechnique;
+        const firstTouchTick = pending.plan.contactTick - 4;
+        if (pending.definition.id === 'elastico' && !pending.firstElasticoTouchApplied && contactTick >= firstTouchTick) {
+          const side = pending.plan.foot === 'right' ? 1 : -1;
+          const yaw = player.athleticMotion.bodyYaw;
+          const outward = { x: side * Math.cos(yaw), z: -side * Math.sin(yaw) };
+          const preTouchVelocity = resolveElasticoOutsideTouchVelocity(actor.velocity, outward);
+          this.#applyCommand(commandTowardVelocity(
+            'control-touch', snapshot, preTouchVelocity, { x: 0, y: 0, z: 0 }, 2.5,
+            `technique=elastico outside-touch foot=${pending.plan.foot}`,
+          ));
+          pending.firstElasticoTouchApplied = true;
+          this.#recordAction('ELASTICO OUTSIDE TOUCH', true, 'soft outside push before same-foot inside snap');
+          this.#updateHud();
+          return;
+        }
         const strike = stepStrikeContact(pending.plan, contactTick, actor.position, snapshot);
         if (strike.status === 'preparing') {
+          const carry = stepTechniqueCarry({
+            tick: contactTick,
+            state: this.#dribble,
+            actor,
+            motion: player.athleticMotion,
+            ball: snapshot,
+            desiredDirection: dribbleIntent.direction,
+            precision,
+            sprint: intent.sprint,
+            pressure: actor.pressure,
+            moveIntentMagnitude: dribbleIntent.magnitude,
+            contactTimingOffsetTicks: this.#buildModifiers.contactTimingTicks,
+            receiveMode: null,
+            techniqueContactTick: pending.plan.contactTick,
+            reserveContactTicks: pending.definition.id === 'stepover' ? 1 : 4,
+          });
+          if (carry) {
+            const carryPlan = this.#dribble.activePlan;
+            this.#dribble = carry.state;
+            if (carry.contactApplied) {
+              this.#state.velocity = { ...carry.ball.velocity };
+              this.#state.angularVelocity = { ...carry.ball.angularVelocity };
+              if (Math.abs(this.#state.velocity.y) > 0.05) this.#state.grounded = false;
+              this.#plannedContactCount += 1;
+              this.#lastContactPlan = carryPlan;
+              this.#lastContactEventTick = contactTick;
+              this.#lastContactSurface = carryPlan?.surface ?? '';
+              this.#recordAction('SKILL CARRY TOUCH', true,
+                `${carryPlan?.foot ?? 'foot'} ${carryPlan?.surface ?? 'contact'} · move windup`);
+            } else if (carry.state.looseBall) {
+              this.#recordAction('SKILL CARRY LOST', false, carry.reason);
+            }
+          }
           this.techniqueDebugHud.update({
             technique: pending.definition,
             eligible: true,
@@ -651,6 +747,7 @@ export class FootballPractice {
         }
         this.#pendingTechnique = null;
         if (strike.status === 'missed') {
+          this.#stepOverCue = null;
           const interrupted = interruptTechnique(pending.definition, this.#techniqueState, contactTick);
           this.#techniqueState = interrupted.state;
           this.techniqueDebugHud.update({
@@ -698,8 +795,8 @@ export class FootballPractice {
       }
     }
 
-    if ((intent.actionBits & PlayerActionBits.Technique) !== 0) {
-      const definition = TECHNIQUE_BY_ID.get(this.#selectedTechniqueId);
+    if ((intent.actionBits & (PlayerActionBits.Technique | PlayerActionBits.Elastico)) !== 0) {
+      const definition = TECHNIQUE_BY_ID.get((intent.actionBits & PlayerActionBits.Elastico) !== 0 ? 'elastico' : this.#selectedTechniqueId);
       if (!definition) return;
       const result = executeTechnique(definition, this.#techniqueState, {
         tick: contactTick,
@@ -725,10 +822,34 @@ export class FootballPractice {
         this.#updateHud();
         return;
       }
-      const kinematics = resolveTechniqueContactKinematics(result.contact, aim);
-      const targetVelocity: FootballVec3 = { ...kinematics.targetVelocity };
+      const stepOverExit = {
+        x: forwardFromYaw(player.athleticMotion.bodyYaw).x * 0.48 - Math.cos(player.athleticMotion.bodyYaw) * 0.88,
+        z: forwardFromYaw(player.athleticMotion.bodyYaw).z * 0.48 + Math.sin(player.athleticMotion.bodyYaw) * 0.88,
+      };
+      const normalExit = forwardFromYaw(player.athleticMotion.bodyYaw);
+      const requestedExitDirection = definition.id === 'stepover'
+        ? (dribbleIntent.magnitude > 0.05 ? dribbleIntent.direction : stepOverExit)
+        : (definition.id === 'elastico'
+          ? (dribbleIntent.magnitude > 0.05
+            ? normalizeHorizontal({
+              x: dribbleIntent.direction.x * 0.58 + normalExit.x * 0.42,
+              z: dribbleIntent.direction.z * 0.58 + normalExit.z * 0.42,
+            })
+            : normalExit)
+          : (dribbleIntent.magnitude > 0.05 ? dribbleIntent.direction : normalExit));
+      const exitDirection = resolveTechniqueExitDirection(requestedExitDirection, player.athleticMotion.bodyYaw);
+      let techniqueExitDirection = exitDirection;
+      const kinematics = resolveTechniqueContactKinematics(
+        result.contact,
+        definition.family === 'dribble' ? exitDirection : aim,
+      );
+      const targetVelocity: FootballVec3 = definition.id === 'stepover'
+        ? resolveStepOverBallVelocity(actor.velocity, exitDirection)
+        : definition.id === 'elastico'
+          ? resolveElasticoBallVelocity(actor.velocity, exitDirection)
+          : { ...kinematics.targetVelocity };
       const angularVelocity: FootballVec3 = { ...kinematics.angularVelocity };
-      const plan = createStrikeContactPlan({
+      const planInput = {
         kind: definition.family === 'pass-shot' ? 'shot' : 'pass',
         sourceId: `technique-${definition.id}-${contactTick}`,
         tick: contactTick,
@@ -738,9 +859,13 @@ export class FootballPractice {
         actorVelocity: actor.velocity,
         ball: snapshot,
         targetBallVelocity: targetVelocity,
-        preferredFoot: actor.preferredFoot,
+        preferredFoot: definition.id === 'stepover' ? 'left' : actor.preferredFoot,
         balance: actor.balance,
-      });
+        ...(['stepover', 'elastico'].includes(definition.id) ? { contactDelayTicks: result.contact.contactTick - contactTick } : {}),
+        ...(definition.id === 'stepover' ? { maximumContactReach: 1.3, timingWindowTicks: 1 } : {}),
+        ...(definition.id === 'elastico' ? { maximumContactReach: 1.3, timingWindowTicks: 4 } : {}),
+      } as const;
+      let plan = createStrikeContactPlan(planInput);
       if (!plan) {
         const interrupted = interruptTechnique(definition, this.#techniqueState, contactTick);
         this.#techniqueState = interrupted.state;
@@ -756,7 +881,43 @@ export class FootballPractice {
         this.#updateHud();
         return;
       }
-      this.#pendingTechnique = { definition, plan, contact: result.contact, targetVelocity, angularVelocity };
+      if (definition.id === 'elastico') {
+        const insideSnap = resolveElasticoExitDirectionForFoot(player.athleticMotion.bodyYaw, plan.foot);
+        const requestedSnap = dribbleIntent.magnitude > 0.05
+          ? normalizeHorizontal({
+            x: dribbleIntent.direction.x * 0.58 + insideSnap.x * 0.42,
+            z: dribbleIntent.direction.z * 0.58 + insideSnap.z * 0.42,
+          })
+          : insideSnap;
+        const correctedExit = resolveTechniqueExitDirection(requestedSnap, player.athleticMotion.bodyYaw);
+        const correctedVelocity = resolveElasticoBallVelocity(actor.velocity, correctedExit);
+        const correctedPlan = createStrikeContactPlan({ ...planInput, targetBallVelocity: correctedVelocity });
+        if (correctedPlan) {
+          plan = correctedPlan;
+          techniqueExitDirection = correctedExit;
+          targetVelocity.x = correctedVelocity.x;
+          targetVelocity.y = correctedVelocity.y;
+          targetVelocity.z = correctedVelocity.z;
+        }
+      }
+      this.#pendingTechnique = { definition, plan, contact: result.contact, targetVelocity, angularVelocity, firstElasticoTouchApplied: false };
+      this.#stepOverCue = definition.id === 'stepover' || definition.id === 'elastico'
+        ? {
+          kind: definition.id,
+          startTick: contactTick,
+          contactTick: plan.contactTick,
+          endTick: plan.contactTick + (definition.id === 'elastico' ? 24 : 26),
+          feintFoot: definition.id === 'elastico' ? plan.foot : (plan.foot === 'left' ? 'right' : 'left'),
+          exitFoot: definition.id === 'elastico' ? (plan.foot === 'left' ? 'right' : 'left') : plan.foot,
+          exitDirection: techniqueExitDirection,
+          ballStartLocal: (() => {
+            const dx = this.#state.position.x - player.position.x;
+            const dz = this.#state.position.z - player.position.z;
+            const yaw = player.athleticMotion.bodyYaw;
+            return { x: Math.cos(yaw) * dx - Math.sin(yaw) * dz, z: Math.sin(yaw) * dx + Math.cos(yaw) * dz };
+          })(),
+        }
+        : null;
       this.#suspendPlannedDribble();
       this.techniqueDebugHud.update({
         technique: definition,
@@ -825,6 +986,7 @@ export class FootballPractice {
       const shotActor: FootballActorSnapshot = shotFacing.contactFacingYaw === null
         ? actor
         : { ...actor, facingYaw: shotFacing.contactFacingYaw };
+      const contactFacingYaw = shotFacing.contactFacingYaw ?? shotActor.facingYaw;
       const releaseStyle = this.#specialistShotStyle === 'normal'
         ? runtimeStep.releasedShotStyle ?? decoded.shotStyle
         : this.#specialistShotStyle;
@@ -858,11 +1020,20 @@ export class FootballPractice {
         balance: actor.balance,
       }) : null;
       if (shot.command && strikePlan) {
-        this.#pendingStrike = { kind: 'shot', plan: strikePlan, style: releaseStyle, charge: runtimeStep.releasedShotCharge };
+        this.#pendingStrike = {
+          kind: 'shot',
+          plan: strikePlan,
+          style: releaseStyle,
+          charge: runtimeStep.releasedShotCharge,
+          facingYaw: contactFacingYaw,
+          aim: { ...aim },
+          aimTarget: this.#worldAimTarget ? { ...this.#worldAimTarget } : null,
+        };
         this.#suspendPlannedDribble();
         this.#shotState = 'GATHER';
         this.#recordAction('SHOT SETUP', true, `plant ${strikePlan.foot} · contact in ${strikePlan.contactTick - contactTick} ticks`);
       } else {
+        if (shot.command && !strikePlan) this.#shotState = 'NO CONTACT BEAT';
         this.#recordAction(this.#shotState, shot.legal && strikePlan !== null, shot.command ? 'no viable contact beat' : shot.reason);
       }
       this.#updateHud();
@@ -946,7 +1117,9 @@ export class FootballPractice {
         contactTimingOffsetTicks: this.#buildModifiers.contactTimingTicks,
         receiveMode,
       });
+      const lostControl = !this.#dribble.looseBall && planned.state.looseBall;
       this.#dribble = planned.state;
+      if (lostControl) this.#recordAction('LOOSE BALL', false, planned.reason);
 
       if (planned.contactApplied) {
         const next = cloneBallState(this.#state);
@@ -1015,6 +1188,32 @@ export class FootballPractice {
         this.#recordAction('GOAL', true, 'whole-ball-crossed-line');
         this.#onGoalScored();
       }
+      const cue = this.#stepOverCue;
+      const player = this.#lastPlayer;
+      if (cue?.kind === 'elastico' && player && this.#contactTick <= cue.endTick) {
+        const windupTicks = Math.max(1, cue.contactTick - cue.startTick);
+        const progress = clamp((this.#contactTick - cue.startTick) / windupTicks, 0, 1);
+        const local = resolveElasticoBallAnchor(progress, cue.feintFoot, cue.ballStartLocal);
+        const yaw = player.athleticMotion.bodyYaw;
+        const target = {
+          x: player.position.x + local.x * Math.cos(yaw) + local.z * Math.sin(yaw),
+          y: BALL_CONSTANTS.radius,
+          z: player.position.z - local.x * Math.sin(yaw) + local.z * Math.cos(yaw),
+        };
+        next.position = target;
+        next.velocity = {
+          x: (target.x - this.#previousState.position.x) / BALL_SUBSTEP_DT,
+          y: 0,
+          z: (target.z - this.#previousState.position.z) / BALL_SUBSTEP_DT,
+        };
+        next.angularVelocity = {
+          x: -next.velocity.z / BALL_CONSTANTS.radius,
+          y: 0,
+          z: next.velocity.x / BALL_CONSTANTS.radius,
+        };
+        next.grounded = true;
+        next.flightSeconds = 0;
+      }
       this.#state = next;
       this.#advanceVisualRotation(BALL_SUBSTEP_DT);
       this.#accumulator -= BALL_SUBSTEP_DT;
@@ -1043,6 +1242,7 @@ export class FootballPractice {
       this.#lastContactEventTick = null;
       this.#pendingStrike = null;
       this.#pendingTechnique = null;
+      this.#stepOverCue = null;
       this.#techniqueState = createTechniqueState();
     }
   }

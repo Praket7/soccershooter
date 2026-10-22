@@ -5,6 +5,11 @@ import { createFlatMovementWorld, stepPlayerMovement } from './movement';
 const DT = 1 / 60;
 const WORLD = createFlatMovementWorld({ minX: -100, maxX: 100, minZ: -100, maxZ: 100 });
 
+function yawDelta(from: number, to: number): number {
+  const tau = Math.PI * 2;
+  return ((to - from + Math.PI) % tau + tau) % tau - Math.PI;
+}
+
 function intent(degrees: number, magnitude = 1, sprint = false) {
   const radians = degrees * Math.PI / 180;
   return {
@@ -27,6 +32,64 @@ function run(state: PlayerState, frames: number, degrees: number, sprint = false
 }
 
 describe('Stage 05R deterministic athletic motion state', () => {
+  test('body posture follows realized acceleration into braking instead of only held input', () => {
+    let state = createPlayerState();
+    state = stepPlayerMovement(state, intent(0), WORLD, DT);
+    expect(motion(state)?.realizedAcceleration?.z).toBeGreaterThan(0);
+    expect(motion(state)?.bodyLean.forward).toBeGreaterThan(0);
+
+    for (let frame = 0; frame < 90; frame += 1) state = stepPlayerMovement(state, intent(0), WORLD, DT);
+    state = stepPlayerMovement(state, intent(0, 0), WORLD, DT);
+    expect(motion(state)?.realizedAcceleration?.z).toBeLessThan(0);
+    expect(motion(state)?.bodyLean.forward).toBeLessThan(0);
+  });
+
+  test('lateral cuts expose finite realized acceleration and lean into the change', () => {
+    const base = createPlayerState({ velocity: { x: 0, y: 0, z: 6 }, locomotion: 'jog' });
+    const cut = stepPlayerMovement(base, intent(90), WORLD, DT);
+
+    expect(motion(cut)?.realizedAcceleration?.x).toBeGreaterThan(0);
+    expect(motion(cut)?.realizedAcceleration?.z).toBeLessThan(0);
+    expect(motion(cut)?.bodyLean.lateral).toBeGreaterThan(0);
+    expect(Number.isFinite(motion(cut)?.bodyLean.lateral)).toBe(true);
+  });
+
+  test('realized acceleration is zero at rest and visual lean remains finite and bounded', () => {
+    let state = createPlayerState();
+    state = stepPlayerMovement(state, intent(0, 0), WORLD, DT);
+    expect(motion(state)?.realizedAcceleration).toEqual({ x: 0, z: 0 });
+
+    state = run(state, 180, 135, true);
+    expect(Number.isFinite(motion(state)?.realizedAcceleration?.x)).toBe(true);
+    expect(Number.isFinite(motion(state)?.realizedAcceleration?.z)).toBe(true);
+    expect(Math.abs(motion(state)?.bodyLean.forward ?? Infinity)).toBeLessThanOrEqual(0.22);
+    expect(Math.abs(motion(state)?.bodyLean.lateral ?? Infinity)).toBeLessThanOrEqual(0.24);
+  });
+
+  test('body heading turns with movement and remains consistent with the animated athlete', () => {
+    let state = createPlayerState({
+      position: { x: 0, y: 0, z: 0 },
+      velocity: { x: 0, y: 0, z: 5.8 },
+      facingYaw: 0,
+      locomotion: 'jog',
+    });
+    let previousYaw = state.athleticMotion.bodyYaw;
+    let largestTurnStep = 0;
+    for (let frame = 0; frame < 60; frame += 1) {
+      state = stepPlayerMovement(state, intent(180), WORLD, DT);
+      const yaw = state.athleticMotion.bodyYaw;
+      largestTurnStep = Math.max(largestTurnStep, Math.abs(yawDelta(previousYaw, yaw)));
+      previousYaw = yaw;
+    }
+
+    expect(largestTurnStep).toBeLessThan(0.13);
+    expect(Math.abs(yawDelta(0, state.athleticMotion.bodyYaw))).toBeGreaterThan(2.5);
+
+    const stopped = stepPlayerMovement(state, intent(0, 0), WORLD, DT);
+    expect(Math.abs(yawDelta(state.athleticMotion.bodyYaw, stopped.athleticMotion.bodyYaw))).toBeLessThan(0.13);
+    expect(Math.abs(yawDelta(0, stopped.athleticMotion.bodyYaw))).toBeGreaterThan(2.4);
+  });
+
   test('stable jogging advances gait phase deterministically and alternates support feet', () => {
     let left = createPlayerState();
     let right = createPlayerState();

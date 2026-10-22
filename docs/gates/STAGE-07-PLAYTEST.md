@@ -1,48 +1,26 @@
 # Stage 07 Owner Playtest — Adaptive Bots and Personalities
 
-Stage 07 engineering is automated-test green, but the human exit gate is intentionally still open. This playtest exists to answer the parts simulation cannot answer truthfully: whether the bots **feel** fair, useful, readable, and meaningfully different across difficulty tiers.
+Stage 06 human acceptance has passed. Stage 07 engineering is automated-test green, and its human exit gate remains open. This playtest checks whether adaptive bots **feel** fair, useful, readable, and meaningfully different across difficulty tiers.
 
-**Do not merge Stage 06 or Stage 07 before this playtest is accepted.**
+## Current preview surfaces
 
-## Branches to compare
-
-Baseline tactical AI:
-
-- `stage/06-tactical-bots`
-
-Adaptive/personality AI:
-
-- `stage/07-adaptive-bots`
-
-Stage 07 is built directly on Stage 06, so comparing the two branches isolates the adaptive/personality layer from the deterministic tactical baseline.
+No branch switch is needed. **Tactical Debug** shows Stage 06's symbolic decisions, **Adaptive Debug** checks Stage 07's cognition and legal adaptation rules, and **Adaptive Bot Playtest** lets you play against bots using the selected tier and personality.
 
 ## Local setup
 
 Use Node 24 and pnpm 12.9.1.
 
-### Stage 06 baseline
-
-```bash
-git fetch origin
-git switch stage/06-tactical-bots
-pnpm install --frozen-lockfile
-pnpm --filter @soccershooter/web dev
-```
-
-Open the Vite URL, normally `http://localhost:5173`, and select **Tactical Bot Lab**.
-
 ### Stage 07
 
 ```bash
-git fetch origin
-git switch stage/07-adaptive-bots
-pnpm install --frozen-lockfile
 pnpm --filter @soccershooter/web dev
 ```
 
-Open the same Vite URL. Stage 07 exposes both **Tactical Bot Lab** and **Adaptive Bot Lab**.
+Open the Vite URL shown in the terminal (normally `http://127.0.0.1:4173`). Stage 07 exposes **Adaptive Bot Debug** and the human-playable **Adaptive Bot Playtest**.
 
-Use **Tactical Bot Lab** when you want an apples-to-apples visual comparison with Stage 06. Use **Adaptive Bot Lab** to inspect the difficulty/player-model/personality contracts directly.
+Choose **Adaptive Bot Playtest** to play against the selected bot tier. The full pitch and both goals should be visible in the page view. Click the pitch, then use **W** upfield, **S** downfield, **A** left, and **D** right; **Shift** sprints, **E** passes, **Space** shoots, and **C** challenges. You control **h-1 only** throughout; control never switches when possession changes. Choose Novice, Standard, or Elite in the sidebar and reset between comparable runs. The same selected tier drives your bot teammate and opponents.
+
+Use **Adaptive Bot Debug** for the player-model boundary and personality diagnostics below. **Tactical Bot Lab** remains the Stage 06 symbolic decision comparison.
 
 ## Pass A — Stage 06 baseline, roles OFF
 
@@ -62,9 +40,9 @@ Use **Force Turnover** repeatedly from different moments.
 
 Then turn **Show Roles** on. The labels should confirm what you already saw, not make unreadable behavior seem sensible after the fact.
 
-## Pass B — Adaptive Bot Lab contract check
+## Pass B — Adaptive Bot Debug contract check
 
-On `stage/07-adaptive-bots`, select **Adaptive Bot Lab** before judging feel.
+Select **Adaptive Debug** before judging feel.
 
 Confirm these diagnostics first:
 
@@ -250,7 +228,7 @@ A PASS there does not mean the learned policy should ship. The current productio
 Send one block per issue or strong positive finding:
 
 ```text
-Branch: stage/06-tactical-bots or stage/07-adaptive-bots
+Mode: Adaptive Bot Playtest / Adaptive Debug / Tactical Debug
 Difficulty: novice / standard / elite / n/a
 Personality: name or n/a
 Input: keyboard+mouse / controller

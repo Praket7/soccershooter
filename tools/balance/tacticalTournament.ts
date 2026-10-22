@@ -85,6 +85,7 @@ function createRoleOccupancy(): Record<BotRole, number> {
   return {
     goalkeeper: 0,
     'ball-carrier': 0,
+    receiver: 0,
     'immediate-support': 0,
     'width-support': 0,
     presser: 0,

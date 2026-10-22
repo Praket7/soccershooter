@@ -1,0 +1,20 @@
+id: R028
+category: arena-side-landmarks-navigation
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 2560x1440
+source_resolution: 1672x941
+upscale: Apple sips Lanczos resampling; generated source retained in working/
+purpose: Check long-side navigation cues and the relationship between tunnel, pitch, and contrasting home/away markers.
+asset_targets: [touchline, center-circle area, player tunnel, burgundy home marker, slate-blue away marker, brick wall, stands]
+copy: [tunnel readable from pitch, distinctive color cues at different sides, continuous unobstructed touchline, shared venue architecture]
+avoid: [text and numbers, markers blocking play, confusing tunnel entry, visual clutter]
+camera: {type: diagonal_touchline_navigation_view, estimated_height_m: 1.5, focal_length_equiv_mm: 32}
+lighting: {type: warm_practicals_with_even_pitch_lighting, color_temperature_k: null}
+palette: [brick, charcoal, burgundy, slate blue, turf green, warm amber]
+measurements: {aspect_ratio: 16/9, tunnel_and_side_markers_visible: true}
+notes: Generated concept enlarged from 1672x941 using Lanczos; upscaling adds no detail. Verify landmark visibility from actual game camera positions and ensure tunnel geometry agrees with R001.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

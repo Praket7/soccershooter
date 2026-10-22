@@ -48,9 +48,22 @@ test('E creates a real physical ground pass and Q/R expose dedicated pass famili
   await page.goto('/');
   await resetPracticeBall(page);
   const probe = page.locator('[data-football-state]');
+  await page.evaluate(() => {
+    const probe = document.querySelector<HTMLOutputElement>('[data-football-state]');
+    if (!probe) throw new Error('missing football state probe');
+    const capture = window as Window & { __groundPassContact?: string };
+    capture.__groundPassContact = '';
+    const observer = new MutationObserver(() => {
+      if (probe.dataset.action === 'CONTACT' && probe.dataset.reason?.startsWith('ground:')) {
+        capture.__groundPassContact = probe.dataset.reason;
+      }
+    });
+    observer.observe(probe, { attributes: true, attributeFilter: ['data-action', 'data-reason'] });
+  });
 
   await page.keyboard.press('e');
-  await expect(probe).toHaveAttribute('data-reason', /ground:/);
+  await expect.poll(async () => page.evaluate(() => (window as Window & { __groundPassContact?: string }).__groundPassContact ?? ''))
+    .toMatch(/^ground:/);
   await expect.poll(async () => Number(await probe.getAttribute('data-ball-speed')), { timeout: 1000 })
     .toBeGreaterThan(2);
   await expect(page.locator('[data-action-debug]')).toHaveAttribute('data-success', 'true');

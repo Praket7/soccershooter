@@ -1,0 +1,20 @@
+id: R022
+category: arena-warm-cool-lighting-contrast
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 2560x1440
+source_resolution: 1672x941
+upscale: Apple sips Lanczos resampling; generated source retained in working/
+purpose: Study warm venue practicals against neutral sports lighting while preserving live-play legibility.
+asset_targets: [cool-white pitch illumination, warm brick sconces, concourse windows, players, goal, turf]
+copy: [natural warm/cool separation, readable white kit and dark kit, balanced skin tones, restrained practical glow]
+avoid: [strong teal-orange grade, color casts on turf, blown lamps, excessive bloom]
+camera: {type: low_player_height_wide_gameplay, estimated_height_m: 1.2, focal_length_equiv_mm: 28}
+lighting: {type: neutral_sports_led_plus_warm_practicals, color_temperature_k: null}
+palette: [neutral white, warm amber, brick, turf green, charcoal]
+measurements: {aspect_ratio: 16/9, pitch_and_players_readable: true}
+notes: Generated concept enlarged from 1672x941 using Lanczos; upscaling adds no detail. Validate color management and exposure in the actual renderer before production lighting approval.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

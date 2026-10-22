@@ -1,0 +1,18 @@
+id: U003
+category: ui-home-hub
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 1672x941
+purpose: Home hub visual target with one clear primary action, secondary destinations and character/environment context.
+asset_targets: [home hub, primary Play Match action, training, campaign and challenge links]
+copy: [strong welcome headline, clear lime primary CTA, useful secondary navigation, restrained menu overlays]
+avoid: [unreadable microcopy, generic card overload, fake currency, marks on fictional uniform]
+camera: {type: menu_character_composite, focal_length_equiv_mm: 55}
+lighting: {type: tunnel_to_stadium_practical, color_temperature_k: null}
+palette: [deep navy, soft white, interaction lime, garnet]
+measurements: {}
+notes: Revision v02 selected after rejecting v01 for brand-like kit marks. Generated text is concept copy; align labels to actual product information architecture before implementation.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

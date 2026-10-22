@@ -1,0 +1,18 @@
+id: W-G001-C
+category: global-live-possession
+status: working
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 1672x941
+purpose: Third global live-possession candidate, focused on a nearer active defender, passing lane, and the relationship between controlled-player scale and ball readability.
+asset_targets: [art/art-bible/global-live-possession]
+copy: [grounded jogging pose, open upper HUD-safe area, clear garnet/navy versus cool opponent contrast, visible ball and goal]
+avoid: [real club/player likeness, copied logo or sponsor, treating concept as final runtime art, excessive motion blur]
+camera: {type: third_person_gameplay, focal_length_equiv_mm: 55}
+lighting: {type: late_afternoon_stadium, color_temperature_k: null}
+palette: [forest green, deep garnet, dark navy, cool pale blue-gray]
+measurements: {player_height_m: 1.82, ball_diameter_m: 0.22}
+notes: Working candidate only. Resolution is suitable for mood/camera review, not detailed modeling reference. Compare at in-game size; not in LOCKED_192.
+approval: {approved_by: null, approved_date: null}

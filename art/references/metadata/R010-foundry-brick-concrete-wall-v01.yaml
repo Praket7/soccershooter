@@ -1,0 +1,20 @@
+id: R010
+category: arena-brick-concrete-wall
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 2560x1440
+source_resolution: 1672x941
+upscale: Apple sips Lanczos resampling; generated source retained in working/
+purpose: Foundry interior wall construction and material finish reference.
+asset_targets: [brick piers, poured-concrete panels, low safety board, turf edge, practical wall lights]
+copy: [believable masonry scale, visible concrete joints, restrained ball scuffs, maintained but used venue, warm local lighting]
+avoid: [readable graffiti, brand marks, severe decay, excessive grime, unsafe wall/pitch adjacency]
+camera: {type: eye_level_oblique_wall_detail, estimated_height_m: 1.6, focal_length_equiv_mm: 35}
+lighting: {type: warm_practical_wall_lights, color_temperature_k: null}
+palette: [red-brown brick, pale concrete, charcoal board, turf green, amber]
+measurements: {aspect_ratio: 16/9, wall_pitch_boundary_visible: true}
+notes: Generated concept enlarged from 1672x941 using Lanczos; upscaling adds no detail. Use R001 to set board and wall offsets.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

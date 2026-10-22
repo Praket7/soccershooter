@@ -1,0 +1,20 @@
+id: R011
+category: arena-railings-barriers
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 2560x1440
+source_resolution: 1672x941
+upscale: Apple sips Lanczos resampling; generated source retained in working/
+purpose: Player-safe pitch-side barrier and spectator-rail construction reference.
+asset_targets: [impact board, powder-coated guardrail, mesh infill, bolted base plates, maintenance walkway]
+copy: [robust continuous barrier, realistic post spacing, recessed fasteners, clean field boundary, clear walkway behind]
+avoid: [protrusions toward players, blocked egress, excessively tall sightline barriers, loose cables]
+camera: {type: low_oblique_touchline_detail, estimated_height_m: 1.4, focal_length_equiv_mm: 35}
+lighting: {type: soft_daylight_with_warm_interior_practicals, color_temperature_k: null}
+palette: [charcoal powder coat, galvanized steel, turf green, warm amber]
+measurements: {aspect_ratio: 16/9, barrier_pitch_boundary_visible: true}
+notes: Generated concept enlarged from 1672x941 using Lanczos; upscaling adds no detail. Safety, collision response, and circulation clearances require production validation.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

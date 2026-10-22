@@ -1,0 +1,18 @@
+id: R001
+category: arena-top-down-blockout
+status: approved
+source_type: project-generated-from-spatial-svg
+source_url: null
+license: project-owned-reference
+public_safe: true
+resolution: 2048x2048
+purpose: Spatially authoritative top-down Foundry blockout reference for the planned 24x36m 3v3 pitch, runoff, goals, stands, tunnels, concourse, and camera corridor.
+asset_targets: [Foundry arena layout, pitch dimensions, safety runoff, stands, player/service entrances, camera sightlines]
+copy: [24x36m playing field, 3m clear runoff, centered 7.32m goals, continuous stands, service ring, marked live-camera corridor]
+avoid: [changing gameplay dimensions without rules approval, collision from render mesh, supports in camera corridor, decorative clutter]
+camera: {type: orthographic_top_down, focal_length_equiv_mm: null}
+lighting: {type: flat_diagram, color_temperature_k: null}
+palette: [deep navy, dark slate, grass green, ivory, safety amber, interaction lime]
+measurements: {pitch_width_m: 24, pitch_length_m: 36, runoff_m: 3, goal_width_m: 7.32, image_aspect_ratio: 1/1}
+notes: Raster rendered directly from art/arenas/foundry/source/foundry-spatial-plan-v01.svg at 2048x2048. Spatial plan remains marked working and requires live camera/sightline validation before geometry lock.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

@@ -1,0 +1,18 @@
+id: G003
+category: global-shot-preparation
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 1672x941
+purpose: Golden target for clear shot preparation, planted-foot/ball relationship, defensive pressure, goal and keeper readability.
+asset_targets: [shot preparation animation, shot camera, goalkeeper staging, goal visibility]
+copy: [ball remains visible, goalkeeper and goal readable, natural athlete counterbalance, clear closing defender]
+avoid: [invented contact, hidden ball, stretched limbs, UI obstruction, real identities or marks]
+camera: {type: third_person_gameplay, focal_length_equiv_mm: 55}
+lighting: {type: late_afternoon_stadium, color_temperature_k: null}
+palette: [forest green, deep garnet, dark navy, warm white]
+measurements: {player_height_m: 1.82, ball_diameter_m: 0.22}
+notes: Selected as an internal golden target. The pose is a near-contact shot beat; verify planted foot and contact timing against actual animation/physics before treating as a motion truth.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

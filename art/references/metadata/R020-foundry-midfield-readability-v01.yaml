@@ -1,0 +1,20 @@
+id: R020
+category: arena-midfield-readability
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 2560x1440
+source_resolution: 1672x941
+upscale: Apple sips Lanczos resampling; generated source retained in working/
+purpose: Midfield spatial readability target for compact-sided possession play.
+asset_targets: [center circle, both team color groups, ball carrier and ball, support lanes, end goals, compact stands]
+copy: [clear separation of teams, readable player spacing, ball visible, legible pitch markings, restrained crowd contrast]
+avoid: [players blending into pitch, over-dense crowd, unclear ball location, confusing line geometry]
+camera: {type: elevated_sideline_midfield, estimated_height_m: 5, focal_length_equiv_mm: 35}
+lighting: {type: even_indoor_sports_with_warm_practicals, color_temperature_k: null}
+palette: [turf green, burgundy, pale neutral kit, warm brick, charcoal]
+measurements: {aspect_ratio: 16/9, ball_and_team_shapes_readable: true}
+notes: Generated concept enlarged from 1672x941 using Lanczos; upscaling adds no detail. The frame is a readability target only; actual roster size and tactical spacing must be validated in game.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

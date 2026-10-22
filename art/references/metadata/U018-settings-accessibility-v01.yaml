@@ -1,0 +1,21 @@
+id: U018
+category: ui-settings-accessibility
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 2560x1440
+source_resolution: 1672x941
+upscale: Apple sips Lanczos resampling; generated source retained in working/
+purpose: Accessibility settings reference with independent readability options, color-vision treatments, motion controls, and an in-context HUD comparison.
+asset_targets: [settings accessibility, text scale, high contrast HUD, color-vision presets, reduced motion, vibration, captions]
+copy: [descriptive setting labels, direct toggles, side-by-side HUD preview, visible current focus, reset affordance]
+avoid: [color-only status distinctions, implying preset support without implementation, tiny helper text, hiding settings in nested menus]
+camera: {type: flat_ui_over_blurred_stadium, focal_length_equiv_mm: null}
+lighting: {type: cool_stadium_ambient, color_temperature_k: null}
+palette: [deep navy, white, accessible blue, high-contrast yellow]
+measurements: {aspect_ratio: 16/9, safe_area: 5%}
+annotations: {primary_action: adjust_accessibility_option, secondary_action: reset_defaults, gamepad_focus_order: category_navigation_then_option_rows_then_actions, keyboard_shortcuts: menu_navigation_from_live_settings, sibling_states: focused_hover_narrow_empty_loading_error_required_before_implementation}
+notes: Source enlarged from 1672x941 to minimum canvas by Lanczos resampling. Color preview, toggles, and available assistive settings must be checked against actual app support and WCAG contrast before implementation.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

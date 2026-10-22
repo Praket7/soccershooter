@@ -1,0 +1,19 @@
+id: M006
+category: movement-lateral-shuffle
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 1774x887
+source_resolution: 1774x887
+purpose: Show a controlled 45-degree running redirection with stable support and balance.
+asset_targets: [approach stride, lowered cut preparation, planted outside foot, new-direction recovery]
+copy: [progressive hip lowering, plant close to center of mass, knee tracks over foot, trunk inclines with cut, arms counterbalance]
+avoid: [90-degree pivot, planted knee collapse, exaggerated lateral slide, airborne plant]
+camera: {type: lateral_three_quarter_full_body_motion_sequence, focal_length_equiv_mm: 85}
+lighting: {type: neutral_soft_daylight, color_temperature_k: null}
+palette: [charcoal kit, turf green]
+measurements: {aspect_ratio: 2/1, full_body_visible: true}
+notes: Cropped from the approved M001-M018 movement contact sheet; panel position row 0 column 2. The crop is a visual pose reference and is not a motion-capture measurement. Sequential poses are illustrative; verify against sports-biomechanics references before animation production.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

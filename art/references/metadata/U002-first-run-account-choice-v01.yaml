@@ -1,0 +1,18 @@
+id: U002
+category: ui-first-run-account-choice
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 1672x941
+purpose: First-run onboarding target with guest, Google, and email paths plus keyboard-visible focus.
+asset_targets: [guest mode, account sign-in, email sign-in, keyboard and controller focus]
+copy: [one clear title, distinct guest/Google/email choices, short privacy reassurance]
+avoid: [unclear provider options, deceptive privacy claims, hidden focus state, nonfunctional fake action]
+camera: {type: flat_ui_screen}
+lighting: {type: stadium_tunnel_background, color_temperature_k: null}
+palette: [deep navy, soft white, interaction lime]
+measurements: {aspect_ratio: 16/9}
+notes: Generated concept; verify provider branding/current auth flows and exact privacy copy before implementation.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

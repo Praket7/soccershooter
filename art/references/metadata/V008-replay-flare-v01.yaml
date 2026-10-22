@@ -1,0 +1,19 @@
+id: V008
+category: vfx-replay-flare
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 443x443
+source_resolution: 1774x887 contact sheet crop
+purpose: Restrained replay highlight flare reference.
+asset_targets: [subtle replay flare, focal emphasis]
+copy: [controlled intensity, no gameplay obstruction]
+avoid: [lens-flare overload, unreadable ball]
+camera: {type: replay-effect-study, focal_length_equiv_mm: null}
+lighting: {type: authored-replay, color_temperature_k: null}
+palette: [soft white, warm amber, interaction lime]
+measurements: {aspect_ratio: 1/1}
+notes: Cropped from approved VFX contact sheet row 2 column 4.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

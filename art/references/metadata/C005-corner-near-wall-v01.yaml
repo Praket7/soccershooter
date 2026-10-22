@@ -1,0 +1,20 @@
+id: C005
+category: camera-corner-near-wall
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 2560x1440
+source_resolution: 1672x941
+upscale: Apple sips Lanczos resampling; generated source retained in working/
+purpose: Corner and near-touchline camera composition for judging field-edge control, defender spacing, corner geometry, and goal visibility.
+asset_targets: [corner camera, near-touchline camera, sideline bounds, ball visibility, goal visibility]
+copy: [retain end line and touchline convergence, keep player and ball inside frame, preserve enough central passing space]
+avoid: [fisheye distortion, crop that hides ball, goal outside context, camera too close to corner flag]
+camera: {type: elevated_third_person_trailing, estimated_height_m: 4.5, focal_length_equiv_mm: 28, position: behind_and_inside_player}
+lighting: {type: late_afternoon_stadium, color_temperature_k: null}
+palette: [natural grass, burgundy, ivory, stadium neutral]
+measurements: {aspect_ratio: 16/9, horizon_line: 0.28, controlled_player_screen_occupancy: 0.12, ball_screen_occupancy: 0.002, goal_visible: true, edge_ui_safe_regions: [top_6%, bottom_8%]}
+notes: Estimated framing values are art-direction annotations, not calibrated camera measurements. Source enlarged from 1672x941 by Lanczos; reproduce against a greybox before trusting final camera tuning.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

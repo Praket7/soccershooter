@@ -15,7 +15,10 @@ function actorSnapshot(player: Readonly<PlayerState>): FootballActorSnapshot {
   const movementBalance = player.locomotion === 'sharp-cut' ? 0.68 : player.grounded ? 1 : 0.58;
   const speedBalance = Math.max(0.72, Math.min(1, 1 - Math.max(0, speed - DEFAULT_MOVEMENT_CONFIG.jogSpeed) * 0.035));
   return {
-    position: { ...player.position }, velocity: { ...player.velocity }, facingYaw: speed > 0.35 ? Math.atan2(player.velocity.x, player.velocity.z) : player.facingYaw,
+    position: { ...player.position }, velocity: { ...player.velocity },
+    facingYaw: Math.hypot(player.velocity.x, player.velocity.z) > 0.35
+      ? Math.atan2(player.velocity.x, player.velocity.z)
+      : player.facingYaw,
     balance: movementBalance * speedBalance, pressure: 0, sprinting: player.locomotion === 'sprint', preferredFoot: 'right',
   };
 }

@@ -13,6 +13,9 @@ export interface AthleticTrajectorySample {
 }
 
 export interface AthleticMotionState {
+  /** Shared simulation and presentation heading for the athlete's torso/feet. */
+  bodyYaw: number;
+  bodyYawRate: number;
   gait: AthleticGait;
   gaitPhase: number;
   supportFoot: AthleticFoot;
@@ -23,6 +26,8 @@ export interface AthleticMotionState {
   brakingDemand: number;
   propulsionDemand: number;
   bodyLean: { forward: number; lateral: number };
+  /** Horizontal acceleration actually applied by the movement solver, in m/s². */
+  realizedAcceleration?: AthleticHorizontalVector;
   plannedVelocity: AthleticHorizontalVector;
   trajectory: AthleticTrajectorySample[];
   /** True only while the current deterministic input is preparing a shot. */
@@ -32,6 +37,8 @@ export interface AthleticMotionState {
 export interface AthleticMotionInput {
   position: AthleticHorizontalVector;
   currentVelocity: AthleticHorizontalVector;
+  /** Horizontal acceleration actually applied by the movement solver, in m/s². */
+  realizedAcceleration?: AthleticHorizontalVector;
   desiredDirection: AthleticHorizontalVector;
   moveMagnitude: number;
   sprinting: boolean;
@@ -49,6 +56,9 @@ export interface AthleticMotionInput {
 const EPSILON = 1e-9;
 const TRAJECTORY_STEP_SECONDS = 0.15;
 const TRAJECTORY_SAMPLE_COUNT = 4;
+const BODY_TURN_ANGULAR_ACCELERATION = 20;
+const REVERSAL_BODY_TURN_ANGULAR_ACCELERATION = 64;
+const TAU = Math.PI * 2;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -62,6 +72,14 @@ function moveToward(current: number, target: number, maxDelta: number): number {
   const delta = target - current;
   if (Math.abs(delta) <= maxDelta) return target;
   return current + Math.sign(delta) * maxDelta;
+}
+
+function angleDelta(from: number, to: number): number {
+  return ((to - from + Math.PI) % TAU + TAU) % TAU - Math.PI;
+}
+
+function normalizeAngle(value: number): number {
+  return ((value + Math.PI) % TAU + TAU) % TAU - Math.PI;
 }
 
 function normalize(value: AthleticHorizontalVector): AthleticHorizontalVector {
@@ -146,8 +164,10 @@ function futureTrajectory(input: Readonly<AthleticMotionInput>, plantIntensity: 
   return samples;
 }
 
-export function createAthleticMotionState(): AthleticMotionState {
+export function createAthleticMotionState(initialBodyYaw = 0): AthleticMotionState {
   return {
+    bodyYaw: normalizeAngle(finite(initialBodyYaw)),
+    bodyYawRate: 0,
     gait: 'idle',
     gaitPhase: 0,
     supportFoot: 'both',
@@ -158,6 +178,7 @@ export function createAthleticMotionState(): AthleticMotionState {
     brakingDemand: 0,
     propulsionDemand: 0,
     bodyLean: { forward: 0, lateral: 0 },
+    realizedAcceleration: { x: 0, z: 0 },
     plannedVelocity: { x: 0, z: 0 },
     trajectory: [],
     strikePreparation: false,
@@ -168,6 +189,7 @@ export function cloneAthleticMotionState(state: Readonly<AthleticMotionState>): 
   return {
     ...state,
     bodyLean: { ...state.bodyLean },
+    realizedAcceleration: state.realizedAcceleration ? { ...state.realizedAcceleration } : { x: 0, z: 0 },
     plannedVelocity: { ...state.plannedVelocity },
     trajectory: state.trajectory.map((sample) => ({
       time: sample.time,
@@ -175,6 +197,35 @@ export function cloneAthleticMotionState(state: Readonly<AthleticMotionState>): 
       velocity: { ...sample.velocity },
     })),
   };
+}
+
+/**
+ * Keeps a controlled ball inside the athlete's forward turn arc. A player may
+ * plant and begin a reversal, but cannot finish rotating past a ball that has
+ * not yet been carried around by a physical touch.
+ */
+export function constrainBodyTurnToBall(
+  motion: Readonly<AthleticMotionState>,
+  playerPosition: Readonly<AthleticHorizontalVector>,
+  ballPosition: Readonly<AthleticHorizontalVector>,
+  deltaSeconds: number,
+): AthleticMotionState {
+  const relative = { x: ballPosition.x - playerPosition.x, z: ballPosition.z - playerPosition.z };
+  if (Math.hypot(relative.x, relative.z) < 0.05) return cloneAthleticMotionState(motion);
+  const ballYaw = Math.atan2(relative.x, relative.z);
+  const error = angleDelta(motion.bodyYaw, ballYaw);
+  const forwardArc = 100 * Math.PI / 180;
+  if (Math.abs(error) <= forwardArc) return cloneAthleticMotionState(motion);
+
+  const boundaryYaw = normalizeAngle(ballYaw - Math.sign(error) * forwardArc);
+  const constrained = cloneAthleticMotionState(motion);
+  constrained.bodyYaw = normalizeAngle(moveToward(
+    motion.bodyYaw,
+    boundaryYaw,
+    13.5 * clamp(deltaSeconds, 0, 0.1),
+  ));
+  constrained.bodyYawRate = 0;
+  return constrained;
 }
 
 function stanceFootForPhase(phase: number): AthleticFoot {
@@ -212,6 +263,31 @@ export function stepAthleticMotion(
   const brakingDemand = Math.max(releaseBrake, turningBrake);
   const propulsionDemand = clamp(moveMagnitude * (1 - brakingDemand * 0.72), 0, 1);
 
+  const requestedBodyYaw = moveMagnitude > 0.05
+    ? Math.atan2(input.desiredDirection.x, input.desiredDirection.z)
+    : previous.bodyYaw;
+  const bodyYawError = angleDelta(previous.bodyYaw, requestedBodyYaw);
+  const bodyTurnAcceleration = Math.abs(input.turnDelta) > 2.2
+    ? REVERSAL_BODY_TURN_ANGULAR_ACCELERATION
+    : BODY_TURN_ANGULAR_ACCELERATION;
+  const bodyTurnRateLimit = 7.6
+    - speedFraction * 2.8
+    + plantIntensity * 0.8;
+  const stoppingLimitedBodyRate = Math.sqrt(2 * bodyTurnAcceleration * Math.abs(bodyYawError));
+  const desiredBodyYawRate = Math.sign(bodyYawError)
+    * Math.min(bodyTurnRateLimit, stoppingLimitedBodyRate);
+  let bodyYawRate = moveToward(
+    previous.bodyYawRate,
+    desiredBodyYawRate,
+    bodyTurnAcceleration * dt,
+  );
+  const bodyYawStep = bodyYawRate * dt;
+  let bodyYaw = normalizeAngle(previous.bodyYaw + bodyYawStep);
+  if (Math.sign(bodyYawStep) === Math.sign(bodyYawError) && Math.abs(bodyYawStep) >= Math.abs(bodyYawError)) {
+    bodyYaw = normalizeAngle(requestedBodyYaw);
+    bodyYawRate = 0;
+  }
+
   const targetStride = strideForSpeed(speed, input.sprinting);
   const strideSeconds = moveToward(previous.strideSeconds, targetStride, 0.72 * dt);
   let gaitPhase = previous.gaitPhase;
@@ -226,6 +302,21 @@ export function stepAthleticMotion(
     : stanceFootForPhase(gaitPhase);
   const nextFoot = nextSwingFoot(gaitPhase, supportFoot);
 
+  const bodyForward = { x: Math.sin(bodyYaw), z: Math.cos(bodyYaw) };
+  const bodyRight = { x: Math.cos(bodyYaw), z: -Math.sin(bodyYaw) };
+  const realizedAcceleration = input.realizedAcceleration ?? { x: 0, z: 0 };
+  const forwardAcceleration = finite(realizedAcceleration.x) * bodyForward.x
+    + finite(realizedAcceleration.z) * bodyForward.z;
+  const lateralAcceleration = finite(realizedAcceleration.x) * bodyRight.x
+    + finite(realizedAcceleration.z) * bodyRight.z;
+  // Lean follows force transfer from the movement solver, then settles through
+  // a damped response instead of snapping to the currently held input.
+  const targetForwardLean = clamp(forwardAcceleration * 0.022, -0.22, 0.22);
+  const targetLateralLean = clamp(
+    lateralAcceleration * 0.020 + signedTurn * (0.035 + speedFraction * 0.07),
+    -0.24,
+    0.24,
+  );
   const desired = normalize(input.desiredDirection);
   const requestedTopSpeed = input.sprinting ? input.sprintSpeed : input.jogSpeed;
   const plannedSpeed = requestedTopSpeed * moveMagnitude * (1 - plantIntensity * 0.40);
@@ -255,6 +346,8 @@ export function stepAthleticMotion(
   const gait: AthleticGait = leavingPlant || continuingRecovery ? 'recover' : baseGait;
 
   return {
+    bodyYaw,
+    bodyYawRate,
     gait,
     gaitPhase,
     supportFoot,
@@ -265,8 +358,12 @@ export function stepAthleticMotion(
     brakingDemand,
     propulsionDemand,
     bodyLean: {
-      forward: clamp((propulsionDemand - brakingDemand) * 0.22, -0.22, 0.22),
-      lateral: clamp(signedTurn * (0.12 + speedFraction * 0.18), -0.3, 0.3),
+      forward: moveToward(previous.bodyLean.forward, targetForwardLean, 4.8 * dt),
+      lateral: moveToward(previous.bodyLean.lateral, targetLateralLean, 5.6 * dt),
+    },
+    realizedAcceleration: {
+      x: finite(realizedAcceleration.x),
+      z: finite(realizedAcceleration.z),
     },
     plannedVelocity,
     trajectory: futureTrajectory(input, plantIntensity),

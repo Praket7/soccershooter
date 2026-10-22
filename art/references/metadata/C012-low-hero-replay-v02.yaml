@@ -1,0 +1,20 @@
+id: C012
+category: camera-replay-low-hero
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 2560x1440
+source_resolution: 1672x941
+upscale: Apple sips Lanczos resampling; generated source retained in working/
+purpose: Low-angle replay target for a grounded shot-contact moment with defender and goalkeeper context.
+asset_targets: [low replay camera, shot contact, planted foot, ball visibility, goal mouth]
+copy: [ankle-height angle, visible contact relationship, balanced full-body mechanics, goal and keeper in context]
+avoid: [floating detached ball, impossible leg extension, brand-like marks, crop that removes planted foot]
+camera: {type: low_pitch_level_three_quarter, estimated_height_m: 0.45, focal_length_equiv_mm: 40, position: off_ball_side_of_shooter}
+lighting: {type: evening_stadium_floodlights, color_temperature_k: null}
+palette: [natural grass, burgundy, ivory, keeper green]
+measurements: {aspect_ratio: 16/9, controlled_player_screen_occupancy: 0.43, ball_screen_occupancy: 0.009, goal_visible: true}
+notes: Source enlarged from 1672x941 by Lanczos. Contact is illustrative and close-cropped; verify actual foot-ball contact timing and avoid using generated pose as animation truth.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

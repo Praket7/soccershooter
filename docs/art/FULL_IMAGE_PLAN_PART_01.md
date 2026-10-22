@@ -569,7 +569,7 @@ R017 neutral greybox light
 R018 flagship night key
 R019 goal-end readability
 R020 midfield readability
-R021 rain/wet optional study, not baseline
+R021 Argentine 3v3 street-court venue variation (replaces optional rain/wet study; added by owner direction)
 R022 warm practical/cool flood contrast
 R023 crowd brightness balance
 R024 low-quality graphics comparison

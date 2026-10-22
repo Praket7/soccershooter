@@ -1,0 +1,18 @@
+id: C003
+category: camera-defense
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 1672x941
+purpose: Defensive gameplay camera and nearest-threat readability reference.
+asset_targets: [defensive follow camera, controlled defender, ball carrier, nearby passing lanes]
+copy: [keep ball carrier and controlled defender visible, communicate distance and approach angle, preserve pitch context]
+avoid: [defender obscuring ball, excessive distance, unreadable overlap]
+camera: {type: third_person_defense_gameplay, height_above_root_m: null, distance_m: null, focal_length_equiv_mm: null}
+lighting: {type: generated_gameplay_concept, color_temperature_k: null}
+palette: []
+measurements: {aspect_ratio: 16/9}
+notes: Existing generated reference; camera values were not measured. Validate actual defensive framing in the game.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

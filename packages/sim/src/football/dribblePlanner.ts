@@ -12,6 +12,7 @@ import {
   clampFootball,
   cloneFootballBall,
   commandTowardVelocity,
+  forwardFromYaw,
   horizontalDistance,
   horizontalMagnitude,
   normalizeHorizontal,
@@ -100,14 +101,24 @@ function cadenceTicks(input: Readonly<PlannedDribbleInput>): number {
     -1,
     1,
   ));
-  if (isEffortTurn(input) || (horizontalMagnitude(input.actor.velocity) >= 2.5 && directionChange >= 0.12)) {
+  const carrierSpeed = horizontalMagnitude(input.actor.velocity);
+  // Sprint input can remain held through a sharp plant even after the athlete
+  // has shed most of their speed. Keep the tight-turn touch beat active in that
+  // window so the ball does not coast ahead while the carrier is braking.
+  const turningSpeedThreshold = 1.0;
+  const turningCarry = carrierSpeed >= turningSpeedThreshold && directionChange >= 0.12;
+  if (isEffortTurn(input) || turningCarry) {
     // Tight running curves need a touch inside the normal stride beat. Waiting
     // 8-10 ticks lets the player round the turn while the ball continues along
     // its old tangent, which reads as the ball trailing around the circle.
     if (directionChange >= 0.20 || Math.abs(input.motion.turnDemand) >= 0.06) {
-      return Math.round(clampFootball(strideTicks * 0.24, 4, 6));
+      return Math.round(input.sprint || input.precision
+        ? clampFootball(strideTicks * 0.24, 4, 6)
+        : clampFootball(strideTicks * 0.20, 4, 5));
     }
-    return Math.round(clampFootball(strideTicks * 0.42, 8, 10));
+    return Math.round(input.sprint || input.precision
+      ? clampFootball(strideTicks * 0.42, 8, 10)
+      : clampFootball(strideTicks * 0.34, 7, 9));
   }
   if (input.precision) return Math.round(clampFootball(strideTicks * 0.36, 7, 9));
   if (input.sprint) return Math.round(clampFootball(strideTicks * 0.42, 8, 10));
@@ -290,7 +301,23 @@ function targetVelocity(input: Readonly<PlannedDribbleInput>, seconds: number): 
   // during reversals; a modest blend lets the touch lead the cut without
   // pretending the carrier can instantly change velocity.
   const requestedDirection = normalizeHorizontal(input.desiredDirection);
-  const requestedWeight = isEffortTurn(input) ? 0.14 : 0.32;
+  const carrierAlignment = clampFootball(
+    carrierDirection.x * requestedDirection.x + carrierDirection.z * requestedDirection.z,
+    -1,
+    1,
+  );
+  // A jogging 90-degree lane change needs the touch to lead the new direction
+  // instead of remaining tethered to lateral carrier momentum. Preserve the
+  // existing braking arc for reversals and sprint cuts, where redirecting too
+  // aggressively stretches the ball away from the player.
+  const laneChangeLead = !input.precision && carrierAlignment >= -0.12
+    ? clampFootball((0.55 - carrierAlignment) / 0.55, 0, 1)
+    : 0;
+  const baseRequestedWeight = isEffortTurn(input) ? 0.14 : 0.32;
+  const laneChangeAuthority = input.sprint
+    ? input.motion.plantIntensity >= 0.24 ? 0.38 : 0.72
+    : 0.78;
+  const requestedWeight = baseRequestedWeight + laneChangeLead * (1 - baseRequestedWeight) * laneChangeAuthority;
   const direction = normalizeHorizontal({
     x: carrierDirection.x * (1 - requestedWeight) + requestedDirection.x * requestedWeight,
     z: carrierDirection.z * (1 - requestedWeight) + requestedDirection.z * requestedWeight,
@@ -406,11 +433,28 @@ function commandForPlan(
   ball: Readonly<FootballBallSnapshot>,
   input: Readonly<PlannedDribbleInput>,
 ): BallContactCommand {
+  const incomingSpeed = Math.hypot(input.ball.velocity.x, input.ball.velocity.z);
+  const incomingDirection = normalizeHorizontal(
+    { x: input.ball.velocity.x, z: input.ball.velocity.z },
+    input.desiredDirection,
+  );
+  const requestedDirection = normalizeHorizontal(input.desiredDirection);
+  const incomingIntentDot = incomingDirection.x * requestedDirection.x
+    + incomingDirection.z * requestedDirection.z;
+  const reversal = incomingIntentDot < -0.82;
+  // Keep planned braking arcs on routine cuts. On a full reversal, use the new
+  // input lane immediately so the bounded touch carries the ball around with
+  // the planted turn instead of continuing down the old trajectory.
+  const controlDirection = input.receiveMode === 'controlled-exit'
+    ? requestedDirection
+    : reversal
+      ? forwardFromYaw(input.motion.bodyYaw)
+      : normalizeHorizontal(plan.targetBallVelocity, requestedDirection);
   const controlTouch = !isStrikePreparation(input)
     ? buildControlTouch({
         actor: input.actor,
         ball,
-        desiredDirection: normalizeHorizontal(plan.targetBallVelocity, input.desiredDirection),
+        desiredDirection: controlDirection,
         precision: input.precision,
         sprint: input.sprint,
         pressure: input.pressure,
@@ -463,6 +507,17 @@ export function stepPlannedDribble(input: Readonly<PlannedDribbleInput>): Planne
 
   const settledBall = Math.hypot(input.ball.velocity.x, input.ball.velocity.y, input.ball.velocity.z) < 0.22;
   const deliberateReceive = input.receiveMode === 'kill' || input.receiveMode === 'controlled-exit';
+  const requestedDirection = normalizeHorizontal(input.desiredDirection);
+  if (state.looseBall && !deliberateReceive) {
+    const recoveryDistance = horizontalDistance(input.actor.position, input.ball.position);
+    const recoveryLane = (input.ball.position.x - input.actor.position.x) * requestedDirection.x
+      + (input.ball.position.z - input.actor.position.z) * requestedDirection.z;
+    if (recoveryDistance > 0.85 || recoveryLane < 0.10) {
+      state.activePlan = null;
+      return { state, ball: unchangedBall, contactApplied: false, reason: 'loose-ball-chase' };
+    }
+    state.looseBall = false;
+  }
   if (input.moveIntentMagnitude < 0.08 && settledBall && !deliberateReceive) {
     state.activePlan = null;
     state.looseBall = false;
@@ -482,11 +537,29 @@ export function stepPlannedDribble(input: Readonly<PlannedDribbleInput>): Planne
     state.activePlan = plan;
   }
 
-  const requestedDirection = normalizeHorizontal(input.desiredDirection);
   const plannedDirection = plan ? normalizeHorizontal(plan.targetBallVelocity) : null;
+  const laneAlignment = plannedDirection
+    ? requestedDirection.x * plannedDirection.x + requestedDirection.z * plannedDirection.z
+    : 1;
+  const ballAheadOfRequestedLane = (input.ball.position.x - input.actor.position.x) * requestedDirection.x
+    + (input.ball.position.z - input.actor.position.z) * requestedDirection.z;
+  // Keep sprint touches committed against abrupt reversals, but let a normal
+  // arc update through the final plant beat once the ball starts falling out
+  // of the new carry lane. If it cannot be reached at contact, the existing
+  // geometry/window checks still produce a genuine loose ball.
+  const lateLaneCorrection = !input.precision && plannedDirection !== null
+    && laneAlignment < -0.5 && ballAheadOfRequestedLane < 0.55;
+  const committedSprintLaneCanFollow = input.sprint && plannedDirection !== null
+    && laneAlignment < 0.995
+    && ballAheadOfRequestedLane < 0.55;
   const lateJogBranchDoesNotRequireFullReversal = !input.sprint && !input.precision && plannedDirection !== null
-    && requestedDirection.x * plannedDirection.x + requestedDirection.z * plannedDirection.z >= -0.5;
-  if (plan && input.tick < plan.contactTick && (input.tick < plan.prepareTick || lateJogBranchDoesNotRequireFullReversal)) {
+    && laneAlignment >= -0.5;
+  if (plan && input.tick < plan.contactTick && (
+    input.tick < plan.prepareTick
+    || lateJogBranchDoesNotRequireFullReversal
+    || lateLaneCorrection
+    || committedSprintLaneCanFollow
+  )) {
     plan = planContact(input, plan.contactTick, plan.foot);
     state.activePlan = plan;
   }
@@ -535,4 +608,25 @@ export function stepPlannedDribble(input: Readonly<PlannedDribbleInput>): Planne
   state.activePlan = created;
   state.looseBall = false;
   return { state, ball: unchangedBall, contactApplied: false, reason: 'contact-planned' };
+}
+
+/**
+ * Runs the normal gait-timed carry planner during a specialist move's windup.
+ * The move owns only its final contact beat(s); before that, ball control must
+ * continue to respond to the player's live movement and turns.
+ */
+export function stepTechniqueCarry(
+  input: Readonly<PlannedDribbleInput> & {
+    techniqueContactTick: number;
+    reserveContactTicks: number;
+  },
+): PlannedDribbleStep | null {
+  if (!Number.isSafeInteger(input.techniqueContactTick) || input.techniqueContactTick < 0) {
+    throw new RangeError('techniqueContactTick must be a non-negative safe integer');
+  }
+  if (!Number.isSafeInteger(input.reserveContactTicks) || input.reserveContactTicks < 0) {
+    throw new RangeError('reserveContactTicks must be a non-negative safe integer');
+  }
+  if (input.tick >= input.techniqueContactTick - input.reserveContactTicks) return null;
+  return stepPlannedDribble(input);
 }

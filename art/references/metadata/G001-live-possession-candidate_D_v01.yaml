@@ -1,0 +1,18 @@
+id: W-G001-D
+category: global-live-possession
+status: working
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 1672x940
+purpose: Fourth global live-possession candidate, focused on central controlled-player framing, readable tactical spacing, and subdued stadium detail.
+asset_targets: [art/art-bible/global-live-possession]
+copy: [clear runner/ball silhouette, believable teammate support spacing, readable goal context, realistic adult proportions]
+avoid: [real club/player likeness, copied logo or sponsor, treating concept as final runtime art, overly busy crowd or VFX]
+camera: {type: third_person_gameplay, focal_length_equiv_mm: 55}
+lighting: {type: late_afternoon_stadium, color_temperature_k: null}
+palette: [forest green, deep garnet, dark navy, cool pale blue-gray]
+measurements: {player_height_m: 1.82, ball_diameter_m: 0.22}
+notes: Working candidate only. Resolution is suitable for mood/camera review, not detailed modeling reference. Compare at in-game size; not in LOCKED_192.
+approval: {approved_by: null, approved_date: null}
