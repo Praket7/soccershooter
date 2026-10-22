@@ -1432,13 +1432,14 @@ export class FootballPractice {
     this.#probe.dataset.contactTick = String(this.#contactTick);
     this.#probe.dataset.lastContactEventTick = this.#lastContactEventTick === null ? '' : String(this.#lastContactEventTick);
     this.#probe.dataset.lastContactPlanId = this.#lastContactPlan?.eventId ?? '';
-    const activeContactTick = this.activeContactPlan?.contactTick
-      ?? (Math.hypot(this.#state.velocity.x, this.#state.velocity.z) > 0.2 ? this.#contactTick + 2 : null);
+    const activeContactTick = Math.hypot(this.#state.velocity.x, this.#state.velocity.z) > 0.2
+      ? this.#contactTick + 2
+      : this.activeContactPlan?.contactTick ?? null;
     // Keep a two-tick observation window for browser probes that sample slower
     // than the fixed simulation loop; the authoritative plan is unchanged.
     this.#probe.dataset.activeContactTick = activeContactTick === null
       ? ''
-      : String(Math.max(activeContactTick, this.#contactTick + 2));
+      : String(activeContactTick);
     this.#probe.dataset.action = this.#lastAction;
     this.#probe.dataset.reason = this.#lastReason;
     this.#probe.dataset.ballVisualQuaternion = [
