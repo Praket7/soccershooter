@@ -121,7 +121,7 @@ function cadenceTicks(input: Readonly<PlannedDribbleInput>): number {
       : clampFootball(strideTicks * 0.34, 7, 9));
   }
   if (input.precision) return Math.round(clampFootball(strideTicks * 0.36, 7, 9));
-  if (input.sprint) return Math.round(clampFootball(strideTicks * 0.42, 8, 10));
+  if (input.sprint) return Math.round(clampFootball(strideTicks * 0.36, 7, 9));
   return Math.round(clampFootball(strideTicks * 0.42, 9, 11));
 }
 
