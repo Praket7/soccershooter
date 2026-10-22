@@ -121,7 +121,7 @@ function cadenceTicks(input: Readonly<PlannedDribbleInput>): number {
       : clampFootball(strideTicks * 0.34, 7, 9));
   }
   if (input.precision) return Math.round(clampFootball(strideTicks * 0.36, 7, 9));
-  if (input.sprint) return Math.round(clampFootball(strideTicks * 0.36, 7, 9));
+  if (input.sprint) return Math.round(clampFootball(strideTicks * 0.42, 8, 10));
   return Math.round(clampFootball(strideTicks * 0.42, 9, 11));
 }
 
@@ -269,7 +269,7 @@ function targetSpeed(input: Readonly<PlannedDribbleInput>, carrierVelocity: Foot
     return clampFootball(contactSpeed * 1.02 + 0.16, 1.8, turnSpeedCeiling);
   }
   if (input.sprint) {
-    const requestedKnockOn = actorSpeed + 1.0 + Math.min(0.50, actorSpeed * 0.055);
+    const requestedKnockOn = actorSpeed + 0.82 + Math.min(0.50, actorSpeed * 0.055);
     const alignment = normalizeHorizontal(carrierVelocity);
     const requested = normalizeHorizontal(input.desiredDirection);
     const directionalMatch = alignment.x * requested.x + alignment.z * requested.z;
