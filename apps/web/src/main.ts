@@ -346,6 +346,7 @@ function resetPlayer(): void {
 document.addEventListener('keydown', (event) => {
   if (!practiceMode || event.repeat) return;
   if (event.code === 'KeyG') {
+    bufferedActionBits = 0;
     footballPractice.resetBallNear(player);
     event.preventDefault();
     return;

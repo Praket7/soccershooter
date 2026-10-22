@@ -334,6 +334,7 @@ export class FootballPractice {
   #lastAction = 'READY';
   #lastReason = 'practice-ready';
   #lastSuccess = true;
+  #actionHoldUntilTick = 0;
   #lastPlayer: PlayerState | null = null;
   #shotFacingYaw: number | null = null;
   #lastAim = { x: 0, z: 1 };
@@ -342,7 +343,7 @@ export class FootballPractice {
   #leadPoint: FootballVec3 | null = null;
   #shotState = 'READY';
   #probe: HTMLOutputElement;
-  #buildModifiers: FootballBuildModifiers = { contactTimingTicks: 1, sprintStaminaCostScale: 1, strikeImpulseScale: 1 };
+  #buildModifiers: FootballBuildModifiers = { contactTimingTicks: 2, sprintStaminaCostScale: 1, strikeImpulseScale: 1 };
   #legacyGauntlet: LegacyGauntlet | null = null;
   #legacyModifiers: LiveLegacyModifiers = resolveLiveLegacyModifiers(null);
   #onGoalScored: () => void;
@@ -377,7 +378,7 @@ export class FootballPractice {
       </div>
       <div class="practice-actions" data-shot-controls-guide>
         <strong>SHOOTING</strong>
-        <span>Aim with the center reticle · hold <kbd>LMB</kbd> for power · RMB while charging = finesse · Ctrl while charging = chip · release LMB to strike</span>
+        <span>Aim with the center reticle · hold <kbd>LMB</kbd> for power · LMB only = NORMAL · RMB anytime while charging = FINESSE · Ctrl anytime while charging = CHIP · Release LMB to strike</span>
       </div>
       <details class="practice-technique-panel">
         <summary>Practice-only specialist contacts</summary>
@@ -1244,6 +1245,7 @@ export class FootballPractice {
       this.#pendingTechnique = null;
       this.#stepOverCue = null;
       this.#techniqueState = createTechniqueState();
+      this.#actionHoldUntilTick = 0;
     }
   }
 
@@ -1339,9 +1341,13 @@ export class FootballPractice {
   }
 
   #recordAction(action: string, success: boolean, reason: string): void {
+    if ((action === 'PLANNED TOUCH' || action === 'LOOSE BALL')
+      && (this.#lastAction === 'TECHNIQUE CONTACT' || this.#lastAction === 'CONTACT')
+      && this.#contactTick < this.#actionHoldUntilTick) return;
     this.#lastAction = action;
     this.#lastSuccess = success;
     this.#lastReason = reason;
+    if (action === 'TECHNIQUE CONTACT' || action === 'CONTACT') this.#actionHoldUntilTick = this.#contactTick + 24;
     const actionNode = this.root.querySelector<HTMLElement>('[data-practice-intent]');
     const reasonNode = this.root.querySelector<HTMLElement>('[data-practice-reason]');
     if (actionNode) actionNode.textContent = action;
