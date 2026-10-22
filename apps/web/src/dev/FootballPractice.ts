@@ -1235,7 +1235,6 @@ export class FootballPractice {
   #resetPlannedDribble(resetCounters: boolean): void {
     this.#dribble = createPlannedDribbleState();
     if (resetCounters) {
-      this.#contactTick = 0;
       this.#plannedContactCount = 0;
       this.#freeBallFrames = 0;
       this.#lastContactSurface = '';
@@ -1432,11 +1431,7 @@ export class FootballPractice {
     this.#probe.dataset.contactTick = String(this.#contactTick);
     this.#probe.dataset.lastContactEventTick = this.#lastContactEventTick === null ? '' : String(this.#lastContactEventTick);
     this.#probe.dataset.lastContactPlanId = this.#lastContactPlan?.eventId ?? '';
-    const activeContactTick = Math.hypot(this.#state.velocity.x, this.#state.velocity.z) > 0.2
-      ? this.#contactTick + 2
-      : this.activeContactPlan?.contactTick ?? null;
-    // Keep a two-tick observation window for browser probes that sample slower
-    // than the fixed simulation loop; the authoritative plan is unchanged.
+    const activeContactTick = this.activeContactPlan?.contactTick ?? null;
     this.#probe.dataset.activeContactTick = activeContactTick === null
       ? ''
       : String(activeContactTick);
