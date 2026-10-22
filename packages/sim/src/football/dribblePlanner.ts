@@ -269,7 +269,7 @@ function targetSpeed(input: Readonly<PlannedDribbleInput>, carrierVelocity: Foot
     return clampFootball(contactSpeed * 1.02 + 0.16, 1.8, turnSpeedCeiling);
   }
   if (input.sprint) {
-    const requestedKnockOn = actorSpeed + 0.82 + Math.min(0.50, actorSpeed * 0.055);
+    const requestedKnockOn = actorSpeed + 1.0 + Math.min(0.50, actorSpeed * 0.055);
     const alignment = normalizeHorizontal(carrierVelocity);
     const requested = normalizeHorizontal(input.desiredDirection);
     const directionalMatch = alignment.x * requested.x + alignment.z * requested.z;
@@ -315,7 +315,7 @@ function targetVelocity(input: Readonly<PlannedDribbleInput>, seconds: number): 
     : 0;
   const baseRequestedWeight = isEffortTurn(input) ? 0.14 : 0.32;
   const laneChangeAuthority = input.sprint
-    ? input.motion.plantIntensity >= 0.24 ? 0.38 : 0.72
+    ? input.motion.plantIntensity >= 0.24 ? 0.44 : 0.88
     : 0.78;
   const requestedWeight = baseRequestedWeight + laneChangeLead * (1 - baseRequestedWeight) * laneChangeAuthority;
   const direction = normalizeHorizontal({
