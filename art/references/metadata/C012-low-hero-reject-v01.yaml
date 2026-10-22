@@ -1,0 +1,18 @@
+id: C012
+category: camera-replay-low-hero
+status: rejected
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: false
+resolution: 1672x941
+purpose: Low-angle replay shot.
+asset_targets: [replay camera]
+copy: []
+avoid: [brand-like marks, ambiguous contact timing]
+camera: {type: low_pitch_level}
+lighting: {type: night_stadium}
+palette: []
+measurements: {aspect_ratio: 16/9}
+notes: Rejected: incidental brand-like kit marks and the contact frame reads as a detached ball rather than clearly grounded shot contact.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

@@ -1,0 +1,20 @@
+id: R026
+category: arena-home-end-landmark
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 2560x1440
+source_resolution: 1672x941
+upscale: Apple sips Lanczos resampling; generated source retained in working/
+purpose: Distinctive home-end architectural landmark visible from the playing surface.
+asset_targets: [feature brick wall, industrial circular clock silhouette, burgundy panels, short-end goal, symmetric side seating]
+copy: [clear recognizable focal landmark, centered goal below landmark, restrained burgundy accent, arena-specific navigation cue]
+avoid: [brand marks, banners, landmark obscuring goal, excessive ornament, readable lettering]
+camera: {type: centered_goal_end_player_height, estimated_height_m: 1.5, focal_length_equiv_mm: 35}
+lighting: {type: warm_wall_practicals_with_even_pitch_lighting, color_temperature_k: null}
+palette: [brick, charcoal steel, burgundy, warm amber, turf green]
+measurements: {aspect_ratio: 16/9, landmark_and_goal_visible: true}
+notes: Generated concept enlarged from 1672x941 using Lanczos; upscaling adds no detail. Clock form is a stylized visual marker, not a final instrument design.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

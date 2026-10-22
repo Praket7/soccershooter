@@ -1,0 +1,20 @@
+id: R013
+category: arena-floodlight-fixture
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 2560x1440
+source_resolution: 1672x941
+upscale: Apple sips Lanczos resampling; generated source retained in working/
+purpose: High-bay LED sports-light fixture, mounting, and illumination reference.
+asset_targets: [high-bay LED luminaires, steel mounting brackets, cable conduit, beam lighting, pitch illumination]
+copy: [serviceable fixture scale, believable mounting hardware, controlled glare, consistent pitch coverage]
+avoid: [oversized fixtures, exposed dangling cables, lens flare, blown-out pitch, visible brands]
+camera: {type: close_upward_architectural_detail, estimated_height_m: 3.5, focal_length_equiv_mm: 50}
+lighting: {type: cool_white_sports_led_with_warm_practicals, color_temperature_k: null}
+palette: [dark steel, neutral white light, muted turf, warm amber]
+measurements: {aspect_ratio: 16/9, fixture_mount_and_pitch_visible: true}
+notes: Generated concept enlarged from 1672x941 using Lanczos; upscaling adds no detail. Lux uniformity, color temperature, glare, and performance need in-engine lighting tests.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

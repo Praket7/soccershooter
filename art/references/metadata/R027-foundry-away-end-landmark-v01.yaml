@@ -1,0 +1,20 @@
+id: R027
+category: arena-away-end-landmark
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 2560x1440
+source_resolution: 1672x941
+upscale: Apple sips Lanczos resampling; generated source retained in working/
+purpose: Distinct opposing-end architectural landmark that contrasts with the Foundry home end while preserving venue continuity.
+asset_targets: [slate-blue feature panel, vertical steel fins, brick wall, centered goal, side seating]
+copy: [different silhouette from home-end clock, cool slate-blue accent, centered readable goal, matching brick and truss language]
+avoid: [team marks, text, flags, visually unrelated stadium style, landmark blocking goal]
+camera: {type: centered_away_goal_end, estimated_height_m: 1.6, focal_length_equiv_mm: 35}
+lighting: {type: warm_brick_practicals_and_cool_landmark_slot, color_temperature_k: null}
+palette: [slate blue, brick, charcoal steel, warm amber, turf green]
+measurements: {aspect_ratio: 16/9, landmark_and_goal_visible: true}
+notes: Generated concept enlarged from 1672x941 using Lanczos; upscaling adds no detail. The feature panel is a navigation cue, not team branding.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

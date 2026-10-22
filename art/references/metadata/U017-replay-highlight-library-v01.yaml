@@ -1,0 +1,21 @@
+id: U017
+category: ui-replay-highlight-library
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 2560x1440
+source_resolution: 1672x941
+upscale: Apple sips Lanczos resampling; generated source retained in working/
+purpose: Replay library target for browsing match events, scrubbing a timeline, selecting camera, and saving a replay.
+asset_targets: [replay library, event list, timeline, replay camera selector, save replay]
+copy: [one dominant replay viewport, event list with meaningful categories, visible timeline markers, grouped transport actions]
+avoid: [false broadcast controls, clutter over replay action, real team identities, implied social sharing without consent]
+camera: {type: replay_player_ui, focal_length_equiv_mm: null}
+lighting: {type: night_match_replay, color_temperature_k: null}
+palette: [deep navy, ivory, restrained burgundy]
+measurements: {aspect_ratio: 16/9, safe_area: 5%}
+annotations: {primary_action: play_replay, secondary_action: save_replay_and_change_camera, gamepad_focus_order: filters_then_event_list_then_timeline_then_transport, keyboard_shortcuts: menu_navigation_from_live_settings, sibling_states: focused_hover_narrow_empty_loading_error_required_before_implementation}
+notes: Source enlarged from 1672x941 by Lanczos resampling. Match events, timeline positions and available camera modes are conceptual and need replay-system parity verification.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

@@ -1,0 +1,21 @@
+id: U015
+category: ui-global-leaderboard
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 2560x1440
+source_resolution: 1672x941
+upscale: Apple sips Lanczos resampling; generated source retained in working/
+purpose: Global competitive leaderboard target showing season context, top-three distinction, table hierarchy, and the current user's pinned rank.
+asset_targets: [global leaderboard, seasonal standings, rank table, current player row, controller navigation]
+copy: [clear top-three podium, scan-friendly table, pinned current-player row, season selector, visible focus and navigation actions]
+avoid: [unverified competitive data, excessive decoration, ambiguous selected row, illegible list rows, real brands]
+camera: {type: flat_ui_over_blurred_stadium, focal_length_equiv_mm: null}
+lighting: {type: cool_stadium_bokeh, color_temperature_k: null}
+palette: [deep navy, ivory, burgundy, muted gold podium]
+measurements: {aspect_ratio: 16/9, safe_area: 5%}
+annotations: {primary_action: browse_ranked_players, secondary_action: jump_to_current_player, gamepad_focus_order: left_navigation_then_season_then_rows_then_actions, keyboard_shortcuts: menu_navigation_from_live_settings, sibling_states: focused_hover_narrow_empty_loading_error_required_before_implementation}
+notes: Source is 1672x941 and enlarged to the plan canvas minimum by Lanczos resampling. Names, ratings, wins, season, and controls are placeholders; connect to real data and verify states before implementation.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

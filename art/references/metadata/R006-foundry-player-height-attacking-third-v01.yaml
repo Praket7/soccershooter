@@ -1,0 +1,20 @@
+id: R006
+category: arena-player-height-attacking-third
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 2560x1440
+source_resolution: 1672x941
+upscale: Apple sips Lanczos resampling; generated source retained in working/
+purpose: Attacking-third player-height reference for shot-lane readability, goal visibility, pressure spacing, and low-stand silhouette.
+asset_targets: [attacking-third camera, penalty area markings, goal mouth, controlled athlete, defender, goalkeeper]
+copy: [clear player-ball relationship, unobstructed goal, compact field proportions, low barriers, readable keeper position]
+avoid: [support structures in aim corridor, inflated regulation-field spacing, ball hidden by body, spectators over goal]
+camera: {type: player_height_attacking_channel, estimated_height_m: 1.6, focal_length_equiv_mm: 32, position: right_attacking_channel}
+lighting: {type: warm_evening_practicals, color_temperature_k: null}
+palette: [turf green, dark steel, brick, burgundy, ivory]
+measurements: {aspect_ratio: 16/9, controlled_player_screen_occupancy: 0.22, ball_screen_occupancy: 0.003, goal_visible: true, aim_corridor_clear: true}
+notes: Source enlarged from 1672x941 by Lanczos. Generated pose and pitch markings are illustrative; camera sightline must be confirmed against the R001 geometry and real controls.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

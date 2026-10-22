@@ -1,0 +1,18 @@
+id: R004
+category: arena-opposite-sideline-wide
+status: rejected
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: false
+resolution: 1672x941
+purpose: Reverse sideline view candidate.
+asset_targets: [Foundry opposite sideline]
+copy: []
+avoid: [extra goals on sidelines, inconsistent pitch topology]
+camera: {type: sideline_wide}
+lighting: {type: overcast_daylight}
+palette: []
+measurements: {aspect_ratio: 16/9}
+notes: Rejected: added goals to the long sidelines, conflicting with the R001 two-short-end-goal layout.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

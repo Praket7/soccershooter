@@ -1,0 +1,20 @@
+id: R016
+category: arena-goal-net-boards-integration
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 2560x1440
+source_resolution: 1672x941
+upscale: Apple sips Lanczos resampling; generated source retained in working/
+purpose: Integrated small-sided goal, net, short-end safety barrier, and clear runoff reference.
+asset_targets: [single regulation-proportion goal frame, white net, anchors, impact boards, perimeter mesh, goal-area markings]
+copy: [correct rectangular goal proportions, readable net depth, continuous safe perimeter, clear goal-mouth sightline]
+avoid: [duplicate goals, hoops, excessive crossbars, sagging net obstruction, boards inside playable area]
+camera: {type: low_diagonal_goal_end, estimated_height_m: 1.3, focal_length_equiv_mm: 35}
+lighting: {type: balanced_indoor_sports_lighting, color_temperature_k: null}
+palette: [charcoal frame and boards, white net and lines, turf green, brick]
+measurements: {aspect_ratio: 16/9, one_goal_visible: true}
+notes: Generated concept enlarged from 1672x941 using Lanczos; upscaling adds no detail. Align goal and markings to R001 dimensions and validate net/collision behavior in engine.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

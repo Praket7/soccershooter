@@ -1,0 +1,20 @@
+id: R003
+category: arena-sideline-wide
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 2560x1440
+source_resolution: 1672x941
+upscale: Apple sips Lanczos resampling; generated source retained in working/
+purpose: Foundry long-side composition reference for opposite stand, small-sided pitch, goal visibility, safety boards, and tunnel placement.
+asset_targets: [Foundry sideline wide, 24x36m pitch scale, opposite stand, goal, player tunnel, low board]
+copy: [compact industrial bowl, visible far goal, low spectator fascia, warm practicals under steel structure, clean field boundary]
+avoid: [regulation stadium scale, crowd blocking game sightlines, roof supports crossing target lanes, advertising clutter]
+camera: {type: level_sideline_wide, estimated_height_m: 1.6, focal_length_equiv_mm: 28, position: halfway_line_touchline}
+lighting: {type: late_afternoon_practical_mix, color_temperature_k: null}
+palette: [dark steel, brick, turf green, warm amber lights]
+measurements: {aspect_ratio: 16/9, pitch_long_side_visible: true, far_goal_visible: true}
+notes: Source enlarged from 1672x941 via Lanczos. Mood reference only; generated field proportions must be checked against R001 spatial plan before geometry production.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

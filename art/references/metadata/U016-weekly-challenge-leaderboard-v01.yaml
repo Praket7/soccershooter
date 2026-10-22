@@ -1,0 +1,21 @@
+id: U016
+category: ui-weekly-challenge-leaderboard
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 2560x1440
+source_resolution: 1672x941
+upscale: Apple sips Lanczos resampling; generated source retained in working/
+purpose: Weekly challenge leaderboard target with challenge progress, ranked results, reset timing, rewards, and a direct play action.
+asset_targets: [weekly challenge, challenge objectives, leaderboard, reward preview, challenge launch]
+copy: [objectives with progress, clear challenge identity, distinct reward panel, visible current-user rank, focused play action]
+avoid: [unearned reward implication, inaccessible neon-only status, confusing progress labels, real account details]
+camera: {type: flat_ui_with_pitch_backdrop, focal_length_equiv_mm: null}
+lighting: {type: cool_stadium_night, color_temperature_k: null}
+palette: [deep navy, ivory, cyan, restrained green, violet and gold objective accents]
+measurements: {aspect_ratio: 16/9, safe_area: 5%}
+annotations: {primary_action: play_challenge, secondary_action: rules, gamepad_focus_order: challenge_summary_then_leaderboard_then_play_then_rules, keyboard_shortcuts: menu_navigation_from_live_settings, sibling_states: focused_hover_narrow_empty_loading_error_required_before_implementation}
+notes: Source was enlarged from 1672x941 to minimum canvas size by Lanczos resampling. Scores, timer, reward, player handles, and challenge state are illustrative and need live data/accessibility review.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

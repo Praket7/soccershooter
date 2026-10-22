@@ -68,7 +68,7 @@ These are fictional directions, not permission to borrow real club crests, kit l
 
 ## Reference library progress
 
-The reference library is underway. The locked set currently contains 26 images: G001–G012, U001–U010, and C001–C004. The golden selection has 12 global targets and 3 menu/progression targets; 33 of 48 golden slots remain. See `art/references/library-status.yaml` and `art/references/GOLDEN_48/manifest.yaml` for current counts and selections.
+The reference library is underway. The locked set currently contains 70 of 192 images: G001–G012, U001–U018, C001–C012, and the complete R001–R028 arena set. The arena set includes the owner-requested Argentine 3v3 street-court variation at R021, replacing the optional rain/wet study without changing the planned count. The golden selection has 12 global targets and 3 menu/progression targets; 33 of 48 golden slots remain. Several generated concepts were enlarged from 1672×941 to 2560×1440; see their metadata for source-resolution caveats. See `art/references/library-status.yaml` and `art/references/GOLDEN_48/manifest.yaml` for current counts and selections.
 
 | Working reference | State | Review question |
 |---|---|---|

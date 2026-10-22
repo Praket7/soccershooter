@@ -1,0 +1,20 @@
+id: R008
+category: arena-concourse-background-silhouette
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 2560x1440
+source_resolution: 1672x941
+upscale: Apple sips Lanczos resampling; generated source retained in working/
+purpose: Concourse silhouette and spectator circulation reference with a safe view down into the Foundry pitch.
+asset_targets: [concourse ring, railings, circulation, brick/steel structure, pitch overlook]
+copy: [clear circulation route, partial pitch view through railing, warm practical fixtures, distant human silhouettes for scale]
+avoid: [blocking egress, high guardrails obscuring play, crowd silhouettes crossing camera corridors, readable ad clutter]
+camera: {type: concourse_walkway_oblique, estimated_height_m: 1.65, focal_length_equiv_mm: 28}
+lighting: {type: warm_practicals_with_cool_daylight, color_temperature_k: null}
+palette: [aged brick, charcoal steel, amber fixtures, turf green]
+measurements: {aspect_ratio: 16/9, circulation_path_clear: true, partial_pitch_visible: true}
+notes: Source enlarged from 1672x941 by Lanczos. The generated spectator density and architectural layout are mood guidance; align circulation and landmarks to R001 before modeling.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

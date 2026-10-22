@@ -1,0 +1,20 @@
+id: R023
+category: arena-crowd-brightness-balance
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 2560x1440
+source_resolution: 1672x941
+upscale: Apple sips Lanczos resampling; generated source retained in working/
+purpose: Set the relative luminance and detail level of crowd against the foreground play.
+asset_targets: [foreground player and ball, defender, goalkeeper, modest crowd, warm stand lights]
+copy: [players remain brightest focal subjects, spectators readable but subdued, practicals provide depth, background stays low contrast]
+avoid: [crowd as black void, bright stands competing with play, faces individually over-detailed, excessive luminance hotspots]
+camera: {type: low_player_height_gameplay, estimated_height_m: 1.2, focal_length_equiv_mm: 35}
+lighting: {type: controlled_pitch_key_and_dim_warm_crowd_practicals, color_temperature_k: null}
+palette: [muted turf, charcoal, warm amber, neutral kits]
+measurements: {aspect_ratio: 16/9, foreground_dominates_brightness: true}
+notes: Generated concept enlarged from 1672x941 using Lanczos; upscaling adds no detail. Luminance relationship is illustrative and needs an actual renderer exposure check.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

@@ -1,0 +1,20 @@
+id: R012
+category: arena-seating-system
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 2560x1440
+source_resolution: 1672x941
+upscale: Apple sips Lanczos resampling; generated source retained in working/
+purpose: Compact spectator seating and safe aisle layout reference for the Foundry venue.
+asset_targets: [short modular seating rows, steel risers, accessible aisle, handrails, low pitch-side barrier]
+copy: [intimate small venue scale, clear stair aisle, durable dark seats, restrained spectator density, view toward pitch]
+avoid: [large stadium bowl, blocked exits, crowd obscuring gameplay, dense ad clutter]
+camera: {type: oblique_seating_bowl, estimated_height_m: 1.7, focal_length_equiv_mm: 32}
+lighting: {type: daylight_with_warm_practical_accents, color_temperature_k: null}
+palette: [charcoal seats, concrete, dark steel, turf green, warm amber]
+measurements: {aspect_ratio: 16/9, aisle_and_handrails_visible: true}
+notes: Generated concept enlarged from 1672x941 using Lanczos; upscaling adds no detail. Seating capacity and egress need to follow actual venue requirements.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

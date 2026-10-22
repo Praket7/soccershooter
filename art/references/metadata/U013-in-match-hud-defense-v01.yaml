@@ -1,0 +1,21 @@
+id: U013
+category: ui-in-match-hud-defense
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 2560x1440
+source_resolution: 1672x941
+upscale: Apple sips Lanczos resampling; generated source retained in working/
+purpose: Defensive HUD reference balancing controlled-player identification, tactical overview, score/time, and defensive actions.
+asset_targets: [in-match defense HUD, controlled defender, radar, jockey, tackle, player switch]
+copy: [small radar in bottom-left, restrained controlled-player marker, simple defensive prompts, clear attacker and ball visibility]
+avoid: [UI obscuring ball or player silhouettes, excessive HUD density, unreadable radar, real brand marks]
+camera: {type: third_person_defense_gameplay, focal_length_equiv_mm: null}
+lighting: {type: late_afternoon_stadium, color_temperature_k: null}
+palette: [deep navy, ivory, burgundy, muted cyan focus marker]
+measurements: {aspect_ratio: 16/9, safe_area: 5%, gameplay_exclusion_region: central 70%}
+annotations: {primary_action: jockey, secondary_actions: tackle_and_switch, gamepad_focus_order: controlled_player_then_radar_then_actions, keyboard_shortcuts: match_controls_from_live_settings, sibling_states: focused_hover_narrow_empty_loading_error_required_before_implementation}
+notes: Source is 1672x941 and enlarged to the plan's canvas minimum by Lanczos resampling; no detail was synthesized. HUD controls and radar are conceptual, not a live runtime capture.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

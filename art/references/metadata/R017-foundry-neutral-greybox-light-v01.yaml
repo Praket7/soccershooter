@@ -1,0 +1,20 @@
+id: R017
+category: arena-neutral-greybox-lighting
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 2560x1440
+source_resolution: 1672x941
+upscale: Apple sips Lanczos resampling; generated source retained in working/
+purpose: Neutral baseline lighting and sightline study before final Foundry materials.
+asset_targets: [compact pitch blockout, stands, roof trusses, one far goal, barriers, neutral light]
+copy: [even baseline illumination, readable pitch markings, legible structural massing, soft grounded shadows]
+avoid: [dramatic grading, deep crushed shadows, crowd and signage detail, multiple goals]
+camera: {type: elevated_touchline_baseline, estimated_height_m: 2.2, focal_length_equiv_mm: 30}
+lighting: {type: neutral_even_greybox, color_temperature_k: 5500}
+palette: [neutral gray, muted turf green, white markings]
+measurements: {aspect_ratio: 16/9, pitch_and_far_goal_readable: true}
+notes: Generated concept enlarged from 1672x941 using Lanczos; upscaling adds no detail. This is an illustrative lighting direction, not a render from the actual game engine.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

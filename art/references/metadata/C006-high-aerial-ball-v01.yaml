@@ -1,0 +1,20 @@
+id: C006
+category: camera-high-aerial-ball
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 2560x1440
+source_resolution: 1672x941
+upscale: Apple sips Lanczos resampling; generated source retained in working/
+purpose: Aerial-ball camera reference that keeps the ball, contesting players, landing zone, and attacking direction visible together.
+asset_targets: [aerial camera transition, high ball tracking, aerial duel framing, ball readability]
+copy: [ball separated from background, full-body challenge, nearby context, enough pitch to judge landing space]
+avoid: [ball lost against crowd, empty panoramic field, tactical top-down view, distorted player anatomy]
+camera: {type: elevated_oblique_gameplay, estimated_height_m: 10, focal_length_equiv_mm: 45, position: behind_midfield}
+lighting: {type: bright_overcast_stadium, color_temperature_k: null}
+palette: [natural grass, burgundy, ivory, neutral stands]
+measurements: {aspect_ratio: 16/9, horizon_line: 0.18, controlled_pair_screen_occupancy: 0.1, ball_screen_occupancy: 0.008, target_goal_visible: true, edge_ui_safe_regions: [top_6%, bottom_8%]}
+notes: Framing measurements are visual estimates, not calibrated camera parameters. Source enlarged from 1672x941 with Lanczos. Recreate in greybox and verify the ball remains visible during actual aerial play.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

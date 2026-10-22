@@ -1,0 +1,20 @@
+id: C010
+category: camera-counterattack-open-space
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 2560x1440
+source_resolution: 1672x941
+upscale: Apple sips Lanczos resampling; generated source retained in working/
+purpose: Counterattack camera reference that prioritizes run lane, carrier-ball spacing, teammate support, retreating defender, and target goal.
+asset_targets: [counterattack camera, sprint dribble, open forward lane, support runner, goal readability]
+copy: [goal remains visible, carrier and ball stay clear, forward run lane has breathing room, teammate offers a parallel outlet]
+avoid: [camera too tight to see support, ball lost below frame, overexposed motion blur, irrelevant far-side detail]
+camera: {type: trailing_third_person_counterattack, estimated_height_m: 4.5, focal_length_equiv_mm: 32, position: behind_carrier}
+lighting: {type: clear_daylight, color_temperature_k: null}
+palette: [natural grass, burgundy, ivory, neutral barrier]
+measurements: {aspect_ratio: 16/9, horizon_line: 0.16, controlled_player_screen_occupancy: 0.13, ball_screen_occupancy: 0.002, goal_visible: true, edge_ui_safe_regions: [top_6%, bottom_8%]}
+notes: Source enlarged from 1672x941 by Lanczos. Reproduce in greybox and verify the camera anticipates the carrier's actual direction without sacrificing ball visibility.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

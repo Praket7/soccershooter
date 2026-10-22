@@ -1,0 +1,20 @@
+id: R024
+category: arena-quality-scalability-comparison
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 2560x1440
+source_resolution: 1672x941
+upscale: Apple sips Lanczos resampling; generated source retained in working/
+purpose: Visual direction for preserving gameplay readability across low and high environment quality settings.
+asset_targets: [paired gameplay views, reduced versus detailed turf, crowd density, shadow quality, player and ball consistency]
+copy: [same camera and action across quality tiers, maintain player and ball clarity, controlled level-of-detail change]
+avoid: [different gameplay composition, reduced character readability, falsely implying exact engine quality tiers]
+camera: {type: matched_third_person_gameplay_split, estimated_height_m: 1.2, focal_length_equiv_mm: 28}
+lighting: {type: matched_exposure_low_and_high_quality, color_temperature_k: null}
+palette: [turf green, charcoal, neutral kits, warm practicals]
+measurements: {aspect_ratio: 16/9, left_right_comparison: true}
+notes: Generated illustrative comparison enlarged from 1672x941 using Lanczos; upscaling adds no detail. It does not depict measured game settings or performance and must be replaced by paired in-engine captures before performance sign-off.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

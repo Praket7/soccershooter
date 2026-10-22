@@ -1,0 +1,21 @@
+id: U012
+category: ui-in-match-hud-shot-preparation
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 2560x1440
+source_resolution: 1672x941
+upscale: Apple sips Lanczos resampling; generated source retained in working/
+purpose: Shot preparation HUD that communicates aim, charge, release, and shot context without obscuring the player, ball, defenders, or goalkeeper.
+asset_targets: [in-match HUD, shot preparation, aim reticle, shot charge meter, goalkeeper readability]
+copy: [small top score strip, centered discreet aim cue, lower-center charge meter, action prompts within safe area]
+avoid: [reticle over keeper/player, meter covering ball, inaccurate goal geometry, overdone targeting effects, real marks]
+camera: {type: third_person_shot_camera, focal_length_equiv_mm: null}
+lighting: {type: daylight_stadium, color_temperature_k: null}
+palette: [deep navy, burgundy, soft white, restrained green-to-amber charge]
+measurements: {aspect_ratio: 16/9, safe_area: 5%, gameplay_exclusion_region: central 70%}
+annotations: {primary_action: aim_and_charge_shot, secondary_action: release, gamepad_focus_order: aim_then_charge_then_release, keyboard_shortcuts: match_controls_from_live_settings, sibling_states: focused_hover_narrow_empty_loading_error_required_before_implementation}
+notes: Source is 1672x941, enlarged to the plan's minimum canvas by Lanczos resampling; no detail was synthesized by enlargement. Generated text and reticle are conceptual and require runtime validation.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

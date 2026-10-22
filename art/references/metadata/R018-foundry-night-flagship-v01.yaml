@@ -1,0 +1,20 @@
+id: R018
+category: arena-night-flagship-lighting
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 2560x1440
+source_resolution: 1672x941
+upscale: Apple sips Lanczos resampling; generated source retained in working/
+purpose: Flagship nighttime Foundry gameplay atmosphere and player-ball-goal readability target.
+asset_targets: [night arena, player and ball foreground, defender, goalkeeper, far goal, compact crowd, truss lighting]
+copy: [crisp play area under controlled sports lights, warm practicals in stands, readable defender and keeper, grounded player shadows]
+avoid: [crushed dark gameplay area, excessive bloom, giant stadium scale, unreadable ball, real team identity]
+camera: {type: low_third_person_gameplay, estimated_height_m: 1.2, focal_length_equiv_mm: 28}
+lighting: {type: cool_sports_led_with_warm_venue_practicals, color_temperature_k: null}
+palette: [turf green, deep charcoal, burgundy, cool white, warm amber]
+measurements: {aspect_ratio: 16/9, player_ball_and_goal_clear: true}
+notes: Generated concept enlarged from 1672x941 using Lanczos; upscaling adds no detail. This is a visual target only, not a calibrated runtime lighting capture.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

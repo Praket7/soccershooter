@@ -1,0 +1,20 @@
+id: R021
+category: arena-argentine-street-court-3v3
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 2560x1440
+source_resolution: 1672x941
+upscale: Apple sips Lanczos resampling; generated source retained in working/
+purpose: User-requested venue reference for a fast, close-quarters Argentine 3v3 street football mode, replacing R021's optional rain/wet study while preserving the 192-image plan total.
+asset_targets: [3v3 street football venue, compact hard court, Buenos Aires neighborhood mood, close spectator ring, street lighting]
+copy: [tight urban court, worn but maintained concrete, small metal goals, wire perimeter, close community spectators, sunset-to-practical-light contrast, close-control play]
+avoid: [national stereotypes, real club colors or marks, brand logos, unsafe broken surfaces, oversized stadium proportions, 11v11 spacing]
+camera: {type: low_player_height_three_quarter, estimated_height_m: 1.5, focal_length_equiv_mm: 35, position: touchline_level}
+lighting: {type: blue_hour_with_warm_practicals, color_temperature_k: null}
+palette: [warm amber, dusk blue, aged concrete, neutral unbranded kits]
+measurements: {aspect_ratio: 16/9, court_type: compact_hard_court, teams: 3v3}
+notes: Generated visual direction only. Source enlarged by Lanczos from 1672x941; no extra detail was synthesized. Requires a matching small-sided dimension/blockout spec, collision and lighting checks before arena production.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}

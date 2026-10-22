@@ -1,0 +1,20 @@
+id: R025
+category: arena-crowd-color-density
+status: approved
+source_type: generated
+source_url: null
+license: project-generated-reference
+public_safe: true
+resolution: 2560x1440
+source_resolution: 1672x941
+upscale: Apple sips Lanczos resampling; generated source retained in working/
+purpose: Define spectator clothing color variation and density for the enclosed Foundry stands.
+asset_targets: [two compact spectator tiers, steel guardrails, brick interior, pitch-edge view, low crowd color variation]
+copy: [irregular clothing colors, plausible small-venue attendance, natural empty gaps, crowd secondary to match]
+avoid: [repeated clones, solid crowd mass, exterior daylight, readable banners, bright crowd competing with field]
+camera: {type: pitch_level_sideline_crowd_detail, estimated_height_m: 1.4, focal_length_equiv_mm: 40}
+lighting: {type: warm_practicals_with_dim_background, color_temperature_k: null}
+palette: [charcoal, burgundy, cream, muted neutral clothing, brick, turf]
+measurements: {aspect_ratio: 16/9, enclosed_arena_visible: true}
+notes: Generated concept enlarged from 1672x941 using Lanczos; upscaling adds no detail. Human variation and crowd density are visual guidance; runtime crowd rendering and performance need separate testing.
+approval: {approved_by: delegated_art_direction, approved_date: 2026-10-21}
