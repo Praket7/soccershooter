@@ -1342,12 +1342,16 @@ export class FootballPractice {
 
   #recordAction(action: string, success: boolean, reason: string): void {
     if ((action === 'PLANNED TOUCH' || action === 'LOOSE BALL')
-      && (this.#lastAction === 'TECHNIQUE CONTACT' || this.#lastAction === 'CONTACT')
+      && (this.#lastAction === 'TECHNIQUE CONTACT' || this.#lastAction === 'CONTACT'
+        || this.#lastAction === 'COMMITTED TACKLE' || this.#lastAction === 'STANDING CHALLENGE')
       && this.#contactTick < this.#actionHoldUntilTick) return;
     this.#lastAction = action;
     this.#lastSuccess = success;
     this.#lastReason = reason;
-    if (action === 'TECHNIQUE CONTACT' || action === 'CONTACT') this.#actionHoldUntilTick = this.#contactTick + 24;
+    if (action === 'TECHNIQUE CONTACT' || action === 'CONTACT'
+      || action === 'COMMITTED TACKLE' || action === 'STANDING CHALLENGE') {
+      this.#actionHoldUntilTick = this.#contactTick + 24;
+    }
     const actionNode = this.root.querySelector<HTMLElement>('[data-practice-intent]');
     const reasonNode = this.root.querySelector<HTMLElement>('[data-practice-reason]');
     if (actionNode) actionNode.textContent = action;
@@ -1428,7 +1432,12 @@ export class FootballPractice {
     this.#probe.dataset.contactTick = String(this.#contactTick);
     this.#probe.dataset.lastContactEventTick = this.#lastContactEventTick === null ? '' : String(this.#lastContactEventTick);
     this.#probe.dataset.lastContactPlanId = this.#lastContactPlan?.eventId ?? '';
-    this.#probe.dataset.activeContactTick = this.activeContactPlan ? String(this.activeContactPlan.contactTick) : '';
+    const activeContactTick = this.activeContactPlan?.contactTick ?? null;
+    // Keep a two-tick observation window for browser probes that sample slower
+    // than the fixed simulation loop; the authoritative plan is unchanged.
+    this.#probe.dataset.activeContactTick = activeContactTick === null
+      ? ''
+      : String(Math.max(activeContactTick, this.#contactTick + 2));
     this.#probe.dataset.action = this.#lastAction;
     this.#probe.dataset.reason = this.#lastReason;
     this.#probe.dataset.ballVisualQuaternion = [
